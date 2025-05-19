@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resistor Voltage Divider Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Resistor Voltage Divider Calculator</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="resistorValues">Available Resistor Values (Ω) [comma separated]:</label>
+                <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g., 100,220,470,1000)">
+            </div>
+            
+            <div class="input-group">
+                <label for="supplyVoltage">Supply Voltage (V):</label>
+                <input type="number" id="supplyVoltage" placeholder="Enter supply voltage">
+            </div>
+            
+            <div class="input-group">
+                <label for="targetVoltage">Target Voltage (V):</label>
+                <input type="number" id="targetVoltage" placeholder="Enter target voltage">
+            </div>
+            
+            <button id="calculateBtn">Calculate Combinations</button>
+        </div>
+
+        <div class="results-section">
+            <h2>Results</h2>
+            <div id="results" class="results-container"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
