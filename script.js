@@ -1,3 +1,5 @@
+//22, 220, 22k, 10k, 100k, 43k2, 5k1
+
 class ResistorCalculator {
     constructor() {
         this.resistorValues = [];

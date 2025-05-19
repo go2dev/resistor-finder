@@ -8,22 +8,22 @@
 </head>
 <body>
     <div class="container">
-        <h1>Resistor Voltage Divider Calculator</h1>
+        <h1>Voltage Divider Resistor Calculator</h1>
         
         <div class="input-section">
             <div class="input-group">
-                <label for="resistorValues">Available Resistor Values (Ω) [comma separated]:</label>
-                <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g., 100,220,470,1000)">
+                <label for="resistorValues">Resistor Values (Ω):</label>
+                <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
             </div>
             
             <div class="input-group">
                 <label for="supplyVoltage">Supply Voltage (V):</label>
-                <input type="number" id="supplyVoltage" placeholder="Enter supply voltage">
+                <input type="number" id="supplyVoltage" placeholder="5">
             </div>
             
             <div class="input-group">
                 <label for="targetVoltage">Target Voltage (V):</label>
-                <input type="number" id="targetVoltage" placeholder="Enter target voltage">
+                <input type="number" id="targetVoltage" placeholder="3.3">
             </div>
             
             <button id="calculateBtn">Calculate Combinations</button>
@@ -34,6 +34,10 @@
             <div id="results" class="results-container"></div>
         </div>
     </div>
+    <footer style="text-align: center; margin-top: 2rem; padding: 1rem; background-color: #f5f5f5; color: #333;">
+        Vibe coded by <a href="https://mynameis.dev" target="_blank" style="color: #3498db; text-decoration: none;">Dev</a> - 2025
+    <p>Check out the project on <a href="https://github.com/go2dev/resistor-finder" target="_blank" style="color: #3498db; text-decoration: none;">GitHub</a>.</p>
+    </footer>
     <script src="script.js"></script>
 </body>
 </html> 
