@@ -1,10 +1,3 @@
-//22, 220, 22k, 10k, 100k, 43k2, 5k1
-//show diagram of connections
-//account for 2000k
-// add 'help/about'
-// hold resistors in list allow for toggle on off
-
-
 class ResistorCalculator {
     constructor() {
         this.resistorValues = [];
@@ -15,8 +8,8 @@ class ResistorCalculator {
 
     // Parse resistor value from string notation to number
     parseResistorValue(value) {
-        // Remove any whitespace and convert to uppercase
-        value = value.trim().toUpperCase();
+        // Remove any whitespace
+        value = value.trim();
         
         // If it's just a number, return it
         if (!isNaN(value)) {
@@ -25,6 +18,7 @@ class ResistorCalculator {
 
         // Handle letter notation
         const multipliers = {
+            'm': 0.001, // Handle lowercase 'm' for milliohms
             'R': 1,
             'K': 1000,
             'M': 1000000,
@@ -32,7 +26,7 @@ class ResistorCalculator {
         };
 
         // Match patterns like "1K", "5K1", "200R", etc.
-        const match = value.match(/^(\d+)([KMGR])(\d*)$/);
+        const match = value.match(/^(\d+)([kKmMgGrR])(\d*)$/);
         if (match) {
             const [, whole, unit, decimal] = match;
             const multiplier = multipliers[unit];
@@ -55,7 +49,8 @@ class ResistorCalculator {
             { value: 1e9, symbol: 'G' },
             { value: 1e6, symbol: 'M' },
             { value: 1e3, symbol: 'K' },
-            { value: 1, symbol: 'R' }
+            { value: 1, symbol: 'R' },
+            { value: 1e-3, symbol: 'm'}
         ];
 
         for (const unit of units) {
