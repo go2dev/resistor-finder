@@ -8,3 +8,4 @@
 - [ ] Hold resistors in list allow for toggle on/off and recalculate
 - [ ] Allow voltage overshoot as a toggle
 - [ ] Sort by/highlight least number of components
+- [ ] LUT for resistor series to check if input values match real resistors

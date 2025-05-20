@@ -20,9 +20,12 @@ class ResistorCalculator {
         const multipliers = {
             'm': 0.001, // Handle lowercase 'm' for milliohms
             'R': 1,
+            'r': 1,
             'K': 1000,
+            'k': 1000,
             'M': 1000000,
-            'G': 1000000000
+            'G': 1000000000,
+            'g': 1000000000
         };
 
         // Match patterns like "1K", "5K1", "200R", etc.
