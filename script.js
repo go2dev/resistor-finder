@@ -1,4 +1,9 @@
 //22, 220, 22k, 10k, 100k, 43k2, 5k1
+//show diagram of connections
+//account for 2000k
+// add 'help/about'
+// hold resistors in list allow for toggle on off
+
 
 class ResistorCalculator {
     constructor() {
@@ -8,13 +13,49 @@ class ResistorCalculator {
         this.results = [];
     }
 
+    // Parse resistor value from string notation to number
+    parseResistorValue(value) {
+        // Remove any whitespace and convert to uppercase
+        value = value.trim().toUpperCase();
+        
+        // If it's just a number, return it
+        if (!isNaN(value)) {
+            return parseFloat(value);
+        }
+
+        // Handle letter notation
+        const multipliers = {
+            'R': 1,
+            'K': 1000,
+            'M': 1000000,
+            'G': 1000000000
+        };
+
+        // Match patterns like "1K", "5K1", "200R", etc.
+        const match = value.match(/^(\d+)([KMGR])(\d*)$/);
+        if (match) {
+            const [, whole, unit, decimal] = match;
+            const multiplier = multipliers[unit];
+            let result = parseFloat(whole) * multiplier;
+            
+            // Add decimal part if it exists
+            if (decimal) {
+                result += (parseFloat(decimal) * multiplier) / Math.pow(10, decimal.length);
+            }
+            
+            return result;
+        }
+
+        throw new Error(`Invalid resistor value format: ${value}`);
+    }
+
     // Format resistor value using standard electronics notation
     formatResistorValue(value) {
         const units = [
             { value: 1e9, symbol: 'G' },
             { value: 1e6, symbol: 'M' },
-            { value: 1e3, symbol: 'k' },
-            { value: 1, symbol: '' }
+            { value: 1e3, symbol: 'K' },
+            { value: 1, symbol: 'R' }
         ];
 
         for (const unit of units) {
@@ -126,9 +167,10 @@ const resultsContainer = document.getElementById('results');
 calculateBtn.addEventListener('click', () => {
     try {
         // Parse input values
+        const calculator = new ResistorCalculator();
         const resistorValues = resistorValuesInput.value
             .split(',')
-            .map(v => parseFloat(v.trim()))
+            .map(v => calculator.parseResistorValue(v))
             .filter(v => !isNaN(v));
 
         const supplyVoltage = parseFloat(supplyVoltageInput.value);
@@ -146,7 +188,6 @@ calculateBtn.addEventListener('click', () => {
         }
 
         // Calculate combinations
-        const calculator = new ResistorCalculator();
         calculator.resistorValues = resistorValues;
         calculator.supplyVoltage = supplyVoltage;
         calculator.targetVoltage = targetVoltage;

@@ -1,12 +1,12 @@
-# Resistor Voltage Divider Calculator
+# Voltage Divider Resistor Calculator
 
-A tool for finding optimal resistor combinations to create voltage dividers with specific target voltages. Make use of resistor values already present in your design to keep the number of unique items in your BOM low.
+A tool for finding optimal resistor combinations from a limited set to create a voltage divider. For example, make use of resistor values already present in your design to keep the number of unique items in your BOM low.
 
 ## Features
 
 - Calculate voltage divider combinations using available resistor values
 - Support for resistors in series and parallel combinations
-- Standard electronics notation for resistor values (e.g., 1k, 5k1, 1M)
+- Standard electronics notation for resistor values (e.g. 200R, 1K, 5K1, 1M)
 - Shows top 5 best matches sorted by error
 
 ## Usage
