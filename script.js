@@ -5,6 +5,16 @@ class ResistorCalculator {
         this.targetVoltage = 0;
         this.results = [];
         this.allowOvershoot = false;
+        this.calculationStats = {
+            totalCombinations: 0,
+            validCombinations: 0,
+            inputConversions: [],
+            voltageStats: {
+                above: 0,
+                below: 0,
+                exact: 0
+            }
+        };
     }
 
     // Parse resistor value from string notation to number
@@ -53,8 +63,8 @@ class ResistorCalculator {
             { value: 1e9, symbol: 'G' },
             { value: 1e6, symbol: 'M' },
             { value: 1e3, symbol: 'K' },
-            { value: 1, symbol: 'R' },
-            { value: 1e-3, symbol: 'm'}
+            { value: 1, symbol: 'Ω' },
+            { value: 1e-3, symbol: 'mΩ'}
         ];
 
         for (const unit of units) {
@@ -126,10 +136,24 @@ class ResistorCalculator {
         return combinations;
     }
 
+    // Calculate total number of components in a result
+    getComponentCount(result) {
+        const r1Count = Array.isArray(result.r1) ? result.r1.length : 1;
+        const r2Count = Array.isArray(result.r2) ? result.r2.length : 1;
+        return r1Count + r2Count;
+    }
+
     // Find voltage divider combinations
     findVoltageDividerCombinations() {
         const combinations = this.generateCombinations(this.resistorValues);
         const results = [];
+        this.calculationStats.totalCombinations = combinations.length * combinations.length;
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = {
+            above: 0,
+            below: 0,
+            exact: 0
+        };
 
         for (let r1 of combinations) {
             for (let r2 of combinations) {
@@ -141,20 +165,48 @@ class ResistorCalculator {
                 
                 // Only include results that are within bounds or if overshoot is allowed
                 if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    
+                    // Update voltage statistics
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    
                     results.push({
                         r1: r1,
                         r2: r2,
                         r1Value: r1Value,
                         r2Value: r2Value,
                         outputVoltage: outputVoltage,
-                        error: error
+                        error: error,
+                        componentCount: this.getComponentCount({ r1, r2 })
                     });
                 }
             }
         }
 
-        // Sort by absolute error and return top 5 results
-        return results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error)).slice(0, 5);
+        // Get the selected sort option
+        const sortBy = document.querySelector('input[name="sortBy"]:checked').value;
+        
+        // Sort results based on the selected option
+        if (sortBy === 'components') {
+            // Sort by component count first, then by absolute error
+            results.sort((a, b) => {
+                if (a.componentCount !== b.componentCount) {
+                    return a.componentCount - b.componentCount;
+                }
+                return Math.abs(a.error) - Math.abs(b.error);
+            });
+        } else {
+            // Sort by absolute error
+            results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
+        }
+
+        return results.slice(0, 5);
     }
 
     validateResistorValue(value) {
@@ -191,6 +243,7 @@ const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
+const showDetailsSwitch = document.getElementById('showDetails');
 
 // Function to perform calculation and update results
 function calculateAndDisplayResults() {
@@ -207,6 +260,11 @@ function calculateAndDisplayResults() {
         const result = calculator.validateResistorValue(value);
         if (result.valid) {
             validResistors.push(result.value);
+            calculator.calculationStats.inputConversions.push({
+                input: value,
+                value: result.value,
+                formatted: calculator.formatResistorValue(result.value)
+            });
         } else {
             warnings.push(`Resistor ${index + 1} ${value} ignored: ${result.error}`);
         }
@@ -282,6 +340,48 @@ function calculateAndDisplayResults() {
             </div>`;
     }
 
+    // Add calculation details if enabled
+    if (showDetailsSwitch.checked) {
+        output += `
+            <div class="details-section">
+                <h3>Calculation Details</h3>
+                <div class="details-content">
+                    <div class="input-conversions">
+                        <h4>Input Value Conversions</h4>
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th>Input</th>
+                                    <th>Value (Ω)</th>
+                                    <th>Formatted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${calculator.calculationStats.inputConversions.map(conv => `
+                                    <tr>
+                                        <td>${conv.input}</td>
+                                        <td>${conv.value}</td>
+                                        <td>${conv.formatted}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="combination-stats">
+                        <h4>Combination Statistics</h4>
+                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                        <div class="voltage-stats">
+                            <h4>Voltage Distribution</h4>
+                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     output += `
         <div class="results-section">
             <h3>Results</h3>
@@ -291,6 +391,7 @@ function calculateAndDisplayResults() {
                     <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                     <p><strong>Output Voltage:</strong> ${result.outputVoltage.toFixed(2)} V</p>
                     <p><strong>Error:</strong> ${result.error > 0 ? '+' : ''}${result.error.toFixed(2)} V</p>
+                    <p><strong>Components:</strong> ${result.componentCount}</p>
                 </div>
             `).join('')}
         </div>`;
@@ -301,6 +402,10 @@ function calculateAndDisplayResults() {
 // Event Listeners
 calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
+showDetailsSwitch.addEventListener('change', calculateAndDisplayResults);
+document.querySelectorAll('input[name="sortBy"]').forEach(radio => {
+    radio.addEventListener('change', calculateAndDisplayResults);
+});
 
 // Theme Switcher
 const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
@@ -323,4 +428,70 @@ function switchTheme(e) {
     }    
 }
 
-toggleSwitch.addEventListener('change', switchTheme, false); 
+toggleSwitch.addEventListener('change', switchTheme, false);
+
+// Tooltip positioning
+function positionTooltip(tooltip) {
+    const tooltipText = tooltip.querySelector('.tooltip-text');
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const tooltipTextRect = tooltipText.getBoundingClientRect();
+    
+    // Reset any previous positioning
+    tooltipText.style.bottom = '';
+    tooltipText.style.top = '';
+    tooltipText.style.left = '';
+    tooltipText.style.right = '';
+    tooltipText.style.transform = '';
+    
+    // Check if tooltip would go off the top of the screen
+    if (tooltipRect.top - tooltipTextRect.height < 0) {
+        tooltipText.style.top = '125%';
+        tooltipText.style.bottom = 'auto';
+        // Adjust arrow position
+        tooltipText.style.setProperty('--arrow-top', 'auto');
+        tooltipText.style.setProperty('--arrow-bottom', '100%');
+        tooltipText.style.setProperty('--arrow-border-color', 'transparent transparent var(--input-border) transparent');
+    } else {
+        tooltipText.style.bottom = '125%';
+        tooltipText.style.top = 'auto';
+        // Adjust arrow position
+        tooltipText.style.setProperty('--arrow-top', '100%');
+        tooltipText.style.setProperty('--arrow-bottom', 'auto');
+        tooltipText.style.setProperty('--arrow-border-color', 'var(--input-border) transparent transparent transparent');
+    }
+    
+    // Check if tooltip would go off the left of the screen
+    if (tooltipRect.left + (tooltipTextRect.width / 2) < 0) {
+        tooltipText.style.left = '0';
+        tooltipText.style.transform = 'none';
+    }
+    // Check if tooltip would go off the right of the screen
+    else if (tooltipRect.right + (tooltipTextRect.width / 2) > window.innerWidth) {
+        tooltipText.style.right = '0';
+        tooltipText.style.left = 'auto';
+        tooltipText.style.transform = 'none';
+    }
+    else {
+        tooltipText.style.left = '50%';
+        tooltipText.style.transform = 'translateX(-50%)';
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', () => {
+    const tooltips = document.querySelectorAll('.help-tooltip');
+    
+    tooltips.forEach(tooltip => {
+        // Position on load
+        positionTooltip(tooltip);
+        
+        // Position on hover/touch
+        tooltip.addEventListener('mouseenter', () => positionTooltip(tooltip));
+        tooltip.addEventListener('touchstart', () => positionTooltip(tooltip));
+    });
+    
+    // Reposition on window resize
+    window.addEventListener('resize', () => {
+        tooltips.forEach(tooltip => positionTooltip(tooltip));
+    });
+}); 

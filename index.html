@@ -8,7 +8,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>Voltage Divider Resistor Calculator</h1>
+        <h1>Voltage Divider Resistor Calculator
+            <div class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    Find the best resistor combinations for a voltage divider circuit from a fixed list of resistor values.
+                    Enter your available resistor values, supply voltage, and target output voltage to find optimal combinations.
+                </span>
+            </div>
+        </h1>
         
         <div class="main-content">
             <div class="input-section">
@@ -49,6 +57,37 @@
                                 <div class="slider round"></div>
                             </label>
                             <span class="theme-label">Allow Voltage Overshoot</span>
+                            <div class="help-tooltip">
+                                ?
+                                <span class="tooltip-text">
+                                    When enabled, the calculator will include combinations that produce voltages above the target voltage. 
+                                    This can be useful when you need to find the closest possible match, even if it exceeds your target.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="option-group">
+                        <div class="theme-switch-wrapper">
+                            <label class="theme-switch" for="showDetails">
+                                <input type="checkbox" id="showDetails" />
+                                <div class="slider round"></div>
+                            </label>
+                            <span class="theme-label">Show Calculation Details</span>
+                        </div>
+                    </div>
+                    <div class="option-group">
+                        <div class="sort-options">
+                            <span class="theme-label">Sort Results By:</span>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="sortBy" value="error" checked>
+                                    <span>Lowest Error</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="sortBy" value="components">
+                                    <span>Lowest Component Count</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
