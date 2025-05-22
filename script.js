@@ -239,11 +239,34 @@ class ResistorCalculator {
 // DOM Elements
 const resistorValuesInput = document.getElementById('resistorValues');
 const supplyVoltageInput = document.getElementById('supplyVoltage');
+const supplyVoltageSlider = document.getElementById('supplyVoltageSlider');
 const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
 const showDetailsSwitch = document.getElementById('showDetails');
+
+// Update slider range when supply voltage changes
+function updateSliderRange(value) {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue > 0) {
+        supplyVoltageSlider.min = "0";
+        supplyVoltageSlider.max = (numValue * 2).toString();
+        supplyVoltageSlider.value = numValue.toString();
+    }
+}
+
+// Update supply voltage input when slider changes
+function updateSupplyVoltage(value) {
+    supplyVoltageInput.value = value;
+    document.getElementById('sliderValue').textContent = value;
+    calculateAndDisplayResults();
+}
+
+// Event Listeners for supply voltage
+supplyVoltageInput.addEventListener('input', (e) => {
+    calculateAndDisplayResults();
+});
 
 // Function to perform calculation and update results
 function calculateAndDisplayResults() {
@@ -340,6 +363,26 @@ function calculateAndDisplayResults() {
             </div>`;
     }
 
+    // Add parsed values display
+    if (calculator.calculationStats.inputConversions.length > 0) {
+        output += `
+            <div class="parsed-values">
+                <h3>Variables</h3>
+                <div class="parsed-values-grid">
+                    ${calculator.calculationStats.inputConversions.map(conv => `
+                        <div class="parsed-value-box">
+                            <span class="value">${conv.value} Ω</span>
+                            <span class="formatted">(${conv.formatted})</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="voltage-slider-section">
+                    <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
+                    <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+                </div>
+            </div>`;
+    }
+
     // Add calculation details if enabled
     if (showDetailsSwitch.checked) {
         output += `
@@ -385,18 +428,40 @@ function calculateAndDisplayResults() {
     output += `
         <div class="results-section">
             <h3>Results</h3>
-            ${results.map(result => `
-                <div class="result-item">
-                    <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                    <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                    <p><strong>Output Voltage:</strong> ${result.outputVoltage.toFixed(2)} V</p>
-                    <p><strong>Error:</strong> ${result.error > 0 ? '+' : ''}${result.error.toFixed(2)} V</p>
-                    <p><strong>Components:</strong> ${result.componentCount}</p>
-                </div>
-            `).join('')}
+            <div id="resultsList">
+                ${results.map(result => `
+                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
+                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                    </div>
+                `).join('')}
+            </div>
         </div>`;
 
     resultsContainer.innerHTML = output;
+
+    // Add event listener for the slider after it's added to the DOM
+    const slider = document.getElementById('supplyVoltageSlider');
+    if (slider) {
+        slider.addEventListener('input', (e) => {
+            const newVoltage = parseFloat(e.target.value);
+            document.getElementById('sliderValue').textContent = newVoltage.toFixed(1);
+            
+            // Update each result's output voltage and error
+            document.querySelectorAll('.result-item').forEach(item => {
+                const r1 = parseFloat(item.dataset.r1);
+                const r2 = parseFloat(item.dataset.r2);
+                const outputVoltage = (r2 / (r1 + r2)) * newVoltage;
+                const error = outputVoltage - calculator.targetVoltage;
+                
+                item.querySelector('.output-voltage').textContent = outputVoltage.toFixed(2);
+                item.querySelector('.error-value').textContent = `${error > 0 ? '+' : ''}${error.toFixed(2)}`;
+            });
+        });
+    }
 }
 
 // Event Listeners
