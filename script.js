@@ -43,7 +43,7 @@ class ResistorCalculator {
             return result;
         }
 
-        throw new Error(`Invalid resistor value format: ${value}`);
+        throw new Error(`Invalid resistor value format`);
     }
 
     // Format resistor value using standard electronics notation
@@ -152,6 +152,32 @@ class ResistorCalculator {
         // Sort by error and return top 5 results
         return results.sort((a, b) => a.error - b.error).slice(0, 5);
     }
+
+    validateResistorValue(value) {
+        try {
+            const parsed = this.parseResistorValue(value);
+            if (parsed <= 0) {
+                return { valid: false, error: 'Resistor value must be positive' };
+            }
+            return { valid: true, value: parsed };
+        } catch (error) {
+            return { valid: false, error: error.message };
+        }
+    }
+
+    validateVoltage(value, isSupply = false) {
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+            return { valid: false, error: 'Invalid voltage value' };
+        }
+        if (num <= 0) {
+            return { valid: false, error: 'Voltage must be positive' };
+        }
+        if (!isSupply && num > this.supplyVoltage) {
+            return { valid: false, error: 'Target voltage cannot exceed supply voltage' };
+        }
+        return { valid: true, value: num };
+    }
 }
 
 // DOM Elements
@@ -163,46 +189,105 @@ const resultsContainer = document.getElementById('results');
 
 // Event Listeners
 calculateBtn.addEventListener('click', () => {
-    try {
-        // Parse input values
-        const calculator = new ResistorCalculator();
-        const resistorValues = resistorValuesInput.value
-            .split(',')
-            .map(v => calculator.parseResistorValue(v))
-            .filter(v => !isNaN(v));
-
-        const supplyVoltage = parseFloat(supplyVoltageInput.value);
-        const targetVoltage = parseFloat(targetVoltageInput.value);
-
-        // Validate inputs
-        if (resistorValues.length === 0) {
-            throw new Error('Please enter at least one resistor value');
+    const calculator = new ResistorCalculator();
+    const errors = [];
+    const warnings = [];
+    
+    // Parse and validate resistor values
+    const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
+    const validResistors = [];
+    
+    resistorInputs.forEach((value, index) => {
+        if (!value) return; // Skip empty values
+        const result = calculator.validateResistorValue(value);
+        if (result.valid) {
+            validResistors.push(result.value);
+        } else {
+            warnings.push(`Resistor ${index + 1} ${value} ignored: ${result.error}`);
         }
-        if (isNaN(supplyVoltage) || supplyVoltage <= 0) {
-            throw new Error('Please enter a valid supply voltage');
-        }
-        if (isNaN(targetVoltage) || targetVoltage < 0 || targetVoltage > supplyVoltage) {
-            throw new Error('Please enter a valid target voltage (must be between 0 and supply voltage)');
-        }
+    });
 
-        // Calculate combinations
-        calculator.resistorValues = resistorValues;
-        calculator.supplyVoltage = supplyVoltage;
-        calculator.targetVoltage = targetVoltage;
-
-        const results = calculator.findVoltageDividerCombinations();
-
-        // Display results
-        resultsContainer.innerHTML = results.map(result => `
-            <div class="result-item">
-                <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                <p><strong>Output Voltage:</strong> ${result.outputVoltage.toFixed(2)} V</p>
-                <p><strong>Error:</strong> ${result.error.toFixed(2)} V</p>
-            </div>
-        `).join('');
-
-    } catch (error) {
-        resultsContainer.innerHTML = `<div class="error">${error.message}</div>`;
+    // Validate supply voltage
+    const supplyResult = calculator.validateVoltage(supplyVoltageInput.value, true);
+    if (!supplyResult.valid) {
+        errors.push(`Supply Voltage: ${supplyResult.error}`);
+    } else {
+        calculator.supplyVoltage = supplyResult.value;
     }
+
+    // Validate target voltage
+    const targetResult = calculator.validateVoltage(targetVoltageInput.value);
+    if (!targetResult.valid) {
+        errors.push(`Target Voltage: ${targetResult.error}`);
+    } else {
+        calculator.targetVoltage = targetResult.value;
+    }
+
+    // Check if we have enough valid inputs to proceed
+    if (validResistors.length === 0) {
+        errors.push('At least one valid resistor value is required');
+    }
+
+    // If there are critical errors, show them and stop
+    if (errors.length > 0) {
+        resultsContainer.innerHTML = `
+            <div class="error">
+                <h3>Errors:</h3>
+                <ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>
+            </div>`;
+        return;
+    }
+
+    // Proceed with calculation using valid inputs
+    calculator.resistorValues = validResistors;
+    const results = calculator.findVoltageDividerCombinations();
+
+    // Display results with warnings if any
+    let output = '';
+    if (warnings.length > 0) {
+        output += `
+            <div class="warnings-section">
+                <h3>Warnings</h3>
+                <table class="warnings-table">
+                    <thead>
+                        <tr>
+                            <th>Input</th>
+                            <th>Value</th>
+                            <th>Issue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${warnings.map(w => {
+                            const [input, issue] = w.split(' ignored: ');
+                            // Extract the value from the input (everything after the last space)
+                            const value = input.split(' ').pop();
+                            // Get the input label (everything before the last space)
+                            const inputLabel = input.substring(0, input.lastIndexOf(' '));
+                            return `
+                                <tr>
+                                    <td>${inputLabel}</td>
+                                    <td>${value}</td>
+                                    <td>${issue}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    output += `
+        <div class="results-section">
+            <h3>Results</h3>
+            ${results.map(result => `
+                <div class="result-item">
+                    <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                    <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                    <p><strong>Output Voltage:</strong> ${result.outputVoltage.toFixed(2)} V</p>
+                    <p><strong>Error:</strong> ${result.error.toFixed(2)} V</p>
+                </div>
+            `).join('')}
+        </div>`;
+
+    resultsContainer.innerHTML = output;
 }); 

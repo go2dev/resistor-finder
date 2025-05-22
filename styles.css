@@ -96,9 +96,78 @@ button:hover {
 }
 
 .error {
-    color: #e74c3c;
-    padding: 1rem;
-    background-color: #fde8e8;
-    border-radius: 5px;
-    margin-top: 1rem;
+    background-color: #ffebee;
+    border-left: 4px solid #f44336;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.error h3 {
+    color: #d32f2f;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.error ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.warning {
+    background-color: #fff3e0;
+    border-left: 4px solid #ff9800;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.warning h3 {
+    color: #e65100;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.warning ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.warnings-section {
+    margin-bottom: 2rem;
+}
+
+.warnings-section h3 {
+    color: #e65100;
+    margin-bottom: 1rem;
+}
+
+.warnings-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff3e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.warnings-table th,
+.warnings-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ffe0b2;
+}
+
+.warnings-table th {
+    background-color: #ff9800;
+    color: white;
+    font-weight: 500;
+}
+
+.warnings-table tr:last-child td {
+    border-bottom: none;
+}
+
+.results-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
 } 

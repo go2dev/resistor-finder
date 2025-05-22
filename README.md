@@ -11,12 +11,21 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 ## Usage
 
-1. Enter your available resistor values as comma-separated numbers (e.g., `100,220,470,1000,2200,4700`)
+1. Enter your available resistor values as comma-separated numbers (e.g., `10,220,470,1000,2k2,1M`)
 2. Enter your supply voltage (V)
-3. Enter your target voltage (V)
+3. Enter your target output voltage (V)
 4. Click "Calculate Combinations"
 
 The calculator will show you the best combinations of resistors that will give you the closest voltage to your target.
+
+### Notation
+
+You can use a variety of notation styles when entering resistor values:
+- Plain numbers for ohms e.g `10 = 10 Ohm, 1000 = 1 kilo Ohm`
+- Electronics notation e.g. `100m = 100 milli Ohm, 10R = 10 Ohm, 1k = 1 kilo Ohm, 43k2 = 42.3 kilo Ohm = 42300 Ohm, 10M = 10 mega Ohm`
+- Scientific notation e.g. `5.1e3 = 5k1 = 5100 Ohm`
+
+It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10e6` when inputting values
 
 ## Example
 
