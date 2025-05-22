@@ -278,6 +278,12 @@ function calculateAndDisplayResults() {
     const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
     const validResistors = [];
     
+    // Store current active states
+    const activeStates = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
+        value: parseFloat(box.dataset.value),
+        active: box.classList.contains('active')
+    }));
+    
     resistorInputs.forEach((value, index) => {
         if (!value) return; // Skip empty values
         const result = calculator.validateResistorValue(value);
@@ -286,7 +292,8 @@ function calculateAndDisplayResults() {
             calculator.calculationStats.inputConversions.push({
                 input: value,
                 value: result.value,
-                formatted: calculator.formatResistorValue(result.value)
+                formatted: calculator.formatResistorValue(result.value),
+                active: activeStates.find(state => state.value === result.value)?.active ?? true
             });
         } else {
             warnings.push(`Resistor ${index + 1} ${value} ignored: ${result.error}`);
@@ -369,8 +376,11 @@ function calculateAndDisplayResults() {
             <div class="parsed-values">
                 <h3>Variables</h3>
                 <div class="parsed-values-grid">
-                    ${calculator.calculationStats.inputConversions.map(conv => `
-                        <div class="parsed-value-box">
+                    ${calculator.calculationStats.inputConversions.map((conv, index) => `
+                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'}" 
+                             data-value="${conv.value}" 
+                             data-index="${index}" 
+                             onclick="toggleResistorValue(this)">
                             <span class="value">${conv.value} Ω</span>
                             <span class="formatted">(${conv.formatted})</span>
                         </div>
@@ -559,4 +569,168 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         tooltips.forEach(tooltip => positionTooltip(tooltip));
     });
-}); 
+});
+
+// Add this function at the end of the file, before the last closing brace
+function toggleResistorValue(element) {
+    element.classList.toggle('disabled');
+    element.classList.toggle('active');
+    
+    // Get all active resistor values
+    const activeResistors = Array.from(document.querySelectorAll('.parsed-value-box.active'))
+        .map(box => parseFloat(box.dataset.value));
+    
+    // Create a new calculator with only active resistors
+    const calculator = new ResistorCalculator();
+    
+    // Parse and validate resistor values
+    const errors = [];
+    const warnings = [];
+    
+    // Add all active resistors to the calculator
+    calculator.resistorValues = activeResistors;
+    
+    // Validate supply voltage
+    const supplyResult = calculator.validateVoltage(supplyVoltageInput.value, true);
+    if (!supplyResult.valid) {
+        errors.push(`Supply Voltage: ${supplyResult.error}`);
+    } else {
+        calculator.supplyVoltage = supplyResult.value;
+    }
+
+    // Validate target voltage
+    const targetResult = calculator.validateVoltage(targetVoltageInput.value);
+    if (!targetResult.valid) {
+        errors.push(`Target Voltage: ${targetResult.error}`);
+    } else {
+        calculator.targetVoltage = targetResult.value;
+    }
+
+    // Set overshoot option
+    calculator.allowOvershoot = overshootSwitch.checked;
+
+    // If there are critical errors, show them and stop
+    if (errors.length > 0) {
+        resultsContainer.innerHTML = `
+            <div class="error">
+                <h3>Errors:</h3>
+                <ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>
+            </div>`;
+        return;
+    }
+
+    // Get results with only active resistors
+    const results = calculator.findVoltageDividerCombinations();
+
+    // Display results
+    let output = '';
+    
+    // Get the original input conversions from the current display
+    const originalConversions = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
+        input: box.querySelector('.value').textContent.replace(' Ω', ''),
+        value: parseFloat(box.dataset.value),
+        formatted: box.querySelector('.formatted').textContent.replace(/[()]/g, ''),
+        active: box.classList.contains('active')
+    }));
+    
+    // Add parsed values display with original conversions
+    output += `
+        <div class="parsed-values">
+            <h3>Variables</h3>
+            <div class="parsed-values-grid">
+                ${originalConversions.map((conv, index) => `
+                    <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'}" 
+                         data-value="${conv.value}" 
+                         data-index="${index}" 
+                         onclick="toggleResistorValue(this)">
+                        <span class="value">${conv.value} Ω</span>
+                        <span class="formatted">(${conv.formatted})</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="voltage-slider-section">
+                <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
+                <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+            </div>
+        </div>`;
+
+    // Add calculation details if enabled
+    if (showDetailsSwitch.checked) {
+        output += `
+            <div class="details-section">
+                <h3>Calculation Details</h3>
+                <div class="details-content">
+                    <div class="input-conversions">
+                        <h4>Input Value Conversions</h4>
+                        <table class="details-table">
+                            <thead>
+                                <tr>
+                                    <th>Input</th>
+                                    <th>Value (Ω)</th>
+                                    <th>Formatted</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${originalConversions.map(conv => `
+                                    <tr>
+                                        <td>${conv.input}</td>
+                                        <td>${conv.value}</td>
+                                        <td>${conv.formatted}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="combination-stats">
+                        <h4>Combination Statistics</h4>
+                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                        <div class="voltage-stats">
+                            <h4>Voltage Distribution</h4>
+                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    output += `
+        <div class="results-section">
+            <h3>Results</h3>
+            <div id="resultsList">
+                ${results.map(result => `
+                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
+                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+
+    resultsContainer.innerHTML = output;
+
+    // Add event listener for the slider after it's added to the DOM
+    const slider = document.getElementById('supplyVoltageSlider');
+    if (slider) {
+        slider.addEventListener('input', (e) => {
+            const newVoltage = parseFloat(e.target.value);
+            document.getElementById('sliderValue').textContent = newVoltage.toFixed(1);
+            
+            // Update each result's output voltage and error
+            document.querySelectorAll('.result-item').forEach(item => {
+                const r1 = parseFloat(item.dataset.r1);
+                const r2 = parseFloat(item.dataset.r2);
+                const outputVoltage = (r2 / (r1 + r2)) * newVoltage;
+                const error = outputVoltage - calculator.targetVoltage;
+                
+                item.querySelector('.output-voltage').textContent = outputVoltage.toFixed(2);
+                item.querySelector('.error-value').textContent = `${error > 0 ? '+' : ''}${error.toFixed(2)}`;
+            });
+        });
+    }
+} 
