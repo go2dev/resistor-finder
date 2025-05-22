@@ -372,6 +372,9 @@ function calculateAndDisplayResults() {
 
     // Add parsed values display
     if (calculator.calculationStats.inputConversions.length > 0) {
+        // Sort inputConversions by value in ascending order
+        calculator.calculationStats.inputConversions.sort((a, b) => a.value - b.value);
+        
         output += `
             <div class="parsed-values">
                 <h3>Variables</h3>
@@ -382,6 +385,7 @@ function calculateAndDisplayResults() {
                              data-index="${index}" 
                              onclick="toggleResistorValue(this)">
                             <span class="formatted">${conv.formatted}</span>
+                            <span class="box-tooltip">${conv.value} Ω</span>
                         </div>
                     `).join('')}
                 </div>
@@ -642,6 +646,7 @@ function toggleResistorValue(element) {
                          data-index="${index}" 
                          onclick="toggleResistorValue(this)">
                         <span class="formatted">${conv.formatted}</span>
+                        <span class="box-tooltip">${conv.value} Ω</span>
                     </div>
                 `).join('')}
             </div>
