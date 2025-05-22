@@ -542,7 +542,6 @@ footer a:hover {
     color: var(--text-color);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -563,20 +562,14 @@ footer a:hover {
     opacity: 0.7;
 }
 
-.parsed-value-box.disabled .value,
 .parsed-value-box.disabled .formatted {
     text-decoration: line-through;
     color: var(--text-color);
     opacity: 0.7;
 }
 
-.parsed-value-box .value {
-    font-weight: 500;
-}
-
 .parsed-value-box .formatted {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-weight: 500;
 }
 
 /* Voltage Input Group */

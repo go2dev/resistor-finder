@@ -381,8 +381,7 @@ function calculateAndDisplayResults() {
                              data-value="${conv.value}" 
                              data-index="${index}" 
                              onclick="toggleResistorValue(this)">
-                            <span class="value">${conv.value} Ω</span>
-                            <span class="formatted">(${conv.formatted})</span>
+                            <span class="formatted">${conv.formatted}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -627,9 +626,8 @@ function toggleResistorValue(element) {
     
     // Get the original input conversions from the current display
     const originalConversions = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
-        input: box.querySelector('.value').textContent.replace(' Ω', ''),
         value: parseFloat(box.dataset.value),
-        formatted: box.querySelector('.formatted').textContent.replace(/[()]/g, ''),
+        formatted: box.querySelector('.formatted').textContent,
         active: box.classList.contains('active')
     }));
     
@@ -643,8 +641,7 @@ function toggleResistorValue(element) {
                          data-value="${conv.value}" 
                          data-index="${index}" 
                          onclick="toggleResistorValue(this)">
-                        <span class="value">${conv.value} Ω</span>
-                        <span class="formatted">(${conv.formatted})</span>
+                        <span class="formatted">${conv.formatted}</span>
                     </div>
                 `).join('')}
             </div>
