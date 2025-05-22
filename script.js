@@ -4,6 +4,7 @@ class ResistorCalculator {
         this.supplyVoltage = 0;
         this.targetVoltage = 0;
         this.results = [];
+        this.allowOvershoot = false;
     }
 
     // Parse resistor value from string notation to number
@@ -136,21 +137,24 @@ class ResistorCalculator {
                 const r2Value = Array.isArray(r2) ? this.calculateSeriesResistance(r2) : r2;
                 
                 const outputVoltage = this.calculateOutputVoltage(r1Value, r2Value, this.supplyVoltage);
-                const error = Math.abs(outputVoltage - this.targetVoltage);
+                const error = outputVoltage - this.targetVoltage;
                 
-                results.push({
-                    r1: r1,
-                    r2: r2,
-                    r1Value: r1Value,
-                    r2Value: r2Value,
-                    outputVoltage: outputVoltage,
-                    error: error
-                });
+                // Only include results that are within bounds or if overshoot is allowed
+                if (this.allowOvershoot || error <= 0) {
+                    results.push({
+                        r1: r1,
+                        r2: r2,
+                        r1Value: r1Value,
+                        r2Value: r2Value,
+                        outputVoltage: outputVoltage,
+                        error: error
+                    });
+                }
             }
         }
 
-        // Sort by error and return top 5 results
-        return results.sort((a, b) => a.error - b.error).slice(0, 5);
+        // Sort by absolute error and return top 5 results
+        return results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error)).slice(0, 5);
     }
 
     validateResistorValue(value) {
@@ -186,9 +190,10 @@ const supplyVoltageInput = document.getElementById('supplyVoltage');
 const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
+const overshootSwitch = document.getElementById('overshoot');
 
-// Event Listeners
-calculateBtn.addEventListener('click', () => {
+// Function to perform calculation and update results
+function calculateAndDisplayResults() {
     const calculator = new ResistorCalculator();
     const errors = [];
     const warnings = [];
@@ -222,6 +227,9 @@ calculateBtn.addEventListener('click', () => {
     } else {
         calculator.targetVoltage = targetResult.value;
     }
+
+    // Set overshoot option
+    calculator.allowOvershoot = overshootSwitch.checked;
 
     // Check if we have enough valid inputs to proceed
     if (validResistors.length === 0) {
@@ -259,9 +267,7 @@ calculateBtn.addEventListener('click', () => {
                     <tbody>
                         ${warnings.map(w => {
                             const [input, issue] = w.split(' ignored: ');
-                            // Extract the value from the input (everything after the last space)
                             const value = input.split(' ').pop();
-                            // Get the input label (everything before the last space)
                             const inputLabel = input.substring(0, input.lastIndexOf(' '));
                             return `
                                 <tr>
@@ -284,10 +290,37 @@ calculateBtn.addEventListener('click', () => {
                     <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                     <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                     <p><strong>Output Voltage:</strong> ${result.outputVoltage.toFixed(2)} V</p>
-                    <p><strong>Error:</strong> ${result.error.toFixed(2)} V</p>
+                    <p><strong>Error:</strong> ${result.error > 0 ? '+' : ''}${result.error.toFixed(2)} V</p>
                 </div>
             `).join('')}
         </div>`;
 
     resultsContainer.innerHTML = output;
-}); 
+}
+
+// Event Listeners
+calculateBtn.addEventListener('click', calculateAndDisplayResults);
+overshootSwitch.addEventListener('change', calculateAndDisplayResults);
+
+// Theme Switcher
+const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+const currentTheme = localStorage.getItem('theme');
+
+if (currentTheme) {
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    if (currentTheme === 'dark') {
+        toggleSwitch.checked = true;
+    }
+}
+
+function switchTheme(e) {
+    if (e.target.checked) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+    }    
+}
+
+toggleSwitch.addEventListener('change', switchTheme, false); 

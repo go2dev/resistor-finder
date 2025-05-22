@@ -10,23 +10,49 @@
     <div class="container">
         <h1>Voltage Divider Resistor Calculator</h1>
         
-        <div class="input-section">
-            <div class="input-group">
-                <label for="resistorValues">Resistor Values (Ω):</label>
-                <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
+        <div class="main-content">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="resistorValues">Resistor Values (Ω):</label>
+                    <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
+                </div>
+                
+                <div class="input-group">
+                    <label for="supplyVoltage">Supply Voltage (V):</label>
+                    <input type="number" id="supplyVoltage" value="5">
+                </div>
+                
+                <div class="input-group">
+                    <label for="targetVoltage">Target Voltage (V):</label>
+                    <input type="number" id="targetVoltage" value="3.3">
+                </div>
+                
+                <button id="calculateBtn">Calculate Combinations</button>
             </div>
-            
-            <div class="input-group">
-                <label for="supplyVoltage">Supply Voltage (V):</label>
-                <input type="number" id="supplyVoltage" value="5">
+
+            <div class="options-section">
+                <label>Options:</label>
+                <div class="options-box">
+                    <div class="option-group">
+                        <div class="theme-switch-wrapper">
+                            <label class="theme-switch" for="checkbox">
+                                <input type="checkbox" id="checkbox" />
+                                <div class="slider round"></div>
+                            </label>
+                            <span class="theme-label">Dark Mode</span>
+                        </div>
+                    </div>
+                    <div class="option-group">
+                        <div class="theme-switch-wrapper">
+                            <label class="theme-switch" for="overshoot">
+                                <input type="checkbox" id="overshoot" checked />
+                                <div class="slider round"></div>
+                            </label>
+                            <span class="theme-label">Allow Voltage Overshoot</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="input-group">
-                <label for="targetVoltage">Target Voltage (V):</label>
-                <input type="number" id="targetVoltage" value="3.3">
-            </div>
-            
-            <button id="calculateBtn">Calculate Combinations</button>
         </div>
 
         <div class="results-section">
@@ -34,8 +60,8 @@
             <div id="results" class="results-container"></div>
         </div>
     </div>
-    <footer style="text-align: center; margin-top: 2rem; padding: 1rem; background-color: #f5f5f5; color: #333;">
-        Vibe coded by <a href="https://mynameis.dev" target="_blank" style="color: #3498db; text-decoration: none;">Dev</a> in 2025 | <a href="https://github.com/go2dev/resistor-finder" target="_blank" style="color: #3498db; text-decoration: none;">GitHub</a>
+    <footer>
+        Vibe coded by <a href="https://mynameis.dev" target="_blank">Dev</a> in 2025 | <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a>
     </footer>
     <script src="script.js"></script>
 </body>
