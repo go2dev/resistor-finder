@@ -503,7 +503,12 @@ calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
 showDetailsSwitch.addEventListener('change', calculateAndDisplayResults);
 document.querySelectorAll('input[name="sortBy"]').forEach(radio => {
-    radio.addEventListener('change', calculateAndDisplayResults);
+    radio.addEventListener('change', () => {
+        // Only recalculate if we have results to sort
+        if (document.querySelector('.result-item')) {
+            calculateAndDisplayResults();
+        }
+    });
 });
 
 // Theme Switcher
