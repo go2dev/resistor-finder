@@ -42,12 +42,15 @@ The calculator can use variety of notation styles when entering resistor values:
     - 1000 → 1 kilo Ohm
 - Electronics notation:
     - 100m → 100 milli Ohm
-    - 10R → 10 Ohm 
+    - 10R → 10 Ohm
     - 1k → 1 kilo Ohm → 1000 Ohm
     - 43k2 → 42.3 kilo Ohm → 42300 Ohm
     - 10M → 10 mega Ohm → 10000000 Ohm
+- Mixed electronic and decimal notation:
+    - 71.5k → 71k5 → 71.5 kilo Ohm → 71500 Ohm
 - Scientific notation:
     - 5.1e3 → 5k1 → 5100 Ohm
+
 
 It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10e6` when inputting values
 
