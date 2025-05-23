@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resistor Finder - Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .markdown-content {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+        }
+        .markdown-content h1 {
+            color: var(--text-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        .markdown-content h2 {
+            color: var(--text-color);
+            margin-top: 2rem;
+        }
+        .markdown-content code {
+            background-color: var(--bg-secondary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+        }
+        .markdown-content pre {
+            background-color: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .markdown-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+        .back-link {
+            display: inline-block;
+            margin: 1rem;
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">← Back to Calculator</a>
+    <div class="markdown-content" id="content"></div>
+
+    <script>
+        // Fetch and render the README content
+        fetch('README.md')
+            .then(response => response.text())
+            .then(text => {
+                document.getElementById('content').innerHTML = marked.parse(text);
+            })
+            .catch(error => {
+                console.error('Error loading README:', error);
+                document.getElementById('content').innerHTML = '<p>Error loading documentation. Please try again later.</p>';
+            });
+    </script>
+</body>
+</html> 
