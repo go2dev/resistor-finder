@@ -808,4 +808,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Run the tests
     // testResistorParsing(); // Commented out to prevent automatic test execution
-}); 
+});
+
+// Add this function after the ResistorCalculator class definition
+function normalizeAndCheckSeries(value) {
+    // Normalize value to be between 0 and 10
+    let normalized = value;
+    while (normalized >= 10) {
+        normalized /= 10;
+    }
+    while (normalized < 1 && normalized > 0) {
+        normalized *= 10;
+    }
+
+    // Check if normalized value appears in any series array
+    const seriesOrder = ['E24', 'E48', 'E96', 'E192'];
+    for (const seriesName of seriesOrder) {
+        if (resistorSeries[seriesName].includes(normalized)) {
+            return seriesName;
+        }
+    }
+    return null;
+} 
