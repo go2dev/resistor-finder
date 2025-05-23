@@ -306,7 +306,7 @@ function calculateAndDisplayResults() {
             validResistors.push(result.value);
             // Check series and log to console
             const seriesName = normalizeAndCheckSeries(result.value);
-            console.log(`Resistor value ${result.value} belongs to series: ${seriesName || 'None'}`);
+            //console.log(`Resistor value ${result.value} belongs to series: ${seriesName || 'None'}`);
             calculator.calculationStats.inputConversions.push({
                 input: value,
                 value: result.value,
