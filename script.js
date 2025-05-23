@@ -311,6 +311,7 @@ function calculateAndDisplayResults() {
                 input: value,
                 value: result.value,
                 formatted: calculator.formatResistorValue(result.value),
+                series: seriesName,
                 active: activeStates.find(state => state.value === result.value)?.active ?? true
             });
         } else {
@@ -400,6 +401,8 @@ function calculateAndDisplayResults() {
                     ${calculator.calculationStats.inputConversions.map((conv, index) => `
                         <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'}" 
                              data-value="${conv.value}" 
+                             data-input="${conv.input}"
+                             data-series="${conv.series || ''}"
                              data-index="${index}" 
                              onclick="toggleResistorValue(this)">
                             <span class="formatted">${conv.formatted}</span>
@@ -437,7 +440,7 @@ function calculateAndDisplayResults() {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
-                                        <td>xxx</td>
+                                        <td>${conv.series || 'None'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -650,9 +653,11 @@ function toggleResistorValue(element) {
     
     // Get the original input conversions from the current display
     const originalConversions = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
+        input: box.dataset.input || box.querySelector('.formatted').textContent,
         value: parseFloat(box.dataset.value),
         formatted: box.querySelector('.formatted').textContent,
-        active: box.classList.contains('active')
+        active: box.classList.contains('active'),
+        series: box.dataset.series || normalizeAndCheckSeries(parseFloat(box.dataset.value))
     }));
     
     // Add parsed values display with original conversions
@@ -663,6 +668,8 @@ function toggleResistorValue(element) {
                 ${originalConversions.map((conv, index) => `
                     <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'}" 
                          data-value="${conv.value}" 
+                         data-input="${conv.input}"
+                         data-series="${conv.series || ''}"
                          data-index="${index}" 
                          onclick="toggleResistorValue(this)">
                         <span class="formatted">${conv.formatted}</span>
@@ -699,7 +706,7 @@ function toggleResistorValue(element) {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
-                                        <td>xxx</td>
+                                        <td>${conv.series || 'None'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
