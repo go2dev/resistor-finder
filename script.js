@@ -396,17 +396,17 @@ function calculateAndDisplayResults() {
         
         output += `
             <div class="parsed-values">
-                <h3>Variables</h3>
+                <h3>Available resistors</h3>
                 <div class="parsed-values-grid">
                     ${calculator.calculationStats.inputConversions.map((conv, index) => `
-                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'}" 
+                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 
                              data-value="${conv.value}" 
                              data-input="${conv.input}"
                              data-series="${conv.series || ''}"
                              data-index="${index}" 
                              onclick="toggleResistorValue(this)">
                             <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard resistor value'}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -663,17 +663,17 @@ function toggleResistorValue(element) {
     // Add parsed values display with original conversions
     output += `
         <div class="parsed-values">
-            <h3>Variables</h3>
+            <h3>Available Resistors</h3>
             <div class="parsed-values-grid">
                 ${originalConversions.map((conv, index) => `
-                    <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'}" 
+                    <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 
                          data-value="${conv.value}" 
                          data-input="${conv.input}"
                          data-series="${conv.series || ''}"
                          data-index="${index}" 
                          onclick="toggleResistorValue(this)">
                         <span class="formatted">${conv.formatted}</span>
-                        <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard resistor value'}</span>
+                        <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
                     </div>
                 `).join('')}
             </div>
