@@ -538,7 +538,7 @@ footer a:hover {
 
 .parsed-value-box {
     background-color: var(--result-bg);
-    border: 5px solid var(--input-border);
+    border: 1px solid #808080;
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
@@ -551,18 +551,18 @@ footer a:hover {
 }
 
 .parsed-value-box:hover {
-    border-color: var(--button-bg);
-    box-shadow: 0 0 0 5px var(--button-bg);
+    border-color: #808080;
+    box-shadow: 0 0 0 2px var(--button-bg);
 }
 
 .parsed-value-box.active {
     background-color: var(--result-bg);
-    border: 5px solid var(--button-bg);
+    border: 1px solid #808080;
 }
 
 .parsed-value-box.disabled {
     background-color: var(--input-bg);
-    border: 5px solid var(--input-border);
+    border: 1px solid #808080;
     opacity: 0.7;
 }
 
@@ -740,21 +740,21 @@ ul ul, ol ol, ul ol, ol ul {
 
 /* Add series-specific styles for parsed-value-box */
 .parsed-value-box.series-e192 {
-    border-color: #ffe2ff;
+    background-color: #ffe2ff;
 }
 
 .parsed-value-box.series-e96 {
-    border-color: #e2e2ff;
+    background-color: #e2e2ff;
 }
 
 .parsed-value-box.series-e48 {
-    border-color: #e2ffff;
+    background-color: #e2ffff;
 }
 
 .parsed-value-box.series-e24 {
-    border-color: #e2ffe2;
+    background-color: #e2ffe2;
 }
 
 .parsed-value-box.series-none {
-    border-color: red;
+    background-color: #ffebee;
 } 
