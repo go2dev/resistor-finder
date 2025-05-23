@@ -18,14 +18,6 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 The calculator will show you the best combinations of resistors that will give you the closest voltage to your target.
 
-### Notation
-
-You can use a variety of notation styles when entering resistor values:
-- Plain numbers for ohms e.g `10 = 10 Ohm, 1000 = 1 kilo Ohm`
-- Electronics notation e.g. `100m = 100 milli Ohm, 10R = 10 Ohm, 1k = 1 kilo Ohm, 43k2 = 42.3 kilo Ohm = 42300 Ohm, 10M = 10 mega Ohm`
-- Scientific notation e.g. `5.1e3 = 5k1 = 5100 Ohm`
-
-It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10e6` when inputting values
 
 ## Example
 
@@ -41,6 +33,32 @@ R2: 4k7 (4k7)
 Output Voltage: 5.12 V
 Error: 0.12 V
 ```
+
+## Resistor Value Notation
+
+The calculator can use variety of notation styles when entering resistor values:
+- Plain numbers for ohms:
+    - 10 → 10 Ohm
+    - 1000 → 1 kilo Ohm
+- Electronics notation:
+    - 100m → 100 milli Ohm
+    - 10R → 10 Ohm 
+    - 1k → 1 kilo Ohm → 1000 Ohm
+    - 43k2 → 42.3 kilo Ohm → 42300 Ohm
+    - 10M → 10 mega Ohm → 10000000 Ohm
+- Scientific notation:
+    - 5.1e3 → 5k1 → 5100 Ohm
+
+It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10e6` when inputting values
+
+## How It Works
+The calculator:
+1. Takes your available resistor values
+2. Generates all possible combinations (single resistors, series, and parallel)
+3. Calculates the output voltage for each combination
+4. Sorts the results by how close they get to your target voltage
+5. Shows the top 5 best matches
+
 
 ## Running Locally
 
@@ -59,22 +77,6 @@ npx http-server -p 8000
 
 3. Open your browser and navigate to `http://localhost:8000`
 
-## Resistor Value Notation
-
-The calculator uses standard electronics notation for resistor values:
-- 1000 → 1k
-- 5100 → 5k1
-- 1000000 → 1M
-- 4700000 → 4M7
-
-## How It Works
-
-The calculator:
-1. Takes your available resistor values
-2. Generates all possible combinations (single resistors, series, and parallel)
-3. Calculates the output voltage for each combination
-4. Sorts the results by how close they get to your target voltage
-5. Shows the top 5 best matches
 
 
 ## License

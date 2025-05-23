@@ -39,10 +39,17 @@ class ResistorCalculator {
             'g': 1000000000
         };
 
-        // Match patterns like "1K", "5K1", "200R", etc.
-        const match = value.match(/^(\d+)([kKmMgGrR])(\d*)$/);
-        if (match) {
-            const [, whole, unit, decimal] = match;
+        // First try decimal notation (e.g., "2.2k", "43.2k")
+        const decimalMatch = value.match(/^(\d+\.?\d*)([kKmMgGrR])$/);
+        if (decimalMatch) {
+            const [, number, unit] = decimalMatch;
+            return parseFloat(number) * multipliers[unit];
+        }
+
+        // Then try letter notation (e.g., "2k2", "43k2")
+        const letterMatch = value.match(/^(\d+)([kKmMgGrR])(\d*)$/);
+        if (letterMatch) {
+            const [, whole, unit, decimal] = letterMatch;
             const multiplier = multipliers[unit];
             let result = parseFloat(whole) * multiplier;
             
@@ -735,4 +742,66 @@ function toggleResistorValue(element) {
             });
         });
     }
-} 
+}
+
+// Test function for resistor value parsing
+function testResistorParsing() {
+    const calculator = new ResistorCalculator();
+    const testCases = [
+        // Decimal notation tests
+        { input: "2.2k", expected: 2200, description: "Decimal notation with k" },
+        { input: "43.2k", expected: 43200, description: "Decimal notation with larger number" },
+        { input: "1.5M", expected: 1500000, description: "Decimal notation with M" },
+        { input: "0.1k", expected: 100, description: "Decimal notation with leading zero" },
+        { input: "2.2m", expected: 0.0022, description: "Decimal notation with m" },
+        
+        // Letter notation tests
+        { input: "2k2", expected: 2200, description: "Letter notation with k" },
+        { input: "43k2", expected: 43200, description: "Letter notation with larger number" },
+        { input: "1M5", expected: 1500000, description: "Letter notation with M" },
+        { input: "0k1", expected: 100, description: "Letter notation with leading zero" },
+        { input: "2m2", expected: 0.0022, description: "Letter notation with m" },
+        
+        // Plain number tests
+        { input: "2200", expected: 2200, description: "Plain number" },
+        { input: "100", expected: 100, description: "Plain number" },
+        
+        // Edge cases
+        { input: "1k", expected: 1000, description: "Simple k notation" },
+        { input: "1M", expected: 1000000, description: "Simple M notation" },
+        { input: "1R", expected: 1, description: "Simple R notation" },
+        { input: "1m", expected: 0.001, description: "Simple m notation" }
+    ];
+
+    console.log("Testing resistor value parsing...");
+    let passed = 0;
+    let failed = 0;
+
+    testCases.forEach(test => {
+        try {
+            const result = calculator.parseResistorValue(test.input);
+            const success = Math.abs(result - test.expected) < 0.0001; // Use small epsilon for floating point comparison
+            
+            if (success) {
+                console.log(`✅ PASS: ${test.description} - ${test.input} = ${result}`);
+                passed++;
+            } else {
+                console.log(`❌ FAIL: ${test.description} - ${test.input} = ${result} (expected ${test.expected})`);
+                failed++;
+            }
+        } catch (error) {
+            console.log(`❌ ERROR: ${test.description} - ${test.input} - ${error.message}`);
+            failed++;
+        }
+    });
+
+    console.log(`\nTest Summary: ${passed} passed, ${failed} failed`);
+}
+
+// Run tests when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing DOMContentLoaded code ...
+    
+    // Run the tests
+    // testResistorParsing(); // Commented out to prevent automatic test execution
+}); 
