@@ -1,3 +1,6 @@
+// Import resistor series data
+import { completeResistorSeries } from './resistor_series.js';
+
 class ResistorCalculator {
     constructor() {
         this.resistorValues = [];
@@ -15,6 +18,17 @@ class ResistorCalculator {
                 exact: 0
             }
         };
+    }
+
+    // Check which series a value belongs to
+    findResistorSeries(value) {
+        const series = [];
+        for (const [seriesName, values] of Object.entries(completeResistorSeries)) {
+            if (values.includes(value)) {
+                series.push(seriesName);
+            }
+        }
+        return series;
     }
 
     // Parse resistor value from string notation to number
@@ -296,6 +310,10 @@ function calculateAndDisplayResults() {
         const result = calculator.validateResistorValue(value);
         if (result.valid) {
             validResistors.push(result.value);
+            // Find which series this value belongs to
+            const series = calculator.findResistorSeries(result.value);
+            console.log(`Resistor value ${result.value} (${value}) belongs to series: ${series.join(', ') || 'none'}`);
+            
             calculator.calculationStats.inputConversions.push({
                 input: value,
                 value: result.value,
@@ -426,7 +444,7 @@ function calculateAndDisplayResults() {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
-                                        <td>xxx</td>
+                                        <td>${conv.series.join(', ')}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -688,7 +706,7 @@ function toggleResistorValue(element) {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
-                                        <td>xxx</td>
+                                        <td>${conv.series.join(', ')}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
