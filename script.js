@@ -417,6 +417,22 @@ function calculateAndDisplayResults() {
             </div>`;
     }
 
+    output += `
+        <div class="results-section">
+            <h3>Results</h3>
+            <div id="resultsList">
+                ${results.map(result => `
+                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
+                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+
     // Add calculation details if enabled
     if (showDetailsSwitch.checked) {
         output += `
@@ -460,22 +476,6 @@ function calculateAndDisplayResults() {
                 </div>
             </div>`;
     }
-
-    output += `
-        <div class="results-section">
-            <h3>Results</h3>
-            <div id="resultsList">
-                ${results.map(result => `
-                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                        <p><strong>Components:</strong> ${result.componentCount}</p>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -683,6 +683,22 @@ function toggleResistorValue(element) {
             </div>
         </div>`;
 
+    output += `
+        <div class="results-section">
+            <h3>Results</h3>
+            <div id="resultsList">
+                ${results.map(result => `
+                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
+                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+
     // Add calculation details if enabled
     if (showDetailsSwitch.checked) {
         output += `
@@ -726,22 +742,6 @@ function toggleResistorValue(element) {
                 </div>
             </div>`;
     }
-
-    output += `
-        <div class="results-section">
-            <h3>Results</h3>
-            <div id="resultsList">
-                ${results.map(result => `
-                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                        <p><strong>Components:</strong> ${result.componentCount}</p>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
 
     resultsContainer.innerHTML = output;
 
