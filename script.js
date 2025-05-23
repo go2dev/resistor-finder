@@ -406,7 +406,7 @@ function calculateAndDisplayResults() {
                              data-index="${index}" 
                              onclick="toggleResistorValue(this)">
                             <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard resistor value'}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -673,7 +673,7 @@ function toggleResistorValue(element) {
                          data-index="${index}" 
                          onclick="toggleResistorValue(this)">
                         <span class="formatted">${conv.formatted}</span>
-                        <span class="box-tooltip">${conv.value} Ω</span>
+                        <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard resistor value'}</span>
                     </div>
                 `).join('')}
             </div>
