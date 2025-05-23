@@ -433,49 +433,47 @@ function calculateAndDisplayResults() {
             </div>
         </div>`;
 
-    // Add calculation details if enabled
-    if (showDetailsSwitch.checked) {
-        output += `
-            <div class="details-section">
-                <h3>Calculation Details</h3>
-                <div class="details-content">
-                    <div class="input-conversions">
-                        <h4>Input Value Conversions</h4>
-                        <table class="details-table">
-                            <thead>
-                                <tr>
-                                    <th>Input</th>
-                                    <th>Value (Ω)</th>
-                                    <th>Formatted</th>
-                                    <th>Series</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${calculator.calculationStats.inputConversions.map(conv => `
-                                    <tr>
-                                        <td>${conv.input}</td>
-                                        <td>${conv.value}</td>
-                                        <td>${conv.formatted}</td>
-                                        <td>${conv.series || 'None'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="combination-stats">
-                        <h4>Combination Statistics</h4>
-                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                        <div class="voltage-stats">
-                            <h4>Voltage Distribution</h4>
-                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
-                        </div>
+    // Always show calculation details
+    output += `
+        <div class="details-section">
+            <h3>Stats for nerds</h3>
+            <div class="details-content">
+                <div class="combination-stats">
+                    <h4>Combination Statistics</h4>
+                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                    <div class="voltage-stats">
+                        <h4>Voltage Distribution</h4>
+                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
                     </div>
                 </div>
-            </div>`;
-    }
+                <div class="input-conversions">
+                    <h4>Input Value Conversions</h4>
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Value (Ω)</th>
+                                <th>Formatted</th>
+                                <th>Series</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${calculator.calculationStats.inputConversions.map(conv => `
+                                <tr>
+                                    <td>${conv.input}</td>
+                                    <td>${conv.value}</td>
+                                    <td>${conv.formatted}</td>
+                                    <td>${conv.series || 'None'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -699,49 +697,47 @@ function toggleResistorValue(element) {
             </div>
         </div>`;
 
-    // Add calculation details if enabled
-    if (showDetailsSwitch.checked) {
-        output += `
-            <div class="details-section">
-                <h3>Calculation Details</h3>
-                <div class="details-content">
-                    <div class="input-conversions">
-                        <h4>Input Value Conversions</h4>
-                        <table class="details-table">
-                            <thead>
-                                <tr>
-                                    <th>Input</th>
-                                    <th>Value (Ω)</th>
-                                    <th>Formatted</th>
-                                    <th>Series</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${originalConversions.map(conv => `
-                                    <tr>
-                                        <td>${conv.input}</td>
-                                        <td>${conv.value}</td>
-                                        <td>${conv.formatted}</td>
-                                        <td>${conv.series || 'None'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="combination-stats">
-                        <h4>Combination Statistics</h4>
-                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                        <div class="voltage-stats">
-                            <h4>Voltage Distribution</h4>
-                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
-                        </div>
+    // Always show calculation details
+    output += `
+        <div class="details-section">
+            <h3>Stats for nerds</h3>
+            <div class="details-content">
+                <div class="combination-stats">
+                    <h4>Combination Statistics</h4>
+                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                    <div class="voltage-stats">
+                        <h4>Voltage Distribution</h4>
+                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
                     </div>
                 </div>
-            </div>`;
-    }
+                <div class="input-conversions">
+                    <h4>Input Value Conversions</h4>
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Value (Ω)</th>
+                                <th>Formatted</th>
+                                <th>Series</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${originalConversions.map(conv => `
+                                <tr>
+                                    <td>${conv.input}</td>
+                                    <td>${conv.value}</td>
+                                    <td>${conv.formatted}</td>
+                                    <td>${conv.series || 'None'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
 
     resultsContainer.innerHTML = output;
 
