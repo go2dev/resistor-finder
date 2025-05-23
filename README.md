@@ -1,6 +1,6 @@
 # Voltage Divider Resistor Calculator
 
-A tool for finding optimal resistor combinations from a limited set to create a voltage divider. For example, make use of resistor values already present in your design to keep the number of unique items in your BOM low.
+A tool for finding optimal resistor combinations from a limited set to create a voltage divider. For example, make use of resistor values already present in your design to limit the number unique items in your BOM.
 
 ## Features
 
@@ -29,12 +29,12 @@ It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10
 
 ## Example
 
-Input:
-- Resistor Values: `100,220,470,1000,2200,4700`
-- Supply Voltage: `12`
-- Target Voltage: `5`
-
-Output will show combinations like:
+**Input:**   
+Resistor Values: `100,220,470,1000,2200,4700`   
+Supply Voltage: `12`   
+Target Voltage: `5`   
+   
+**Output will show combinations like:**
 ```
 R1: 1k + 2k2 (3k2)
 R2: 4k7 (4k7)

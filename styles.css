@@ -710,4 +710,30 @@ footer a:hover {
 
 .voltage-slider-section input[type="range"]::-moz-range-thumb:hover {
     background: var(--button-hover);
+}
+
+/* Markdown List Styles */
+ul, ol {
+    margin: 1em 0;
+    padding-left: 2.5em;  /* Increased left padding for better indentation */
+}
+
+li {
+    margin: 0.5em 0;
+    padding-left: 0.5em;  /* Add some padding to the left of list items */
+}
+
+/* Ensure list markers (bullets/numbers) align with text */
+ul {
+    list-style-position: outside;  /* This ensures bullets align with the text */
+}
+
+ol {
+    list-style-position: outside;  /* This ensures numbers align with the text */
+}
+
+/* Nested lists */
+ul ul, ol ol, ul ol, ol ul {
+    margin: 0.5em 0;
+    padding-left: 2em;  /* Slightly less indentation for nested lists */
 } 
