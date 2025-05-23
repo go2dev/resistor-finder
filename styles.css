@@ -31,6 +31,49 @@
     --shadow-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Theme Toggle Fixed Position */
+.theme-toggle-fixed {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+/* Special Dark Mode Toggle Styles */
+.theme-switch-dark {
+    height: 34px !important;
+    width: 60px !important;
+}
+
+.theme-switch-dark .slider {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+}
+
+.theme-switch-dark .slider i {
+    color: #fff;
+    font-size: 16px;
+    transition: .4s;
+}
+
+.theme-switch-dark .slider .fa-sun {
+    opacity: 1;
+}
+
+.theme-switch-dark .slider .fa-moon {
+    opacity: 0;
+}
+
+.theme-switch-dark input:checked + .slider .fa-sun {
+    opacity: 0;
+}
+
+.theme-switch-dark input:checked + .slider .fa-moon {
+    opacity: 1;
+}
+
 /* Theme Switch Styles */
 .header {
     display: flex;

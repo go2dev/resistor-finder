@@ -9,8 +9,18 @@
   rel="icon"
   href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
 />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
+    <div class="theme-toggle-fixed">
+        <label class="theme-switch theme-switch-dark" for="checkbox">
+            <input type="checkbox" id="checkbox" />
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
     <div class="container">
         <h1>Voltage Divider Resistor Calculator
             <div class="help-tooltip">
@@ -47,15 +57,6 @@
             <div class="options-section">
                 <label>Options:</label>
                 <div class="options-box">
-                    <div class="option-group">
-                        <div class="theme-switch-wrapper">
-                            <label class="theme-switch" for="checkbox">
-                                <input type="checkbox" id="checkbox" />
-                                <div class="slider round"></div>
-                            </label>
-                            <span class="theme-label">Dark Mode</span>
-                        </div>
-                    </div>
                     <div class="option-group">
                         <div class="theme-switch-wrapper">
                             <label class="theme-switch" for="overshoot">
