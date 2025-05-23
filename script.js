@@ -417,6 +417,7 @@ function calculateAndDisplayResults() {
                                     <th>Input</th>
                                     <th>Value (Ω)</th>
                                     <th>Formatted</th>
+                                    <th>Series</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -425,6 +426,7 @@ function calculateAndDisplayResults() {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
+                                        <td>xxx</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -677,6 +679,7 @@ function toggleResistorValue(element) {
                                     <th>Input</th>
                                     <th>Value (Ω)</th>
                                     <th>Formatted</th>
+                                    <th>Series</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -685,6 +688,7 @@ function toggleResistorValue(element) {
                                         <td>${conv.input}</td>
                                         <td>${conv.value}</td>
                                         <td>${conv.formatted}</td>
+                                        <td>xxx</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
