@@ -22,13 +22,13 @@ class ResistorCalculator {
 
     // Check which series a value belongs to
     findResistorSeries(value) {
-        const series = [];
-        for (const [seriesName, values] of Object.entries(completeResistorSeries)) {
-            if (values.includes(value)) {
-                series.push(seriesName);
+        const seriesOrder = ['E24', 'E48', 'E96', 'E192'];
+        for (const seriesName of seriesOrder) {
+            if (completeResistorSeries[seriesName].includes(value)) {
+                return [seriesName];  // Return only the first (lowest) series found
             }
         }
-        return series;
+        return [];  // Return empty array if no series found
     }
 
     // Parse resistor value from string notation to number
