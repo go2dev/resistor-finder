@@ -863,16 +863,13 @@ function normalizeAndCheckSeries(value) {
 
 // Add event listener for the autofill button
 document.getElementById('autofillBtn').addEventListener('click', () => {
-    // Get the E24 values and format them with appropriate units
+    // Get the E24 values, multiply by 100, round, and format them with appropriate units
     const e24Values = resistorSeries.E24.map(value => {
-        if (value >= 1000) {
-            return `${(value/1000).toFixed(1)}k`;
-        } else if (value >= 100) {
-            return `${value}`;
-        } else if (value >= 10) {
-            return `${value}`;
+        const scaledValue = Math.round(value * 100);
+        if (scaledValue >= 1000) {
+            return `${(scaledValue/1000).toFixed(1)}k`;
         } else {
-            return `${value}`;
+            return `${scaledValue}`;
         }
     });
     
