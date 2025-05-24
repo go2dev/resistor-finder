@@ -397,6 +397,12 @@ function calculateAndDisplayResults() {
         output += `
             <div class="parsed-values">
                 <h3>Available resistors</h3>
+                 <div class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
+                    </span>
+                </div>
                 <div class="parsed-values-grid">
                     ${calculator.calculationStats.inputConversions.map((conv, index) => `
                         <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 
@@ -664,6 +670,12 @@ function toggleResistorValue(element) {
     output += `
         <div class="parsed-values">
             <h3>Available Resistors</h3>
+            <div class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
+                </span>
+            </div>
             <div class="parsed-values-grid">
                 ${originalConversions.map((conv, index) => `
                     <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 

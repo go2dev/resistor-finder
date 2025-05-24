@@ -484,6 +484,8 @@ footer a:hover {
     margin-left: 4px;
     position: relative;
     user-select: none;
+    line-height: 1;
+    text-align: center;
 }
 
 .help-tooltip .tooltip-text {
@@ -572,9 +574,14 @@ footer a:hover {
 }
 
 .parsed-values h3 {
-    color: var(--text-color);
-    margin-bottom: 0.75rem;
-    font-size: 1.1rem;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.parsed-values .help-tooltip {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.25rem;
 }
 
 .parsed-values-grid {
