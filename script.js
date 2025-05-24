@@ -105,17 +105,30 @@ class ResistorCalculator {
         if (!Array.isArray(resistors)) {
             return this.formatResistorValue(resistors);
         }
-        return resistors.map(r => this.formatResistorValue(r)).join(' + ');
+        const type = resistors.type || 'series';
+        const values = resistors.map(r => this.formatResistorValue(r)).join(type === 'parallel' ? ' || ' : ' + ');
+        return type === 'parallel' ? `(${values})` : values;
     }
 
     // Calculate equivalent resistance for resistors in series
     calculateSeriesResistance(resistors) {
+        if (!Array.isArray(resistors)) return resistors;
         return resistors.reduce((sum, r) => sum + r, 0);
     }
 
     // Calculate equivalent resistance for resistors in parallel
     calculateParallelResistance(resistors) {
+        if (!Array.isArray(resistors)) return resistors;
         return 1 / resistors.reduce((sum, r) => sum + (1 / r), 0);
+    }
+
+    // Calculate total resistance based on connection type
+    calculateTotalResistance(resistors) {
+        if (!Array.isArray(resistors)) return resistors;
+        if (resistors.type === 'parallel') {
+            return this.calculateParallelResistance(resistors);
+        }
+        return this.calculateSeriesResistance(resistors);
     }
 
     // Calculate output voltage for a voltage divider
@@ -129,22 +142,24 @@ class ResistorCalculator {
         
         // Single resistor combinations
         for (let r of resistors) {
-            combinations.push([r]);
+            combinations.push(r);
         }
 
         // Series combinations
         for (let i = 0; i < resistors.length; i++) {
             for (let j = i; j < resistors.length; j++) {
-                const series = this.calculateSeriesResistance([resistors[i], resistors[j]]);
-                combinations.push([resistors[i], resistors[j]]);
+                const series = [resistors[i], resistors[j]];
+                series.type = 'series';
+                combinations.push(series);
             }
         }
 
         // Parallel combinations
         for (let i = 0; i < resistors.length; i++) {
             for (let j = i; j < resistors.length; j++) {
-                const parallel = this.calculateParallelResistance([resistors[i], resistors[j]]);
-                combinations.push([resistors[i], resistors[j]]);
+                const parallel = [resistors[i], resistors[j]];
+                parallel.type = 'parallel';
+                combinations.push(parallel);
             }
         }
 
@@ -170,10 +185,22 @@ class ResistorCalculator {
             exact: 0
         };
 
+        // Log initial state
+        console.log('=== Voltage Divider Calculation Details ===');
+        console.log('Input Parameters:');
+        console.log('- Supply Voltage:', this.supplyVoltage, 'V');
+        console.log('- Target Voltage:', this.targetVoltage, 'V');
+        console.log('- Allow Overshoot:', this.allowOvershoot);
+        console.log('- Available Resistors:', this.resistorValues);
+        console.log('- Total Possible Combinations:', this.calculationStats.totalCombinations);
+
+        // Store all valid combinations for debugging
+        const allValidCombinations = [];
+
         for (let r1 of combinations) {
             for (let r2 of combinations) {
-                const r1Value = Array.isArray(r1) ? this.calculateSeriesResistance(r1) : r1;
-                const r2Value = Array.isArray(r2) ? this.calculateSeriesResistance(r2) : r2;
+                const r1Value = this.calculateTotalResistance(r1);
+                const r2Value = this.calculateTotalResistance(r2);
                 
                 const outputVoltage = this.calculateOutputVoltage(r1Value, r2Value, this.supplyVoltage);
                 const error = outputVoltage - this.targetVoltage;
@@ -191,7 +218,7 @@ class ResistorCalculator {
                         this.calculationStats.voltageStats.below++;
                     }
                     
-                    results.push({
+                    const result = {
                         r1: r1,
                         r2: r2,
                         r1Value: r1Value,
@@ -199,7 +226,10 @@ class ResistorCalculator {
                         outputVoltage: outputVoltage,
                         error: error,
                         componentCount: this.getComponentCount({ r1, r2 })
-                    });
+                    };
+                    
+                    results.push(result);
+                    allValidCombinations.push(result);
                 }
             }
         }
@@ -219,6 +249,38 @@ class ResistorCalculator {
         } else {
             // Sort by absolute error
             results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
+        }
+
+        // Log calculation statistics
+        console.log('\nCalculation Statistics:');
+        console.log('- Valid Combinations:', this.calculationStats.validCombinations);
+        console.log('- Voltage Distribution:');
+        console.log('  * Above target:', this.calculationStats.voltageStats.above);
+        console.log('  * Below target:', this.calculationStats.voltageStats.below);
+        console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
+
+        // Log top 5 results
+        console.log('\nTop 5 Results:');
+        results.slice(0, 5).forEach((result, index) => {
+            console.log(`\nResult ${index + 1}:`);
+            console.log('- R1:', Array.isArray(result.r1) ? 
+                `${result.r1.type || 'series'} ${result.r1}` : 
+                [result.r1], 
+                `(${result.r1Value} Ω)`);
+            console.log('- R2:', Array.isArray(result.r2) ? 
+                `${result.r2.type || 'series'} ${result.r2}` : 
+                [result.r2], 
+                `(${result.r2Value} Ω)`);
+            console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
+            console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
+            console.log('- Component Count:', result.componentCount);
+        });
+
+        // Log all valid combinations if there aren't too many
+        if (allValidCombinations.length <= 100) {
+            console.log('\nAll Valid Combinations:', allValidCombinations);
+        } else {
+            console.log('\nNote: Too many valid combinations to display all (', allValidCombinations.length, 'total)');
         }
 
         return results.slice(0, 5);
@@ -847,4 +909,52 @@ function normalizeAndCheckSeries(value) {
         }
     }
     return null;
-} 
+}
+
+// Test function for parallel resistor combinations
+function testParallelCombinations() {
+    console.log('=== Testing Parallel Resistor Combinations ===');
+    
+    const calculator = new ResistorCalculator();
+    
+    // Set up the test case
+    calculator.supplyVoltage = 5;
+    calculator.targetVoltage = 4.9;
+    calculator.allowOvershoot = false;
+    calculator.resistorValues = [100, 220, 470, 1000, 2200, 4700, 10000];
+    
+    console.log('Test Parameters:');
+    console.log('- Supply Voltage:', calculator.supplyVoltage, 'V');
+    console.log('- Target Voltage:', calculator.targetVoltage, 'V');
+    console.log('- Available Resistors:', calculator.resistorValues);
+    console.log('- Required R2/R1 ratio:', (calculator.targetVoltage / (calculator.supplyVoltage - calculator.targetVoltage)).toFixed(2));
+    
+    // Run the calculation
+    const results = calculator.findVoltageDividerCombinations();
+    
+    console.log('\nResults Analysis:');
+    results.forEach((result, index) => {
+        const r2r1Ratio = result.r2Value / result.r1Value;
+        console.log(`\nResult ${index + 1}:`);
+        console.log('- R1:', Array.isArray(result.r1) ? 
+            `${result.r1.type || 'series'} ${result.r1}` : 
+            [result.r1], 
+            `(${result.r1Value} Ω)`);
+        console.log('- R2:', Array.isArray(result.r2) ? 
+            `${result.r2.type || 'series'} ${result.r2}` : 
+            [result.r2], 
+            `(${result.r2Value} Ω)`);
+        console.log('- R2/R1 Ratio:', r2r1Ratio.toFixed(2));
+        console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
+        console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
+        console.log('- Component Count:', result.componentCount);
+    });
+}
+
+// Run the test when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing DOMContentLoaded code ...
+    
+    // Run the parallel combination test
+    testParallelCombinations();
+}); 
