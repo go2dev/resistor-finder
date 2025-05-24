@@ -485,11 +485,14 @@ function calculateAndDisplayResults() {
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                        <div class="result-content">
+                            <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                            <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                            <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                            <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                            <p><strong>Components:</strong> ${result.componentCount}</p>
+                        </div>
+                        <div class="result-diagram"></div>
                     </div>
                 `).join('')}
             </div>
@@ -751,11 +754,14 @@ function toggleResistorValue(element) {
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                        <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                        <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                        <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                        <p><strong>Components:</strong> ${result.componentCount}</p>
+                        <div class="result-content">
+                            <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
+                            <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                            <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                            <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
+                            <p><strong>Components:</strong> ${result.componentCount}</p>
+                        </div>
+                        <div class="result-diagram"></div>
                     </div>
                 `).join('')}
             </div>

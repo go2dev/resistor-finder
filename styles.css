@@ -290,6 +290,19 @@ button:hover {
     background-color: var(--result-bg);
     border-radius: 5px;
     border-left: 4px solid var(--result-border);
+    display: flex;
+    gap: 1rem;
+}
+
+.result-content {
+    flex: 1;
+}
+
+.result-diagram {
+    width: 200px;
+    flex-shrink: 0;
+    background-color: #3498db;
+    border-radius: 4px;
 }
 
 .result-item:last-child {
