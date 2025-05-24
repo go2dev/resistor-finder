@@ -227,6 +227,24 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.input-group .autofill-btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: var(--button-bg);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+.input-group .autofill-btn:hover {
+    background-color: var(--button-hover);
+}
+
 label {
     display: block;
     margin-bottom: 0.5rem;

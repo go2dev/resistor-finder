@@ -397,10 +397,10 @@ function calculateAndDisplayResults() {
         output += `
             <div class="parsed-values">
                 <h3>Available resistors</h3>
-                 <div class="help-tooltip">
-                ?
-                <span class="tooltip-text">
-                    Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
+                <div class="help-tooltip">
+                    ?
+                    <span class="tooltip-text">
+                        Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
                     </span>
                 </div>
                 <div class="parsed-values-grid">
@@ -859,4 +859,26 @@ function normalizeAndCheckSeries(value) {
         }
     }
     return null;
-} 
+}
+
+// Add event listener for the autofill button
+document.getElementById('autofillBtn').addEventListener('click', () => {
+    // Get the E24 values and format them with appropriate units
+    const e24Values = resistorSeries.E24.map(value => {
+        if (value >= 1000) {
+            return `${(value/1000).toFixed(1)}k`;
+        } else if (value >= 100) {
+            return `${value}`;
+        } else if (value >= 10) {
+            return `${value}`;
+        } else {
+            return `${value}`;
+        }
+    });
+    
+    // Join the values with commas and update the input
+    resistorValuesInput.value = e24Values.join(', ');
+    
+    // Trigger the calculation
+    calculateAndDisplayResults();
+}); 
