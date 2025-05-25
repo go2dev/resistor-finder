@@ -109,6 +109,10 @@ class Schematic {
     // Draw a resistor with just a value label
     drawResistorValue(x, y, value, orientation = 'vertical') {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        // Create a calculator instance to use formatResistorValue
+        const calculator = new ResistorCalculator();
+        const formattedValue = calculator.formatResistorValue(value);
+        
         if (orientation === 'vertical') {
             // Zigzag path (vertical)
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -120,10 +124,10 @@ class Schematic {
             group.appendChild(path);
             // Value label
             const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            valueText.setAttribute('x', x + 8);
-            valueText.setAttribute('y', y + 20);
+            valueText.setAttribute('x', x + 5);
+            valueText.setAttribute('y', y + 25);
             valueText.setAttribute('font-size', '12px');
-            valueText.textContent = value;
+            valueText.textContent = formattedValue;
             group.appendChild(valueText);
         } else {
             // Zigzag path (horizontal)
@@ -136,10 +140,10 @@ class Schematic {
             group.appendChild(path);
             // Value label
             const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            valueText.setAttribute('x', x + 13);
-            valueText.setAttribute('y', y - 10);
+            valueText.setAttribute('x', x + 8);
+            valueText.setAttribute('y', y - 5);
             valueText.setAttribute('font-size', '12px');
-            valueText.textContent = value;
+            valueText.textContent = formattedValue;
             group.appendChild(valueText);
         }
         return group;
@@ -272,7 +276,7 @@ class Diagram {
     // Render a section (series or parallel)
     renderSection(section, x, y, isTop) {
         const spacing = 50;
-        const parallelSpacing = 40;
+        const parallelSpacing = 60;
         const resistors = [];
         if (section.type === 'series') {
             // Stack vertically

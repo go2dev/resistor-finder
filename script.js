@@ -185,14 +185,6 @@ class ResistorCalculator {
             exact: 0
         };
 
-        // Log initial state
-        console.log('=== Voltage Divider Calculation Details ===');
-        console.log('Input Parameters:');
-        console.log('- Supply Voltage:', this.supplyVoltage, 'V');
-        console.log('- Target Voltage:', this.targetVoltage, 'V');
-        console.log('- Allow Overshoot:', this.allowOvershoot);
-        console.log('- Available Resistors:', this.resistorValues);
-        console.log('- Total Possible Combinations:', this.calculationStats.totalCombinations);
 
         // Store all valid combinations for debugging
         const allValidCombinations = [];
@@ -251,38 +243,38 @@ class ResistorCalculator {
             results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
         }
 
-        // Log calculation statistics
-        console.log('\nCalculation Statistics:');
-        console.log('- Valid Combinations:', this.calculationStats.validCombinations);
-        console.log('- Voltage Distribution:');
-        console.log('  * Above target:', this.calculationStats.voltageStats.above);
-        console.log('  * Below target:', this.calculationStats.voltageStats.below);
-        console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
+        // // Log calculation statistics
+        // console.log('\nCalculation Statistics:');
+        // console.log('- Valid Combinations:', this.calculationStats.validCombinations);
+        // console.log('- Voltage Distribution:');
+        // console.log('  * Above target:', this.calculationStats.voltageStats.above);
+        // console.log('  * Below target:', this.calculationStats.voltageStats.below);
+        // console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
 
-        // Log top 5 results
-        console.log('\nTop 5 Results:');
-        results.slice(0, 5).forEach((result, index) => {
-            console.log(`\nResult ${index + 1}:`);
-            console.log('- R1:', Array.isArray(result.r1) ? 
-                `${result.r1.type || 'series'} ${result.r1}` : 
-                [result.r1], 
-                `(${result.r1Value} Ω)`);
-            console.log('- R2:', Array.isArray(result.r2) ? 
-                `${result.r2.type || 'series'} ${result.r2}` : 
-                [result.r2], 
-                `(${result.r2Value} Ω)`);
-            console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
-            console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
-            console.log('- Component Count:', result.componentCount);
-            console.log(result);
-        });
+        // // Log top 5 results
+        // console.log('\nTop 5 Results:');
+        // results.slice(0, 5).forEach((result, index) => {
+        //     console.log(`\nResult ${index + 1}:`);
+        //     console.log('- R1:', Array.isArray(result.r1) ? 
+        //         `${result.r1.type || 'series'} ${result.r1}` : 
+        //         [result.r1], 
+        //         `(${result.r1Value} Ω)`);
+        //     console.log('- R2:', Array.isArray(result.r2) ? 
+        //         `${result.r2.type || 'series'} ${result.r2}` : 
+        //         [result.r2], 
+        //         `(${result.r2Value} Ω)`);
+        //     console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
+        //     console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
+        //     console.log('- Component Count:', result.componentCount);
+        //     console.log(result);
+        // });
 
         // Log all valid combinations if there aren't too many
-        if (allValidCombinations.length <= 100) {
-            console.log('\nAll Valid Combinations:', allValidCombinations);
-        } else {
-            console.log('\nNote: Too many valid combinations to display all (', allValidCombinations.length, 'total)');
-        }
+        // if (allValidCombinations.length <= 100) {
+        //     console.log('\nAll Valid Combinations:', allValidCombinations);
+        // } else {
+        //     console.log('\nNote: Too many valid combinations to display all (', allValidCombinations.length, 'total)');
+        // }
 
         return results.slice(0, 5);
     }
