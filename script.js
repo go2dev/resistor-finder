@@ -302,31 +302,31 @@ class ResistorCalculator {
             results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
         }
 
-        // Log calculation statistics
-        console.log('\nCalculation Statistics:');
-        console.log('- Valid Combinations:', this.calculationStats.validCombinations);
-        console.log('- Voltage Distribution:');
-        console.log('  * Above target:', this.calculationStats.voltageStats.above);
-        console.log('  * Below target:', this.calculationStats.voltageStats.below);
-        console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
+        // // Log calculation statistics
+        // console.log('\nCalculation Statistics:');
+        // console.log('- Valid Combinations:', this.calculationStats.validCombinations);
+        // console.log('- Voltage Distribution:');
+        // console.log('  * Above target:', this.calculationStats.voltageStats.above);
+        // console.log('  * Below target:', this.calculationStats.voltageStats.below);
+        // console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
 
-        // Log top 5 results with voltage ranges
-        console.log('\nTop 5 Results:');
-        results.slice(0, 5).forEach((result, index) => {
-            console.log(`\nResult ${index + 1}:`);
-            console.log('- R1:', Array.isArray(result.r1) ? 
-                `${result.r1.type || 'series'} ${result.r1}` : 
-                [result.r1], 
-                `(${result.r1Value} Ω)`);
-            console.log('- R2:', Array.isArray(result.r2) ? 
-                `${result.r2.type || 'series'} ${result.r2}` : 
-                [result.r2], 
-                `(${result.r2Value} Ω)`);
-            console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
-            console.log('- Voltage Range:', result.voltageRange.min.toFixed(2), 'V to', result.voltageRange.max.toFixed(2), 'V');
-            console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
-            console.log('- Component Count:', result.componentCount);
-        });
+        // // Log top 5 results with voltage ranges
+        // console.log('\nTop 5 Results:');
+        // results.slice(0, 5).forEach((result, index) => {
+        //     console.log(`\nResult ${index + 1}:`);
+        //     console.log('- R1:', Array.isArray(result.r1) ? 
+        //         `${result.r1.type || 'series'} ${result.r1}` : 
+        //         [result.r1], 
+        //         `(${result.r1Value} Ω)`);
+        //     console.log('- R2:', Array.isArray(result.r2) ? 
+        //         `${result.r2.type || 'series'} ${result.r2}` : 
+        //         [result.r2], 
+        //         `(${result.r2Value} Ω)`);
+        //     console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
+        //     console.log('- Voltage Range:', result.voltageRange.min.toFixed(2), 'V to', result.voltageRange.max.toFixed(2), 'V');
+        //     console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
+        //     console.log('- Component Count:', result.componentCount);
+        // });
 
         return results.slice(0, 5);
     }
