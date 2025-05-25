@@ -532,7 +532,13 @@ function calculateAndDisplayResults() {
 
     output += `
         <div class="results-section">
-            <h3>Results</h3>
+            <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
+                ?
+                <span class="tooltip-text">
+                    'Error' indicates how far this divider is away from the target Vout<br><br>
+                    'Output Voltage Range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
+                </span>
+            </div></h3>
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
@@ -829,7 +835,13 @@ function toggleResistorValue(element) {
 
     output += `
         <div class="results-section">
-            <h3>Results</h3>
+            <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
+                ?
+                <span class="tooltip-text">
+                    'Error' indicates how far this divider is away from the target Vout<br><br>
+                    'Output Voltage Range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
+                </span>
+            </div></h3>
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
