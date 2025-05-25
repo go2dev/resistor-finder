@@ -288,7 +288,7 @@ class Diagram {
                 currY += 50;
             }
             return { start: [x, y], end: [x, y + (section.values.length - 1) * 50 + 35] };
-        } else if (section.type === 'paralell') {
+        } else if (section.type === 'parallel') {
             // Stack horizontally between two nodes
             const n = section.values.length;
             const startY = y;

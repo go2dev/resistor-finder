@@ -551,10 +551,12 @@ function calculateAndDisplayResults() {
         // Helper to convert r1/r2 array to string for renderCustom
         function sectionToString(section) {
             if (Array.isArray(section)) {
+                // Use the .type property if present, otherwise default to 'series'
                 const type = section.type || 'series';
-                return section.map(v => Math.round(v)).join(',') + ',' + type;
+                return section.map(v => v).join(',') + ',' + type;
             } else {
-                return Math.round(section) + ',series';
+                // Single resistor, treat as series
+                return section + ',series';
             }
         }
         const topSection = sectionToString(result.r1);
@@ -838,10 +840,12 @@ function toggleResistorValue(element) {
         // Helper to convert r1/r2 array to string for renderCustom
         function sectionToString(section) {
             if (Array.isArray(section)) {
+                // Use the .type property if present, otherwise default to 'series'
                 const type = section.type || 'series';
-                return section.map(v => Math.round(v)).join(',') + ',' + type;
+                return section.map(v => v).join(',') + ',' + type;
             } else {
-                return Math.round(section) + ',series';
+                // Single resistor, treat as series
+                return section + ',series';
             }
         }
         const topSection = sectionToString(result.r1);

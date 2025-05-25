@@ -36,7 +36,7 @@
         // Test values
         const values = ["100", "200", "300"];
         const series = (n) => values.slice(0, n).join(",") + ",series";
-        const parallel = (n) => values.slice(0, n).join(",") + ",paralell";
+        const parallel = (n) => values.slice(0, n).join(",") + ",parallel";
         const configs = [
             [series(1), "1 series"],
             [series(2), "2 series"],
