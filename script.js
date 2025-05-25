@@ -546,9 +546,21 @@ function calculateAndDisplayResults() {
     resultsContainer.innerHTML = output;
 
     // Initialize diagrams for each result
-    document.querySelectorAll('.result-diagram').forEach((diagramContainer) => {
+    document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
+        const result = results[idx];
+        // Helper to convert r1/r2 array to string for renderCustom
+        function sectionToString(section) {
+            if (Array.isArray(section)) {
+                const type = section.type || 'series';
+                return section.map(v => Math.round(v)).join(',') + ',' + type;
+            } else {
+                return Math.round(section) + ',series';
+            }
+        }
+        const topSection = sectionToString(result.r1);
+        const bottomSection = sectionToString(result.r2);
         const diagram = new Diagram(diagramContainer.id, 300, 300);
-        diagram.renderCustom('100,200,series', '330,470,680,paralell');
+        diagram.renderCustom(topSection, bottomSection);
     });
 
     // Add event listener for the slider after it's added to the DOM
@@ -821,11 +833,20 @@ function toggleResistorValue(element) {
     resultsContainer.innerHTML = output;
 
     // Initialize diagrams for each result
-    document.querySelectorAll('.result-diagram').forEach((diagramContainer) => {
-        const diagram = new Diagram(diagramContainer.id, 300, 200);
-        // Use static values for testing
-        const topSection = "10k";
-        const bottomSection = "4k7";
+    document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
+        const result = results[idx];
+        // Helper to convert r1/r2 array to string for renderCustom
+        function sectionToString(section) {
+            if (Array.isArray(section)) {
+                const type = section.type || 'series';
+                return section.map(v => Math.round(v)).join(',') + ',' + type;
+            } else {
+                return Math.round(section) + ',series';
+            }
+        }
+        const topSection = sectionToString(result.r1);
+        const bottomSection = sectionToString(result.r2);
+        const diagram = new Diagram(diagramContainer.id, 300, 300);
         diagram.renderCustom(topSection, bottomSection);
     });
 
