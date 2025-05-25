@@ -274,6 +274,7 @@ class ResistorCalculator {
             console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
             console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
             console.log('- Component Count:', result.componentCount);
+            console.log(result);
         });
 
         // Log all valid combinations if there aren't too many
