@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schematic Components Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        .test-case {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+        .test-label {
+            font-size: 13px;
+            margin-bottom: 5px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Schematic Schematic Test Cases</h1>
+    <div class="test-grid" id="test-grid"></div>
+    <script src="schematic.js"></script>
+    <script>
+        // Test values
+        const values = ["100", "200", "300"];
+        const series = (n) => values.slice(0, n).join(",") + ",series";
+        const parallel = (n) => values.slice(0, n).join(",") + ",parallel";
+        const configs = [
+            [series(1), "1 series"],
+            [series(2), "2 series"],
+            [series(3), "3 series"],
+            [parallel(1), "1 parallel"],
+            [parallel(2), "2 parallel"],
+            [parallel(3), "3 parallel"]
+        ];
+        const grid = document.getElementById('test-grid');
+        let testNum = 1;
+        for (let topIdx = 0; topIdx < configs.length; ++topIdx) {
+            for (let botIdx = 0; botIdx < configs.length; ++botIdx) {
+                const topConf = configs[topIdx];
+                const botConf = configs[botIdx];
+                const div = document.createElement('div');
+                div.className = 'test-case';
+                const label = document.createElement('div');
+                label.className = 'test-label';
+                label.textContent = `Test ${testNum}: Top = ${topConf[1]}, Bottom = ${botConf[1]}`;
+                div.appendChild(label);
+                const container = document.createElement('div');
+                container.style.width = '320px';
+                container.style.height = '420px';
+                const containerId = `test-diagram-${testNum}`;
+                container.id = containerId;
+                div.appendChild(container);
+                grid.appendChild(div);
+                const diagram = new Diagram(containerId);
+                diagram.renderCustom(topConf[0], botConf[0]);
+                testNum++;
+            }
+        }
+    </script>
+</body>
+</html> 
