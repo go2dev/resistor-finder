@@ -493,7 +493,7 @@ function calculateAndDisplayResults() {
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
                         </div>
-                        <div class="result-diagram"></div>
+                        <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
                 `).join('')}
             </div>
@@ -544,6 +544,12 @@ function calculateAndDisplayResults() {
     }
 
     resultsContainer.innerHTML = output;
+
+    // Initialize diagrams for each result
+    document.querySelectorAll('.result-diagram').forEach((diagramContainer) => {
+        const diagram = new Diagram(diagramContainer.id, 300, 200);
+        diagram.renderCustom('100,200,series', '330,470,680,paralell');
+    });
 
     // Add event listener for the slider after it's added to the DOM
     const slider = document.getElementById('supplyVoltageSlider');
@@ -762,7 +768,7 @@ function toggleResistorValue(element) {
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
                         </div>
-                        <div class="result-diagram"></div>
+                        <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
                 `).join('')}
             </div>
@@ -813,6 +819,15 @@ function toggleResistorValue(element) {
     }
 
     resultsContainer.innerHTML = output;
+
+    // Initialize diagrams for each result
+    document.querySelectorAll('.result-diagram').forEach((diagramContainer) => {
+        const diagram = new Diagram(diagramContainer.id, 300, 200);
+        // Use static values for testing
+        const topSection = "10k";
+        const bottomSection = "4k7";
+        diagram.renderCustom(topSection, bottomSection);
+    });
 
     // Add event listener for the slider after it's added to the DOM
     const slider = document.getElementById('supplyVoltageSlider');

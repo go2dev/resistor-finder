@@ -301,8 +301,16 @@ button:hover {
 .result-diagram {
     width: 200px;
     flex-shrink: 0;
-    background-color: #3498db;
+    background-color: #f0f0f0;
     border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.result-diagram svg {
+    width: 100%;
+    height: 100%;
 }
 
 .result-item:last-child {
