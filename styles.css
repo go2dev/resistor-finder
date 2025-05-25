@@ -299,18 +299,20 @@ button:hover {
 }
 
 .result-diagram {
-    width: 200px;
-    flex-shrink: 0;
+    width: 220px;
+    height: 440px;
     background-color: #f0f0f0;
     border-radius: 4px;
-    padding: 10px;
     display: flex;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 
 .result-diagram svg {
     width: 100%;
     height: 100%;
+    display: block;
 }
 
 .result-item:last-child {

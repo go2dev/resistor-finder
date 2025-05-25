@@ -547,7 +547,7 @@ function calculateAndDisplayResults() {
 
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer) => {
-        const diagram = new Diagram(diagramContainer.id, 300, 200);
+        const diagram = new Diagram(diagramContainer.id, 300, 300);
         diagram.renderCustom('100,200,series', '330,470,680,paralell');
     });
 
