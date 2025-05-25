@@ -536,13 +536,14 @@ function calculateAndDisplayResults() {
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <div class="result-content">
+                       <div class="result-content">
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                             <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                            <p><strong>Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
+                            <br>
+                            <p><strong>Output Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                         </div>
                         <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
@@ -836,9 +837,10 @@ function toggleResistorValue(element) {
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                             <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                            <p><strong>Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
+                            <br>
+                            <p><strong>Output Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                         </div>
                         <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
