@@ -32,7 +32,13 @@ R1: 1k + 2k2 (3k2)
 R2: 4k7 (4k7)
 Output Voltage: 5.12 V
 Error: 0.12 V
+Components: 4
+Output Voltage Range: 3.30V to 3.45V
 ```
+
+- The error value indicates how far from the target Vout an idealised divider would in volts. Positive numbers overshoot and negative numbers are under the target.   
+
+- The output voltage range shows the possible range where the Vout might be accounting for the real life tolerances of components. Tolerances are determined by the E series for a given value and the calculator determines the range by trying the permutations of upper and lower bounds for a given value for each resistor in the network. 
 
 ## Resistor Value Notation
 
