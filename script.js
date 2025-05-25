@@ -181,6 +181,45 @@ class ResistorCalculator {
         return r1Count + r2Count;
     }
 
+    // Calculate bounds for a resistor value based on its series
+    calculateResistorBounds(value, series) {
+        const tolerance = series ? resistorTolerances[series] : 0;
+        const multiplier = tolerance / 100;
+        return {
+            lower: value * (1 - multiplier),
+            upper: value * (1 + multiplier)
+        };
+    }
+
+    // Calculate voltage range for a voltage divider considering tolerances
+    calculateVoltageRange(r1, r2, supplyVoltage) {
+        // Get series for each resistor
+        const r1Series = normalizeAndCheckSeries(r1);
+        const r2Series = normalizeAndCheckSeries(r2);
+
+        // Calculate bounds for each resistor
+        const r1Bounds = this.calculateResistorBounds(r1, r1Series);
+        const r2Bounds = this.calculateResistorBounds(r2, r2Series);
+
+        // Calculate all possible combinations
+        const combinations = [
+            { r1: r1Bounds.lower, r2: r2Bounds.lower },
+            { r1: r1Bounds.lower, r2: r2Bounds.upper },
+            { r1: r1Bounds.upper, r2: r2Bounds.lower },
+            { r1: r1Bounds.upper, r2: r2Bounds.upper }
+        ];
+
+        // Calculate voltages for all combinations
+        const voltages = combinations.map(combo => 
+            this.calculateOutputVoltage(combo.r1, combo.r2, supplyVoltage)
+        );
+
+        return {
+            min: Math.min(...voltages),
+            max: Math.max(...voltages)
+        };
+    }
+
     // Find voltage divider combinations
     findVoltageDividerCombinations() {
         const combinations = this.generateCombinations(this.resistorValues);
@@ -193,6 +232,14 @@ class ResistorCalculator {
             exact: 0
         };
 
+        // // Log initial state
+        // console.log('=== Voltage Divider Calculation Details ===');
+        // console.log('Input Parameters:');
+        // console.log('- Supply Voltage:', this.supplyVoltage, 'V');
+        // console.log('- Target Voltage:', this.targetVoltage, 'V');
+        // console.log('- Allow Overshoot:', this.allowOvershoot);
+        // console.log('- Available Resistors:', this.resistorValues);
+        // console.log('- Total Possible Combinations:', this.calculationStats.totalCombinations);
 
         // Store all valid combinations for debugging
         const allValidCombinations = [];
@@ -218,6 +265,9 @@ class ResistorCalculator {
                         this.calculationStats.voltageStats.below++;
                     }
                     
+                    // Calculate voltage range considering tolerances
+                    const voltageRange = this.calculateVoltageRange(r1Value, r2Value, this.supplyVoltage);
+                    
                     const result = {
                         r1: r1,
                         r2: r2,
@@ -225,7 +275,8 @@ class ResistorCalculator {
                         r2Value: r2Value,
                         outputVoltage: outputVoltage,
                         error: error,
-                        componentCount: this.getComponentCount({ r1, r2 })
+                        componentCount: this.getComponentCount({ r1, r2 }),
+                        voltageRange: voltageRange
                     };
                     
                     results.push(result);
@@ -251,38 +302,31 @@ class ResistorCalculator {
             results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
         }
 
-        // // Log calculation statistics
-        // console.log('\nCalculation Statistics:');
-        // console.log('- Valid Combinations:', this.calculationStats.validCombinations);
-        // console.log('- Voltage Distribution:');
-        // console.log('  * Above target:', this.calculationStats.voltageStats.above);
-        // console.log('  * Below target:', this.calculationStats.voltageStats.below);
-        // console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
+        // Log calculation statistics
+        console.log('\nCalculation Statistics:');
+        console.log('- Valid Combinations:', this.calculationStats.validCombinations);
+        console.log('- Voltage Distribution:');
+        console.log('  * Above target:', this.calculationStats.voltageStats.above);
+        console.log('  * Below target:', this.calculationStats.voltageStats.below);
+        console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
 
-        // // Log top 5 results
-        // console.log('\nTop 5 Results:');
-        // results.slice(0, 5).forEach((result, index) => {
-        //     console.log(`\nResult ${index + 1}:`);
-        //     console.log('- R1:', Array.isArray(result.r1) ? 
-        //         `${result.r1.type || 'series'} ${result.r1}` : 
-        //         [result.r1], 
-        //         `(${result.r1Value} Ω)`);
-        //     console.log('- R2:', Array.isArray(result.r2) ? 
-        //         `${result.r2.type || 'series'} ${result.r2}` : 
-        //         [result.r2], 
-        //         `(${result.r2Value} Ω)`);
-        //     console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
-        //     console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
-        //     console.log('- Component Count:', result.componentCount);
-        //     console.log(result);
-        // });
-
-        // Log all valid combinations if there aren't too many
-        // if (allValidCombinations.length <= 100) {
-        //     console.log('\nAll Valid Combinations:', allValidCombinations);
-        // } else {
-        //     console.log('\nNote: Too many valid combinations to display all (', allValidCombinations.length, 'total)');
-        // }
+        // Log top 5 results with voltage ranges
+        console.log('\nTop 5 Results:');
+        results.slice(0, 5).forEach((result, index) => {
+            console.log(`\nResult ${index + 1}:`);
+            console.log('- R1:', Array.isArray(result.r1) ? 
+                `${result.r1.type || 'series'} ${result.r1}` : 
+                [result.r1], 
+                `(${result.r1Value} Ω)`);
+            console.log('- R2:', Array.isArray(result.r2) ? 
+                `${result.r2.type || 'series'} ${result.r2}` : 
+                [result.r2], 
+                `(${result.r2Value} Ω)`);
+            console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
+            console.log('- Voltage Range:', result.voltageRange.min.toFixed(2), 'V to', result.voltageRange.max.toFixed(2), 'V');
+            console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
+            console.log('- Component Count:', result.componentCount);
+        });
 
         return results.slice(0, 5);
     }
@@ -496,6 +540,7 @@ function calculateAndDisplayResults() {
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                             <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                            <p><strong>Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
                         </div>
@@ -791,6 +836,7 @@ function toggleResistorValue(element) {
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                             <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                            <p><strong>Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
                         </div>
