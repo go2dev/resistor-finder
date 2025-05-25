@@ -300,7 +300,7 @@ button:hover {
 
 .result-diagram {
     width: 220px;
-    height: 440px;
+    height: 300px;
     background-color: #f0f0f0;
     border-radius: 4px;
     display: flex;
