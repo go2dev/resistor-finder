@@ -110,21 +110,48 @@
                     </div>
                 </div>
             </div>
+
+            <div class="parsed-values">
+                <h3>Available resistors</h3>
+                <div class="help-tooltip">
+                    ?
+                    <span class="tooltip-text">
+                        Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
+                    </span>
+                </div>
+                <div class="parsed-values-grid">
+                    ${calculator.calculationStats.inputConversions.map((conv, index) => `
+                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 
+                             data-value="${conv.value}" 
+                             data-input="${conv.input}"
+                             data-series="${conv.series || ''}"
+                             data-index="${index}" 
+                             onclick="toggleResistorValue(this)">
+                            <span class="formatted">${conv.formatted}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="voltage-slider-section">
+                    <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
+                    <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+                </div>
+                <div class="resistance-range-filter" style="display: none;">
+                    <label>Filter by Total Resistance:</label>
+                    <div class="range-slider-container">
+                        <input type="range" id="minResistance" class="range-slider" min="0" max="1000000" value="0">
+                        <input type="range" id="maxResistance" class="range-slider" min="0" max="1000000" value="1000000">
+                        <div class="range-values">
+                            <span id="minResistanceValue">0 Ω</span>
+                            <span id="maxResistanceValue">1M Ω</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="results-section">
             <h2>Results</h2>
-            <div class="resistance-range-filter">
-                <label>Filter by Total Resistance:</label>
-                <div class="range-slider-container">
-                    <input type="range" id="minResistance" class="range-slider" min="0" max="1000000" value="0">
-                    <input type="range" id="maxResistance" class="range-slider" min="0" max="1000000" value="1000000">
-                    <div class="range-values">
-                        <span id="minResistanceValue">0 Ω</span>
-                        <span id="maxResistanceValue">1M Ω</span>
-                    </div>
-                </div>
-            </div>
             <div id="results" class="results-container"></div>
         </div>
     </div>

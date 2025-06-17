@@ -471,6 +471,27 @@ function calculateAndDisplayResults() {
     calculator.resistorValues = validResistors;
     const results = calculator.findVoltageDividerCombinations();
 
+    // Add or update the resistance range filter
+    let resistanceRangeFilter = document.querySelector('.resistance-range-filter');
+    if (!resistanceRangeFilter) {
+        const voltageSliderSection = document.querySelector('.voltage-slider-section');
+        resistanceRangeFilter = document.createElement('div');
+        resistanceRangeFilter.className = 'resistance-range-filter';
+        resistanceRangeFilter.innerHTML = `
+            <label>Filter by Total Resistance:</label>
+            <div class="range-slider-container">
+                <input type="range" id="minResistance" class="range-slider" min="0" max="1000000" value="0">
+                <input type="range" id="maxResistance" class="range-slider" min="0" max="1000000" value="1000000">
+                <div class="range-values">
+                    <span id="minResistanceValue">0 Ω</span>
+                    <span id="maxResistanceValue">1M Ω</span>
+                </div>
+            </div>
+        `;
+        voltageSliderSection.after(resistanceRangeFilter);
+    }
+    resistanceRangeFilter.style.display = 'block';
+
     // Update range slider min/max values based on results
     const minResistance = Math.min(...results.map(r => r.totalResistance));
     const maxResistance = Math.max(...results.map(r => r.totalResistance));
@@ -478,6 +499,7 @@ function calculateAndDisplayResults() {
     const minResistanceSlider = document.getElementById('minResistance');
     const maxResistanceSlider = document.getElementById('maxResistance');
     
+    // Set initial values
     minResistanceSlider.min = minResistance;
     minResistanceSlider.max = maxResistance;
     minResistanceSlider.value = minResistance;
@@ -507,26 +529,32 @@ function calculateAndDisplayResults() {
         displayResults(filteredResults, calculator);
     }
 
+    // Remove existing event listeners
+    const newMinSlider = minResistanceSlider.cloneNode(true);
+    const newMaxSlider = maxResistanceSlider.cloneNode(true);
+    minResistanceSlider.parentNode.replaceChild(newMinSlider, minResistanceSlider);
+    maxResistanceSlider.parentNode.replaceChild(newMaxSlider, maxResistanceSlider);
+
     // Add event listeners for the range sliders
-    minResistanceSlider.addEventListener('input', () => {
-        const minValue = parseFloat(minResistanceSlider.value);
-        const maxValue = parseFloat(maxResistanceSlider.value);
+    newMinSlider.addEventListener('input', () => {
+        const minValue = parseFloat(newMinSlider.value);
+        const maxValue = parseFloat(newMaxSlider.value);
         
         // Ensure min doesn't exceed max
         if (minValue > maxValue) {
-            minResistanceSlider.value = maxValue;
+            newMinSlider.value = maxValue;
         }
         
         filterResultsByResistance();
     });
 
-    maxResistanceSlider.addEventListener('input', () => {
-        const minValue = parseFloat(minResistanceSlider.value);
-        const maxValue = parseFloat(maxResistanceSlider.value);
+    newMaxSlider.addEventListener('input', () => {
+        const minValue = parseFloat(newMinSlider.value);
+        const maxValue = parseFloat(newMaxSlider.value);
         
         // Ensure max doesn't go below min
         if (maxValue < minValue) {
-            maxResistanceSlider.value = minValue;
+            newMaxSlider.value = minValue;
         }
         
         filterResultsByResistance();

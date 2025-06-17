@@ -857,7 +857,7 @@ ul ul, ol ol, ul ol, ol ul {
 
 /* Resistance Range Filter */
 .resistance-range-filter {
-    margin-bottom: 1rem;
+    margin-top: 1rem;
     padding: 1rem;
     background-color: var(--result-bg);
     border-radius: 5px;
@@ -875,17 +875,18 @@ ul ul, ol ol, ul ol, ol ul {
     position: relative;
     width: 100%;
     height: 40px;
+    padding: 0 8px;
 }
 
 .range-slider {
     position: absolute;
-    width: 100%;
+    width: calc(100% - 16px);
     height: 4px;
-    background: var(--input-border);
-    border-radius: 2px;
+    background: none;
     outline: none;
     pointer-events: none;
     -webkit-appearance: none;
+    margin: 0;
 }
 
 .range-slider::-webkit-slider-thumb {
@@ -897,6 +898,7 @@ ul ul, ol ol, ul ol, ol ul {
     cursor: pointer;
     pointer-events: auto;
     transition: background 0.2s;
+    margin-top: -6px;
 }
 
 .range-slider::-moz-range-thumb {
@@ -934,19 +936,36 @@ ul ul, ol ol, ul ol, ol ul {
     font-size: 0.9rem;
 }
 
-/* Ensure the min thumb doesn't go past the max thumb */
-#minResistance::-webkit-slider-thumb {
-    z-index: 3;
+/* Track styling */
+.range-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: var(--input-border);
+    border-radius: 2px;
 }
 
-#maxResistance::-webkit-slider-thumb {
-    z-index: 4;
+.range-slider::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: var(--input-border);
+    border-radius: 2px;
 }
 
-#minResistance::-moz-range-thumb {
-    z-index: 3;
+/* Active track styling */
+#minResistance::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--button-bg) 0%, var(--button-bg) 50%, var(--input-border) 50%, var(--input-border) 100%);
 }
 
-#maxResistance::-moz-range-thumb {
-    z-index: 4;
+#maxResistance::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--input-border) 0%, var(--input-border) 50%, var(--input-border) 50%, var(--input-border) 100%);
+}
+
+#minResistance::-moz-range-track {
+    background: linear-gradient(to right, var(--button-bg) 0%, var(--button-bg) 50%, var(--input-border) 50%, var(--input-border) 100%);
+}
+
+#maxResistance::-moz-range-track {
+    background: linear-gradient(to right, var(--input-border) 0%, var(--input-border) 50%, var(--input-border) 50%, var(--input-border) 100%);
 } 
