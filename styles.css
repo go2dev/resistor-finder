@@ -585,9 +585,9 @@ footer a:hover {
 
 .radio-group {
     display: flex;
-    flex-direction: row;
-    gap: 1rem;
-    margin-top: 0.25rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin-top: 0.05rem;
 }
 
 .radio-label {
@@ -597,6 +597,7 @@ footer a:hover {
     cursor: pointer;
     color: var(--text-color);
     white-space: nowrap;
+    padding: 0.1rem 0;
 }
 
 .radio-label input[type="radio"] {

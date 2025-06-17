@@ -276,7 +276,8 @@ class ResistorCalculator {
                         outputVoltage: outputVoltage,
                         error: error,
                         componentCount: this.getComponentCount({ r1, r2 }),
-                        voltageRange: voltageRange
+                        voltageRange: voltageRange,
+                        totalResistance: r1Value + r2Value
                     };
                     
                     results.push(result);
@@ -297,8 +298,14 @@ class ResistorCalculator {
                 }
                 return Math.abs(a.error) - Math.abs(b.error);
             });
+        } else if (sortBy === 'totalResistanceAsc') {
+            // Sort by total resistance ascending
+            results.sort((a, b) => a.totalResistance - b.totalResistance);
+        } else if (sortBy === 'totalResistanceDesc') {
+            // Sort by total resistance descending
+            results.sort((a, b) => b.totalResistance - a.totalResistance);
         } else {
-            // Sort by absolute error
+            // Sort by absolute error (default)
             results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
         }
 
@@ -536,7 +543,7 @@ function calculateAndDisplayResults() {
                 ?
                 <span class="tooltip-text">
                     'Error' indicates how far this divider is away from the target Vout<br><br>
-                    'Output Voltage Range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
+                    'Real world range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
                 </span>
             </div></h3>
             <div id="resultsList">
@@ -545,11 +552,12 @@ function calculateAndDisplayResults() {
                        <div class="result-content">
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                            <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
+                            <p><strong>Total Resistance:</strong> ${calculator.formatResistorValue(result.totalResistance)}</p>
+                            <p><strong>Nominal Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>
                             <br>
-                            <p><strong>Output Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
+                            <p><strong>Real World Range for Vout:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
                         </div>
                         <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
@@ -848,6 +856,7 @@ function toggleResistorValue(element) {
                         <div class="result-content">
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
+                            <p><strong>Total Resistance:</strong> ${calculator.formatResistorValue(result.totalResistance)}</p>
                             <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
                             <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
                             <p><strong>Components:</strong> ${result.componentCount}</p>

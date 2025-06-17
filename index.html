@@ -97,6 +97,14 @@
                                     <input type="radio" name="sortBy" value="components">
                                     <span>Lowest Component Count</span>
                                 </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="sortBy" value="totalResistanceAsc">
+                                    <span>Total Resistance ↑</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="sortBy" value="totalResistanceDesc">
+                                    <span>Total Resistance ↓</span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -106,13 +114,26 @@
 
         <div class="results-section">
             <h2>Results</h2>
+            <div class="resistance-range-filter">
+                <label>Filter by Total Resistance:</label>
+                <div class="range-slider-container">
+                    <input type="range" id="minResistance" class="range-slider" min="0" max="1000000" value="0">
+                    <input type="range" id="maxResistance" class="range-slider" min="0" max="1000000" value="1000000">
+                    <div class="range-values">
+                        <span id="minResistanceValue">0 Ω</span>
+                        <span id="maxResistanceValue">1M Ω</span>
+                    </div>
+                </div>
+            </div>
             <div id="results" class="results-container"></div>
         </div>
     </div>
     <footer>
-        Vibe coded by <a href="https://mynameis.dev" target="_blank">Dev</a> in 2025 | <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a>
+        A tool by <a href="https://mynameis.dev" target="_blank">Dev</a> for <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> | <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a>
         <br>
         <span class="disclaimer">Disclaimer: results are provided without warranty or verification. Use at your own risk!</span>
+        <br>
+        <span class="disclaimer">© 2025</span>
     </footer>
     <script src="script.js"></script>
     <script src="schematic.js"></script>
