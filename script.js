@@ -530,12 +530,30 @@ function calculateAndDisplayResults() {
                         </div>
                     `).join('')}
                 </div>
-                <div class="voltage-slider-section">
-                    <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
-                    <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
-                </div>
             </div>`;
     }
+
+    // Add voltage slider section
+    output += `
+        <div class="voltage-slider-section">
+            <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
+            <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+        </div>
+    `;
+
+    // Add resistance filter section
+    output += `
+        <div class="resistance-filter-section" style="display: none;">
+            <h3>Filter by Total Resistance</h3>
+            <div class="resistance-filter-container">
+                <div id="resistance-slider"></div>
+                <div class="resistance-filter-values">
+                    <span>Min: <span id="resistance-min">0</span></span>
+                    <span>Max: <span id="resistance-max">0</span></span>
+                </div>
+            </div>
+        </div>
+    `;
 
     output += `
         <div class="results-section">
