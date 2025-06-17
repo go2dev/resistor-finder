@@ -1,3 +1,3 @@
 - [ ] Layout improvements (portrait on mobile, diagram sizes)
 - [ ] Allow for specifying tolerance of a resistor during the input stage in brackets (which also sets its E number)
-- [ ] Add a target total resistance/sort by total resistance  
+- [ ] add ranges to the auto fill vales (m, R, K, 100k, M) 
