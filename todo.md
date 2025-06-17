@@ -1,4 +1,3 @@
 - [ ] Layout improvements (portrait on mobile, diagram sizes)
 - [ ] Allow for specifying tolerance of a resistor during the input stage in brackets (which also sets its E number)
-- [ ] Show total resistance between Vsupply and ground in the results
 - [ ] Add a target total resistance/sort by total resistance  

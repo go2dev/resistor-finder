@@ -471,38 +471,75 @@ function calculateAndDisplayResults() {
     calculator.resistorValues = validResistors;
     const results = calculator.findVoltageDividerCombinations();
 
-    // Display results with warnings if any
-    let output = '';
-    if (warnings.length > 0) {
-        output += `
-            <div class="warnings-section">
-                <h3>Warnings</h3>
-                <table class="warnings-table">
-                    <thead>
-                        <tr>
-                            <th>Input</th>
-                            <th>Value</th>
-                            <th>Issue</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${warnings.map(w => {
-                            const [input, issue] = w.split(' ignored: ');
-                            const value = input.split(' ').pop();
-                            const inputLabel = input.substring(0, input.lastIndexOf(' '));
-                            return `
-                                <tr>
-                                    <td>${inputLabel}</td>
-                                    <td>${value}</td>
-                                    <td>${issue}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>`;
+    // Update range slider min/max values based on results
+    const minResistance = Math.min(...results.map(r => r.totalResistance));
+    const maxResistance = Math.max(...results.map(r => r.totalResistance));
+    
+    const minResistanceSlider = document.getElementById('minResistance');
+    const maxResistanceSlider = document.getElementById('maxResistance');
+    
+    minResistanceSlider.min = minResistance;
+    minResistanceSlider.max = maxResistance;
+    minResistanceSlider.value = minResistance;
+    
+    maxResistanceSlider.min = minResistance;
+    maxResistanceSlider.max = maxResistance;
+    maxResistanceSlider.value = maxResistance;
+
+    // Update the displayed values
+    document.getElementById('minResistanceValue').textContent = calculator.formatResistorValue(minResistance);
+    document.getElementById('maxResistanceValue').textContent = calculator.formatResistorValue(maxResistance);
+
+    // Function to filter results based on resistance range
+    function filterResultsByResistance() {
+        const minValue = parseFloat(minResistanceSlider.value);
+        const maxValue = parseFloat(maxResistanceSlider.value);
+        
+        // Update displayed values
+        document.getElementById('minResistanceValue').textContent = calculator.formatResistorValue(minValue);
+        document.getElementById('maxResistanceValue').textContent = calculator.formatResistorValue(maxValue);
+        
+        // Filter and display results
+        const filteredResults = results.filter(r => 
+            r.totalResistance >= minValue && r.totalResistance <= maxValue
+        );
+        
+        displayResults(filteredResults, calculator);
     }
 
+    // Add event listeners for the range sliders
+    minResistanceSlider.addEventListener('input', () => {
+        const minValue = parseFloat(minResistanceSlider.value);
+        const maxValue = parseFloat(maxResistanceSlider.value);
+        
+        // Ensure min doesn't exceed max
+        if (minValue > maxValue) {
+            minResistanceSlider.value = maxValue;
+        }
+        
+        filterResultsByResistance();
+    });
+
+    maxResistanceSlider.addEventListener('input', () => {
+        const minValue = parseFloat(minResistanceSlider.value);
+        const maxValue = parseFloat(maxResistanceSlider.value);
+        
+        // Ensure max doesn't go below min
+        if (maxValue < minValue) {
+            maxResistanceSlider.value = minValue;
+        }
+        
+        filterResultsByResistance();
+    });
+
+    // Initial display of results
+    filterResultsByResistance();
+}
+
+// Function to display results (extracted from the original code)
+function displayResults(results, calculator) {
+    let output = '';
+    
     // Add parsed values display
     if (calculator.calculationStats.inputConversions.length > 0) {
         // Sort inputConversions by value in ascending order
@@ -549,7 +586,7 @@ function calculateAndDisplayResults() {
             <div id="resultsList">
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                       <div class="result-content">
+                        <div class="result-content">
                             <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
                             <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
                             <p><strong>Total Resistance:</strong> ${calculator.formatResistorValue(result.totalResistance)}</p>
