@@ -853,4 +853,38 @@ ul ul, ol ol, ul ol, ol ul {
 
 .parsed-value-box.series-none {
     background-color: #ff6666;
+}
+
+/* Resistance Filter Section */
+.resistance-filter-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: var(--result-bg);
+    border-radius: 5px;
+    border: 1px solid var(--input-border);
+}
+
+.resistance-filter-section h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-color);
+    font-size: 1.1rem;
+}
+
+.resistance-filter-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#resistance-slider {
+    height: 40px;
+    margin: 0 10px;
+}
+
+.resistance-filter-values {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-top: 0.5rem;
 } 

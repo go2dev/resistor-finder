@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voltage Divider Resistor Calculator</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="nuis/nouislider.css">
     <link
   rel="icon"
   href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
@@ -99,11 +100,11 @@
                                 </label>
                                 <label class="radio-label">
                                     <input type="radio" name="sortBy" value="totalResistanceAsc">
-                                    <span>Total Resistance ↑</span>
+                                    <span>Total Resistance ↑ (Ascending)</span>
                                 </label>
                                 <label class="radio-label">
                                     <input type="radio" name="sortBy" value="totalResistanceDesc">
-                                    <span>Total Resistance ↓</span>
+                                    <span>Total Resistance ↓ (Descending)</span>
                                 </label>
                             </div>
                         </div>
@@ -114,6 +115,16 @@
 
         <div class="results-section">
             <h2>Results</h2>
+            <div class="resistance-filter-section" style="display: none;">
+                <h3>Filter by Total Resistance</h3>
+                <div class="resistance-filter-container">
+                    <div id="resistance-slider"></div>
+                    <div class="resistance-filter-values">
+                        <span>Min: <span id="resistance-min">0</span></span>
+                        <span>Max: <span id="resistance-max">0</span></span>
+                    </div>
+                </div>
+            </div>
             <div id="results" class="results-container"></div>
         </div>
     </div>
@@ -126,5 +137,6 @@
     </footer>
     <script src="script.js"></script>
     <script src="schematic.js"></script>
+    <script src="nuis/nouislider.js"></script>
 </body>
 </html> 

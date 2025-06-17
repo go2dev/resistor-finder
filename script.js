@@ -650,6 +650,9 @@ function calculateAndDisplayResults() {
             });
         });
     }
+
+    // Initialize resistance filter slider
+    initializeResistanceFilter(results);
 }
 
 // Event Listeners
@@ -954,6 +957,9 @@ function toggleResistorValue(element) {
             });
         });
     }
+
+    // Initialize resistance filter slider
+    initializeResistanceFilter(results);
 }
 
 // Test function for resistor value parsing
@@ -1056,4 +1062,63 @@ document.getElementById('autofillBtn').addEventListener('click', () => {
     
     // Trigger the calculation
     calculateAndDisplayResults();
-}); 
+});
+
+// Initialize resistance filter slider
+function initializeResistanceFilter(results) {
+    if (results.length === 0) return;
+    
+    // Find min and max total resistance values
+    const resistanceValues = results.map(result => result.totalResistance);
+    const minResistance = Math.min(...resistanceValues);
+    const maxResistance = Math.max(...resistanceValues);
+    
+    // Show the filter section
+    const filterSection = document.querySelector('.resistance-filter-section');
+    filterSection.style.display = 'block';
+    
+    // Get the slider element
+    const slider = document.getElementById('resistance-slider');
+    
+    // Destroy existing slider if it exists
+    if (slider.noUiSlider) {
+        slider.noUiSlider.destroy();
+    }
+    
+    // Create the range slider
+    noUiSlider.create(slider, {
+        start: [minResistance, maxResistance],
+        connect: true,
+        range: {
+            'min': minResistance,
+            'max': maxResistance
+        },
+        step: 1,
+        format: {
+            to: function (value) {
+                return Math.round(value);
+            },
+            from: function (value) {
+                return Number(value);
+            }
+        }
+    });
+    
+    // Update the display values
+    const calculator = new ResistorCalculator();
+    document.getElementById('resistance-min').textContent = calculator.formatResistorValue(minResistance);
+    document.getElementById('resistance-max').textContent = calculator.formatResistorValue(maxResistance);
+    
+    // Add event listener for slider changes
+    slider.noUiSlider.on('update', function (values, handle) {
+        const minVal = parseInt(values[0]);
+        const maxVal = parseInt(values[1]);
+        
+        // Update display values
+        document.getElementById('resistance-min').textContent = calculator.formatResistorValue(minVal);
+        document.getElementById('resistance-max').textContent = calculator.formatResistorValue(maxVal);
+        
+        // TODO: Filter results based on resistance range
+        console.log('Resistance filter range:', minVal, 'to', maxVal);
+    });
+} 
