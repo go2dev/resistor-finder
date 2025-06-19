@@ -553,14 +553,38 @@ function calculateAndDisplayResults() {
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
                        <div class="result-content">
-                            <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                            <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                            <p><strong>Total Resistance:</strong> ${calculator.formatResistorValue(result.totalResistance)}</p>
-                            <p><strong>Nominal Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                            <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                            <p><strong>Components:</strong> ${result.componentCount}</p>
-                            <br>
-                            <p><strong>Real World Range for Vout:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
+                            <table class="result-table">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>R1:</strong></td>
+                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>R2:</strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Resistance:</strong></td>
+                                        <td>${calculator.formatResistorValue(result.totalResistance)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Nominal Output Voltage:</strong></td>
+                                        <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Error:</strong></td>
+                                        <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Components:</strong></td>
+                                        <td>${result.componentCount}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Real World Range for Vout:</strong></td>
+                                        <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                         <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
@@ -857,14 +881,38 @@ function toggleResistorValue(element) {
                 ${results.map(result => `
                     <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
                         <div class="result-content">
-                            <p><strong>R1:</strong> ${calculator.formatResistorArray(result.r1)} (${calculator.formatResistorValue(result.r1Value)})</p>
-                            <p><strong>R2:</strong> ${calculator.formatResistorArray(result.r2)} (${calculator.formatResistorValue(result.r2Value)})</p>
-                            <p><strong>Total Resistance:</strong> ${calculator.formatResistorValue(result.totalResistance)}</p>
-                            <p><strong>Output Voltage:</strong> <span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</p>
-                            <p><strong>Error:</strong> <span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</p>
-                            <p><strong>Components:</strong> ${result.componentCount}</p>
-                            <br>
-                            <p><strong>Output Voltage Range:</strong> <span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></p>
+                            <table class="result-table">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>R1:</strong></td>
+                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>R2:</strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Resistance:</strong></td>
+                                        <td>${calculator.formatResistorValue(result.totalResistance)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Output Voltage:</strong></td>
+                                        <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Error:</strong></td>
+                                        <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Components:</strong></td>
+                                        <td>${result.componentCount}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Output Voltage Range:</strong></td>
+                                        <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                         <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
                     </div>
