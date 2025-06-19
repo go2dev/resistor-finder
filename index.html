@@ -42,7 +42,21 @@
                 <div class="input-group">
                     <label for="resistorValues">Resistor Values (Ω):</label>
                     <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
-                    <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
+                    <div class="autofill-controls">
+                        <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
+                        <span class="autofill-label">Select range:</span>
+                        <select id="autofillRange" class="autofill-range-select">
+                            <option value="1">Ω</option>
+                            <option value="10">10Ω</option>
+                            <option value="100" selected>100Ω</option>
+                            <option value="1000">KΩ</option>
+                            <option value="10000">10KΩ</option>
+                            <option value="100000">100KΩ</option>
+                            <option value="1000000">MΩ</option>
+                            <option value="10000000">10MΩ</option>
+                            <option value="100000000">100MΩ</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="input-group">

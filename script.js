@@ -545,46 +545,46 @@ function calculateAndDisplayResults() {
     output += renderResults(displayResults, calculator);
 
     // Add calculation details if enabled
-    output += `
-        <div class="details-section">
-            <h3>Calculation Details</h3>
-            <div class="details-content">
-                <div class="input-conversions">
-                    <h4>Input Value Conversions</h4>
-                    <table class="details-table">
-                        <thead>
-                            <tr>
-                                <th>Input</th>
-                                <th>Value (Ω)</th>
-                                <th>Formatted</th>
-                                <th>Series</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${calculator.calculationStats.inputConversions.map(conv => `
+        output += `
+            <div class="details-section">
+                <h3>Calculation Details</h3>
+                <div class="details-content">
+                    <div class="input-conversions">
+                        <h4>Input Value Conversions</h4>
+                        <table class="details-table">
+                            <thead>
                                 <tr>
-                                    <td>${conv.input}</td>
-                                    <td>${conv.value}</td>
-                                    <td>${conv.formatted}</td>
-                                    <td>${conv.series || 'None'}</td>
+                                    <th>Input</th>
+                                    <th>Value (Ω)</th>
+                                    <th>Formatted</th>
+                                    <th>Series</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="combination-stats">
-                    <h4>Combination Statistics</h4>
-                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                    <div class="voltage-stats">
-                        <h4>Voltage Distribution</h4>
-                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                            </thead>
+                            <tbody>
+                                ${calculator.calculationStats.inputConversions.map(conv => `
+                                    <tr>
+                                        <td>${conv.input}</td>
+                                        <td>${conv.value}</td>
+                                        <td>${conv.formatted}</td>
+                                        <td>${conv.series || 'None'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="combination-stats">
+                        <h4>Combination Statistics</h4>
+                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                        <div class="voltage-stats">
+                            <h4>Voltage Distribution</h4>
+                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>`;
+            </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -823,46 +823,46 @@ function toggleResistorValue(element) {
     output += renderResults(displayResults, calculator);
 
     // Add calculation details if enabled
-    output += `
-        <div class="details-section">
-            <h3>Calculation Details</h3>
-            <div class="details-content">
-                <div class="input-conversions">
-                    <h4>Input Value Conversions</h4>
-                    <table class="details-table">
-                        <thead>
-                            <tr>
-                                <th>Input</th>
-                                <th>Value (Ω)</th>
-                                <th>Formatted</th>
-                                <th>Series</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${originalConversions.map(conv => `
+        output += `
+            <div class="details-section">
+                <h3>Calculation Details</h3>
+                <div class="details-content">
+                    <div class="input-conversions">
+                        <h4>Input Value Conversions</h4>
+                        <table class="details-table">
+                            <thead>
                                 <tr>
-                                    <td>${conv.input}</td>
-                                    <td>${conv.value}</td>
-                                    <td>${conv.formatted}</td>
-                                    <td>${conv.series || 'None'}</td>
+                                    <th>Input</th>
+                                    <th>Value (Ω)</th>
+                                    <th>Formatted</th>
+                                    <th>Series</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="combination-stats">
-                    <h4>Combination Statistics</h4>
-                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                    <div class="voltage-stats">
-                        <h4>Voltage Distribution</h4>
-                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                            </thead>
+                            <tbody>
+                                ${originalConversions.map(conv => `
+                                    <tr>
+                                        <td>${conv.input}</td>
+                                        <td>${conv.value}</td>
+                                        <td>${conv.formatted}</td>
+                                        <td>${conv.series || 'None'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="combination-stats">
+                        <h4>Combination Statistics</h4>
+                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                        <div class="voltage-stats">
+                            <h4>Voltage Distribution</h4>
+                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>`;
+            </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -993,16 +993,78 @@ function normalizeAndCheckSeries(value) {
     return null;
 }
 
+// Function to format resistance value in "1k2" style notation
+function formatResistorValueAutofill(value) {
+    if (value < 0.001) {
+        // Sub-milliohm values - use scientific notation or very small decimals
+        return `${(value * 1000000).toFixed(0)}µΩ`;
+    } else if (value < 1) {
+        // Milliohm values
+        const mValue = value * 1000;
+        if (mValue >= 100) {
+            return `${Math.round(mValue)}m`;
+        } else if (mValue >= 10) {
+            const integer = Math.floor(mValue / 10);
+            const decimal = Math.round(mValue % 10);
+            return decimal === 0 ? `${integer * 10}m` : `${integer}m${decimal}`;
+        } else {
+            const integer = Math.floor(mValue);
+            const decimal = Math.round((mValue - integer) * 10);
+            return decimal === 0 ? `${integer}m` : `${integer}m${decimal}`;
+        }
+    } else if (value < 1000) {
+        // Ohm values
+        if (value >= 100) {
+            return `${Math.round(value)}`;
+        } else if (value >= 10) {
+            const integer = Math.floor(value / 10);
+            const decimal = Math.round(value % 10);
+            return decimal === 0 ? `${integer * 10}` : `${integer}R${decimal}`;
+        } else {
+            const integer = Math.floor(value);
+            const decimal = Math.round((value - integer) * 10);
+            return decimal === 0 ? `${integer}R` : `${integer}R${decimal}`;
+        }
+    } else if (value < 1000000) {
+        // Kiloohm values
+        const kValue = value / 1000;
+        if (kValue >= 100) {
+            return `${Math.round(kValue)}k`;
+        } else if (kValue >= 10) {
+            const integer = Math.floor(kValue / 10);
+            const decimal = Math.round(kValue % 10);
+            return decimal === 0 ? `${integer * 10}k` : `${integer}k${decimal}`;
+        } else {
+            const integer = Math.floor(kValue);
+            const decimal = Math.round((kValue - integer) * 10);
+            return decimal === 0 ? `${integer}k` : `${integer}k${decimal}`;
+        }
+    } else {
+        // Megaohm values
+        const mValue = value / 1000000;
+        if (mValue >= 100) {
+            return `${Math.round(mValue)}M`;
+        } else if (mValue >= 10) {
+            const integer = Math.floor(mValue / 10);
+            const decimal = Math.round(mValue % 10);
+            return decimal === 0 ? `${integer * 10}M` : `${integer}M${decimal}`;
+        } else {
+            const integer = Math.floor(mValue);
+            const decimal = Math.round((mValue - integer) * 10);
+            return decimal === 0 ? `${integer}M` : `${integer}M${decimal}`;
+        }
+    }
+}
+
 // Add event listener for the autofill button
 document.getElementById('autofillBtn').addEventListener('click', () => {
-    // Get the E24 values, multiply by 100, round, and format them with appropriate units
+    // Get the multiplier from the dropdown
+    const multiplier = parseFloat(document.getElementById('autofillRange').value);
+    
+    // Get the E24 values, multiply by the selected multiplier, and format them
     const e24Values = resistorSeries.E24.map(value => {
-        const scaledValue = Math.round(value * 100);
-        if (scaledValue >= 1000) {
-            return `${(scaledValue/1000).toFixed(1)}k`;
-        } else {
-            return `${scaledValue}`;
-        }
+        const scaledValue = value * multiplier;
+        return formatResistorValueAutofill(scaledValue);
     });
     
     // Join the values with commas and update the input
@@ -1032,7 +1094,7 @@ function initializeResistanceFilter(results) {
     // Show the filter section
     const filterSection = document.querySelector('.resistance-filter-section');
     if (filterSection) {
-        filterSection.style.display = 'block';
+    filterSection.style.display = 'block';
     }
     
     // Get the slider element

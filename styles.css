@@ -227,8 +227,7 @@ h1 {
 }
 
 .input-group .autofill-btn {
-    display: block;
-    width: 100%;
+    width: 48%;
     margin-top: 0.5rem;
     padding: 0.5rem;
     background-color: var(--button-bg);
@@ -242,6 +241,39 @@ h1 {
 
 .input-group .autofill-btn:hover {
     background-color: var(--button-hover);
+}
+
+.autofill-controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+.autofill-label {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+.autofill-range-select {
+    width: 48%;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.autofill-range-select:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 label {
