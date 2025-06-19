@@ -19,7 +19,7 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 The calculator will show you the best combinations of resistors that will give you the closest voltage to your target.
 
 
-## Example
+### Example
 
 **Input:**   
 Resistor Values: `100,220,470,1000,2200,4700`   
@@ -39,6 +39,14 @@ Output Voltage Range: 3.30V to 3.45V
 - The error value indicates how far from the target Vout an idealised divider would in volts. Positive numbers overshoot and negative numbers are under the target.   
 
 - The output voltage range shows the possible range where the Vout might be accounting for the real life tolerances of components. Tolerances are determined by the E series for a given value and the calculator determines the range by trying the permutations of upper and lower bounds for a given value for each resistor in the network. 
+
+### Sorting results
+
+The options panel allows for precise filtering and sorting of the results. As there are often many results, the tool only shows the top 5 based on the filter and sort options.
+
+- Sort by radio buttons change the criteria by which the results are shown
+- The total resistance slider can be moved from either end to only show results within a certain range, useful if you are looking for a target total resistance to match the impedance of a DAC or have overall power draw requirements in a battery powered application. 
+  - Grab the handles to adjust the range and drag the body to the slider to shift the range
 
 ## Resistor Value Notation
 

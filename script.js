@@ -1071,6 +1071,7 @@ function initializeResistanceFilter(results) {
     // Create the range slider
     noUiSlider.create(slider, {
         start: [currentMin, currentMax],
+        behaviour: 'drag-smooth-steps-tap',
         connect: true,
         range: {
             'min': minResistance,
