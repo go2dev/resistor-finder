@@ -78,15 +78,6 @@
                         </div>
                     </div>
                     <div class="option-group">
-                        <div class="theme-switch-wrapper">
-                            <label class="theme-switch" for="showDetails">
-                                <input type="checkbox" id="showDetails" checked />
-                                <div class="slider round"></div>
-                            </label>
-                            <span class="theme-label">Show Calculation Details</span>
-                        </div>
-                    </div>
-                    <div class="option-group">
                         <div class="sort-options">
                             <span class="theme-label">Sort Results By:</span>
                             <div class="radio-group">
@@ -106,6 +97,16 @@
                                     <input type="radio" name="sortBy" value="totalResistanceDesc">
                                     <span>Total Resistance ↓ (Descending)</span>
                                 </label>
+                            </div>
+                            <div class="resistance-filter-section" style="display: none;">
+                                <span class="theme-label">Filter Total Resistance:</span>
+                                <div class="resistance-filter-container">
+                                    <div id="resistance-slider"></div>
+                                    <div class="resistance-filter-values">
+                                        <span>Min: <span id="resistance-min">0</span></span>
+                                        <span>Max: <span id="resistance-max">0</span></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -373,7 +373,6 @@ const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
-const showDetailsSwitch = document.getElementById('showDetails');
 
 // Update slider range when supply voltage changes
 function updateSliderRange(value) {
@@ -541,20 +540,6 @@ function calculateAndDisplayResults() {
         </div>
     `;
 
-    // Add resistance filter section
-    output += `
-        <div class="resistance-filter-section" style="display: none;">
-            <h3>Filter by Total Resistance</h3>
-            <div class="resistance-filter-container">
-                <div id="resistance-slider"></div>
-                <div class="resistance-filter-values">
-                    <span>Min: <span id="resistance-min">0</span></span>
-                    <span>Max: <span id="resistance-max">0</span></span>
-                </div>
-            </div>
-        </div>
-    `;
-
     output += `
         <div class="results-section">
             <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
@@ -584,48 +569,46 @@ function calculateAndDisplayResults() {
         </div>`;
 
     // Add calculation details if enabled
-    if (showDetailsSwitch.checked) {
-        output += `
-            <div class="details-section">
-                <h3>Calculation Details</h3>
-                <div class="details-content">
-                    <div class="input-conversions">
-                        <h4>Input Value Conversions</h4>
-                        <table class="details-table">
-                            <thead>
+    output += `
+        <div class="details-section">
+            <h3>Calculation Details</h3>
+            <div class="details-content">
+                <div class="input-conversions">
+                    <h4>Input Value Conversions</h4>
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Value (Ω)</th>
+                                <th>Formatted</th>
+                                <th>Series</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${calculator.calculationStats.inputConversions.map(conv => `
                                 <tr>
-                                    <th>Input</th>
-                                    <th>Value (Ω)</th>
-                                    <th>Formatted</th>
-                                    <th>Series</th>
+                                    <td>${conv.input}</td>
+                                    <td>${conv.value}</td>
+                                    <td>${conv.formatted}</td>
+                                    <td>${conv.series || 'None'}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                ${calculator.calculationStats.inputConversions.map(conv => `
-                                    <tr>
-                                        <td>${conv.input}</td>
-                                        <td>${conv.value}</td>
-                                        <td>${conv.formatted}</td>
-                                        <td>${conv.series || 'None'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="combination-stats">
-                        <h4>Combination Statistics</h4>
-                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                        <div class="voltage-stats">
-                            <h4>Voltage Distribution</h4>
-                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
-                        </div>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="combination-stats">
+                    <h4>Combination Statistics</h4>
+                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                    <div class="voltage-stats">
+                        <h4>Voltage Distribution</h4>
+                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
                     </div>
                 </div>
-            </div>`;
-    }
+            </div>
+        </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -676,7 +659,6 @@ function calculateAndDisplayResults() {
 // Event Listeners
 calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
-showDetailsSwitch.addEventListener('change', calculateAndDisplayResults);
 document.querySelectorAll('input[name="sortBy"]').forEach(radio => {
     radio.addEventListener('change', calculateAndDisplayResults);
 });
@@ -891,48 +873,46 @@ function toggleResistorValue(element) {
         </div>`;
 
     // Add calculation details if enabled
-    if (showDetailsSwitch.checked) {
-        output += `
-            <div class="details-section">
-                <h3>Calculation Details</h3>
-                <div class="details-content">
-                    <div class="input-conversions">
-                        <h4>Input Value Conversions</h4>
-                        <table class="details-table">
-                            <thead>
+    output += `
+        <div class="details-section">
+            <h3>Calculation Details</h3>
+            <div class="details-content">
+                <div class="input-conversions">
+                    <h4>Input Value Conversions</h4>
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Input</th>
+                                <th>Value (Ω)</th>
+                                <th>Formatted</th>
+                                <th>Series</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${originalConversions.map(conv => `
                                 <tr>
-                                    <th>Input</th>
-                                    <th>Value (Ω)</th>
-                                    <th>Formatted</th>
-                                    <th>Series</th>
+                                    <td>${conv.input}</td>
+                                    <td>${conv.value}</td>
+                                    <td>${conv.formatted}</td>
+                                    <td>${conv.series || 'None'}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                ${originalConversions.map(conv => `
-                                    <tr>
-                                        <td>${conv.input}</td>
-                                        <td>${conv.value}</td>
-                                        <td>${conv.formatted}</td>
-                                        <td>${conv.series || 'None'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="combination-stats">
-                        <h4>Combination Statistics</h4>
-                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                        <div class="voltage-stats">
-                            <h4>Voltage Distribution</h4>
-                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
-                        </div>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="combination-stats">
+                    <h4>Combination Statistics</h4>
+                    <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
+                    <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                    <div class="voltage-stats">
+                        <h4>Voltage Distribution</h4>
+                        <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
+                        <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
+                        <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
                     </div>
                 </div>
-            </div>`;
-    }
+            </div>
+        </div>`;
 
     resultsContainer.innerHTML = output;
 
@@ -975,9 +955,6 @@ function toggleResistorValue(element) {
             });
         });
     }
-
-    // Initialize resistance filter slider
-    initializeResistanceFilter(results);
 }
 
 // Test function for resistor value parsing
