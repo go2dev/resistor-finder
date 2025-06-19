@@ -109,9 +109,8 @@ class Schematic {
     // Draw a resistor with just a value label
     drawResistorValue(x, y, value, orientation = 'vertical') {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        // Create a calculator instance to use formatResistorValue
-        const calculator = new ResistorCalculator();
-        const formattedValue = calculator.formatResistorValue(value);
+        // Use the utility function for formatting
+        const formattedValue = ResistorUtils.formatResistorValue(value);
         
         if (orientation === 'vertical') {
             // Zigzag path (vertical)
