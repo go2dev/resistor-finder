@@ -187,18 +187,17 @@ h1 {
 
 .main-content {
     display: flex;
+    flex-direction: column;
     gap: 2rem;
     margin-bottom: 2rem;
-    align-items: flex-start;
 }
 
 .input-section {
-    flex: 1;
-    max-width: 50%;
+    width: 100%;
 }
 
 .options-section {
-    flex: 1;
+    width: 100%;
 }
 
 .options-section label {
@@ -583,31 +582,22 @@ footer a:hover {
     gap: 0.5rem;
 }
 
-.radio-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.05rem 1rem;
-    margin-top: 0.05rem;
-}
-
-.radio-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    color: var(--text-color);
-    white-space: nowrap;
-    padding: 0.05rem 0;
-}
-
-.radio-label input[type="radio"] {
-    width: auto;
-    margin: 0;
-    cursor: pointer;
-}
-
-.radio-label span {
+.sort-select {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
     font-size: 0.9rem;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    margin-top: 0.25rem;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 /* Parsed Values Display */

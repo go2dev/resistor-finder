@@ -635,9 +635,7 @@ function calculateAndDisplayResults() {
 // Event Listeners
 calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
-document.querySelectorAll('input[name="sortBy"]').forEach(radio => {
-    radio.addEventListener('change', calculateAndDisplayResults);
-});
+document.getElementById('sortBy').addEventListener('change', calculateAndDisplayResults);
 
 // Theme Switcher
 const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
@@ -1153,7 +1151,7 @@ function filterAndSortResults(allResults, minResistance, maxResistance) {
     );
     
     // Apply sorting to filtered results
-    const sortBy = document.querySelector('input[name="sortBy"]:checked').value;
+    const sortBy = document.getElementById('sortBy').value;
     let sortedResults = [...filteredResults]; // Create a copy
     
     if (sortBy === 'components') {

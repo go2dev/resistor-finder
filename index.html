@@ -80,24 +80,12 @@
                     <div class="option-group">
                         <div class="sort-options">
                             <span class="theme-label">Sort Results By:</span>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="sortBy" value="totalResistanceAsc">
-                                    <span>Total Resistance ↑ (Ascending)</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="sortBy" value="error" checked>
-                                    <span>Lowest Error</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="sortBy" value="totalResistanceDesc">
-                                    <span>Total Resistance ↓ (Descending)</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="sortBy" value="components">
-                                    <span>Lowest Component Count</span>
-                                </label>
-                            </div>
+                            <select name="sortBy" id="sortBy" class="sort-select">
+                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
+                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
+                                <option value="error" selected>Lowest Error</option>
+                                <option value="components">Lowest Component Count</option>
+                            </select>
                             <div class="resistance-filter-section" style="display: none;">
                                 <span class="theme-label">Filter Total Resistance:</span>
                                 <div class="resistance-filter-container">

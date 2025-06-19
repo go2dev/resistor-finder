@@ -2,3 +2,4 @@
 - [ ] Allow for specifying tolerance of a resistor during the input stage in brackets (which also sets its E number)
 - [ ] add ranges to the auto fill vales (m, R, K, 100k, M) 
 - [ ] add a download button for the images
+- [ ] change existing slider to library implementation 
