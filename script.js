@@ -14,6 +14,46 @@ const resistorTolerances = {
     E192: 0.5
 };
 
+// Global cache for results to avoid recalculation on sort changes
+let resultsCache = {
+    allResults: null,
+    calculatorState: null,
+    isValid: false
+};
+
+// Global variables to store current resistance filter range
+let currentResistanceRange = {
+    min: 0,
+    max: Infinity
+};
+
+// Function to generate a state key for cache validation
+function generateStateKey(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot) {
+    return JSON.stringify({
+        resistorValues: resistorValues.slice().sort(), // Sort for consistent comparison
+        supplyVoltage,
+        targetVoltage,
+        allowOvershoot
+    });
+}
+
+// Function to check if cache is valid for current state
+function isCacheValid(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot) {
+    if (!resultsCache.isValid || !resultsCache.allResults) {
+        return false;
+    }
+    
+    const currentState = generateStateKey(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot);
+    return resultsCache.calculatorState === currentState;
+}
+
+// Function to invalidate the cache
+function invalidateCache() {
+    resultsCache.isValid = false;
+    resultsCache.allResults = null;
+    resultsCache.calculatorState = null;
+}
+
 class ResistorCalculator {
     constructor() {
         this.resistorValues = [];
@@ -232,15 +272,6 @@ class ResistorCalculator {
             exact: 0
         };
 
-        // // Log initial state
-        // console.log('=== Voltage Divider Calculation Details ===');
-        // console.log('Input Parameters:');
-        // console.log('- Supply Voltage:', this.supplyVoltage, 'V');
-        // console.log('- Target Voltage:', this.targetVoltage, 'V');
-        // console.log('- Allow Overshoot:', this.allowOvershoot);
-        // console.log('- Available Resistors:', this.resistorValues);
-        // console.log('- Total Possible Combinations:', this.calculationStats.totalCombinations);
-
         // Store all valid combinations for debugging
         const allValidCombinations = [];
 
@@ -286,56 +317,7 @@ class ResistorCalculator {
             }
         }
 
-        // Get the selected sort option
-        const sortBy = document.querySelector('input[name="sortBy"]:checked').value;
-        
-        // Sort results based on the selected option
-        if (sortBy === 'components') {
-            // Sort by component count first, then by absolute error
-            results.sort((a, b) => {
-                if (a.componentCount !== b.componentCount) {
-                    return a.componentCount - b.componentCount;
-                }
-                return Math.abs(a.error) - Math.abs(b.error);
-            });
-        } else if (sortBy === 'totalResistanceAsc') {
-            // Sort by total resistance ascending
-            results.sort((a, b) => a.totalResistance - b.totalResistance);
-        } else if (sortBy === 'totalResistanceDesc') {
-            // Sort by total resistance descending
-            results.sort((a, b) => b.totalResistance - a.totalResistance);
-        } else {
-            // Sort by absolute error (default)
-            results.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
-        }
-
-        // // Log calculation statistics
-        // console.log('\nCalculation Statistics:');
-        // console.log('- Valid Combinations:', this.calculationStats.validCombinations);
-        // console.log('- Voltage Distribution:');
-        // console.log('  * Above target:', this.calculationStats.voltageStats.above);
-        // console.log('  * Below target:', this.calculationStats.voltageStats.below);
-        // console.log('  * Exactly at target:', this.calculationStats.voltageStats.exact);
-
-        // // Log top 5 results with voltage ranges
-        // console.log('\nTop 5 Results:');
-        // results.slice(0, 5).forEach((result, index) => {
-        //     console.log(`\nResult ${index + 1}:`);
-        //     console.log('- R1:', Array.isArray(result.r1) ? 
-        //         `${result.r1.type || 'series'} ${result.r1}` : 
-        //         [result.r1], 
-        //         `(${result.r1Value} Ω)`);
-        //     console.log('- R2:', Array.isArray(result.r2) ? 
-        //         `${result.r2.type || 'series'} ${result.r2}` : 
-        //         [result.r2], 
-        //         `(${result.r2Value} Ω)`);
-        //     console.log('- Output Voltage:', result.outputVoltage.toFixed(2), 'V');
-        //     console.log('- Voltage Range:', result.voltageRange.min.toFixed(2), 'V to', result.voltageRange.max.toFixed(2), 'V');
-        //     console.log('- Error:', result.error > 0 ? '+' : '', result.error.toFixed(2), 'V');
-        //     console.log('- Component Count:', result.componentCount);
-        // });
-
-        return results.slice(0, 5);
+        return results;
     }
 
     validateResistorValue(value) {
@@ -393,6 +375,7 @@ function updateSupplyVoltage(value) {
 
 // Event Listeners for supply voltage
 supplyVoltageInput.addEventListener('input', (e) => {
+    invalidateCache(); // Cache is invalid when supply voltage changes
     calculateAndDisplayResults();
 });
 
@@ -468,7 +451,26 @@ function calculateAndDisplayResults() {
 
     // Proceed with calculation using valid inputs
     calculator.resistorValues = validResistors;
-    const results = calculator.findVoltageDividerCombinations();
+    
+    // Check if we can use cached results
+    let allResults;
+    const useCache = isCacheValid(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+    
+    if (useCache) {
+        // Use cached results - no need to recalculate
+        allResults = resultsCache.allResults;
+    } else {
+        // Calculate new results and cache them
+        allResults = calculator.findVoltageDividerCombinations();
+        
+        // Update cache
+        resultsCache.allResults = allResults;
+        resultsCache.calculatorState = generateStateKey(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+        resultsCache.isValid = true;
+    }
+    
+    // Apply filtering and sorting to get display results
+    const displayResults = filterAndSortResults(allResults, currentResistanceRange.min, currentResistanceRange.max);
 
     // Display results with warnings if any
     let output = '';
@@ -540,57 +542,7 @@ function calculateAndDisplayResults() {
         </div>
     `;
 
-    output += `
-        <div class="results-section">
-            <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
-                ?
-                <span class="tooltip-text">
-                    'Error' indicates how far this divider is away from the target Vout<br><br>
-                    'Real world range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
-                </span>
-            </div></h3>
-            <div id="resultsList">
-                ${results.map(result => `
-                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                       <div class="result-content">
-                            <table class="result-table">
-                                <tbody>
-                                    <tr>
-                                        <td><strong>R1:</strong></td>
-                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>R2:</strong></td>
-                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Total Resistance:</strong></td>
-                                        <td>${calculator.formatResistorValue(result.totalResistance)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Nominal Output Voltage:</strong></td>
-                                        <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Error:</strong></td>
-                                        <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Components:</strong></td>
-                                        <td>${result.componentCount}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Real World Range for Vout:</strong></td>
-                                        <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
+    output += renderResults(displayResults, calculator);
 
     // Add calculation details if enabled
     output += `
@@ -638,7 +590,7 @@ function calculateAndDisplayResults() {
 
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
-        const result = results[idx];
+        const result = displayResults[idx];
         // Helper to convert r1/r2 array to string for renderCustom
         function sectionToString(section) {
             if (Array.isArray(section)) {
@@ -676,8 +628,8 @@ function calculateAndDisplayResults() {
         });
     }
 
-    // Initialize resistance filter slider
-    initializeResistanceFilter(results);
+    // Initialize resistance filter slider with all results
+    initializeResistanceFilter(allResults);
 }
 
 // Event Listeners
@@ -778,6 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add this function at the end of the file, before the last closing brace
 function toggleResistorValue(element) {
+    invalidateCache(); // Cache is invalid when resistor selection changes
     element.classList.toggle('disabled');
     element.classList.toggle('active');
     
@@ -825,7 +778,8 @@ function toggleResistorValue(element) {
     }
 
     // Get results with only active resistors
-    const results = calculator.findVoltageDividerCombinations();
+    const allResults = calculator.findVoltageDividerCombinations();
+    const displayResults = allResults.slice(0, 5);
 
     // Display results
     let output = '';
@@ -868,57 +822,7 @@ function toggleResistorValue(element) {
             </div>
         </div>`;
 
-    output += `
-        <div class="results-section">
-            <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
-                ?
-                <span class="tooltip-text">
-                    'Error' indicates how far this divider is away from the target Vout<br><br>
-                    'Output Voltage Range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
-                </span>
-            </div></h3>
-            <div id="resultsList">
-                ${results.map(result => `
-                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
-                        <div class="result-content">
-                            <table class="result-table">
-                                <tbody>
-                                    <tr>
-                                        <td><strong>R1:</strong></td>
-                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>R2:</strong></td>
-                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Total Resistance:</strong></td>
-                                        <td>${calculator.formatResistorValue(result.totalResistance)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Output Voltage:</strong></td>
-                                        <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Error:</strong></td>
-                                        <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Components:</strong></td>
-                                        <td>${result.componentCount}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Output Voltage Range:</strong></td>
-                                        <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="result-diagram" id="diagram-${results.indexOf(result)}"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
+    output += renderResults(displayResults, calculator);
 
     // Add calculation details if enabled
     output += `
@@ -966,7 +870,7 @@ function toggleResistorValue(element) {
 
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
-        const result = results[idx];
+        const result = displayResults[idx];
         // Helper to convert r1/r2 array to string for renderCustom
         function sectionToString(section) {
             if (Array.isArray(section)) {
@@ -1003,6 +907,9 @@ function toggleResistorValue(element) {
             });
         });
     }
+
+    // Initialize resistance filter slider with all results
+    initializeResistanceFilter(allResults);
 }
 
 // Test function for resistor value parsing
@@ -1111,26 +1018,59 @@ document.getElementById('autofillBtn').addEventListener('click', () => {
 function initializeResistanceFilter(results) {
     if (results.length === 0) return;
     
-    // Find min and max total resistance values
-    const resistanceValues = results.map(result => result.totalResistance);
-    const minResistance = Math.min(...resistanceValues);
-    const maxResistance = Math.max(...resistanceValues);
+    // Find min and max total resistance values efficiently
+    let minResistance = Infinity;
+    let maxResistance = -Infinity;
+    
+    for (const result of results) {
+        if (result.totalResistance < minResistance) {
+            minResistance = result.totalResistance;
+        }
+        if (result.totalResistance > maxResistance) {
+            maxResistance = result.totalResistance;
+        }
+    }
     
     // Show the filter section
     const filterSection = document.querySelector('.resistance-filter-section');
-    filterSection.style.display = 'block';
+    if (filterSection) {
+        filterSection.style.display = 'block';
+    }
     
     // Get the slider element
     const slider = document.getElementById('resistance-slider');
+    if (!slider) {
+        return;
+    }
     
-    // Destroy existing slider if it exists
+    // Check if slider already exists and preserve current values
+    let currentMin = minResistance;
+    let currentMax = maxResistance;
+    let sliderExists = false;
+    
     if (slider.noUiSlider) {
+        // Slider exists - preserve current values if they're within the new range
+        const currentValues = slider.noUiSlider.get();
+        const currentMinVal = parseInt(currentValues[0]);
+        const currentMaxVal = parseInt(currentValues[1]);
+        
+        // Only preserve values if they're within the new valid range
+        if (currentMinVal >= minResistance && currentMaxVal <= maxResistance) {
+            currentMin = currentMinVal;
+            currentMax = currentMaxVal;
+        }
+        
+        sliderExists = true;
         slider.noUiSlider.destroy();
+    } else {
+        // New slider - update global resistance range to full range initially
+        currentResistanceRange.min = minResistance;
+        currentResistanceRange.max = maxResistance;
     }
     
     // Create the range slider
     noUiSlider.create(slider, {
-        start: [minResistance, maxResistance],
+        start: [currentMin, currentMax],
         connect: true,
         range: {
             'min': minResistance,
@@ -1147,12 +1087,18 @@ function initializeResistanceFilter(results) {
         }
     });
     
+    // Update the global range if we're preserving slider position
+    if (sliderExists) {
+        currentResistanceRange.min = currentMin;
+        currentResistanceRange.max = currentMax;
+    }
+    
     // Update the display values
     const calculator = new ResistorCalculator();
-    document.getElementById('resistance-min').textContent = calculator.formatResistorValue(minResistance);
-    document.getElementById('resistance-max').textContent = calculator.formatResistorValue(maxResistance);
+    document.getElementById('resistance-min').textContent = calculator.formatResistorValue(currentMin);
+    document.getElementById('resistance-max').textContent = calculator.formatResistorValue(currentMax);
     
-    // Add event listener for slider changes
+    // Add event listener for slider changes - real-time filtering
     slider.noUiSlider.on('update', function (values, handle) {
         const minVal = parseInt(values[0]);
         const maxVal = parseInt(values[1]);
@@ -1161,7 +1107,138 @@ function initializeResistanceFilter(results) {
         document.getElementById('resistance-min').textContent = calculator.formatResistorValue(minVal);
         document.getElementById('resistance-max').textContent = calculator.formatResistorValue(maxVal);
         
-        // TODO: Filter results based on resistance range
-        console.log('Resistance filter range:', minVal, 'to', maxVal);
+        // Update global range
+        currentResistanceRange.min = minVal;
+        currentResistanceRange.max = maxVal;
+        
+        // Apply real-time filtering if we have cached results
+        if (resultsCache.isValid && resultsCache.allResults) {
+            const filteredResults = filterAndSortResults(resultsCache.allResults, minVal, maxVal);
+            
+            // Update only the results section
+            const resultsSection = document.querySelector('.results-section');
+            if (resultsSection) {
+                resultsSection.outerHTML = renderResults(filteredResults, calculator);
+                
+                // Reinitialize diagrams for the new results
+                document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
+                    const result = filteredResults[idx];
+                    if (result) {
+                        // Helper to convert r1/r2 array to string for renderCustom
+                        function sectionToString(section) {
+                            if (Array.isArray(section)) {
+                                const type = section.type || 'series';
+                                return section.map(v => v).join(',') + ',' + type;
+                            } else {
+                                return section + ',series';
+                            }
+                        }
+                        const topSection = sectionToString(result.r1);
+                        const bottomSection = sectionToString(result.r2);
+                        const diagram = new Diagram(diagramContainer.id, 300, 300);
+                        diagram.renderCustom(topSection, bottomSection);
+                    }
+                });
+            }
+        }
     });
+}
+
+// Function to filter and sort results based on resistance range
+function filterAndSortResults(allResults, minResistance, maxResistance) {
+    // Filter results by resistance range
+    const filteredResults = allResults.filter(result => 
+        result.totalResistance >= minResistance && result.totalResistance <= maxResistance
+    );
+    
+    // Apply sorting to filtered results
+    const sortBy = document.querySelector('input[name="sortBy"]:checked').value;
+    let sortedResults = [...filteredResults]; // Create a copy
+    
+    if (sortBy === 'components') {
+        // Sort by component count first, then by absolute error
+        sortedResults.sort((a, b) => {
+            if (a.componentCount !== b.componentCount) {
+                return a.componentCount - b.componentCount;
+            }
+            return Math.abs(a.error) - Math.abs(b.error);
+        });
+    } else if (sortBy === 'totalResistanceAsc') {
+        // Sort by total resistance ascending
+        sortedResults.sort((a, b) => a.totalResistance - b.totalResistance);
+    } else if (sortBy === 'totalResistanceDesc') {
+        // Sort by total resistance descending
+        sortedResults.sort((a, b) => b.totalResistance - a.totalResistance);
+    } else {
+        // Sort by absolute error (default)
+        sortedResults.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
+    }
+    
+    return sortedResults.slice(0, 5); // Return top 5
+}
+
+// Function to render the results display
+function renderResults(displayResults, calculator) {
+    if (displayResults.length === 0) {
+        return `
+            <div class="results-section">
+                <h3>Solutions</h3>
+                <div class="no-results-message">
+                    <p>No results found in the selected resistance range.</p>
+                    <p>Try adjusting the resistance filter or changing your input parameters.</p>
+                </div>
+            </div>`;
+    }
+    
+    return `
+        <div class="results-section">
+            <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
+                ?
+                <span class="tooltip-text">
+                    'Error' indicates how far this divider is away from the target Vout<br><br>
+                    'Real world range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
+                </span>
+            </div></h3>
+            <div id="resultsList">
+                ${displayResults.map(result => `
+                    <div class="result-item" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
+                       <div class="result-content">
+                            <table class="result-table">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>R1:</strong></td>
+                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>R2:</strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Resistance:</strong></td>
+                                        <td>${calculator.formatResistorValue(result.totalResistance)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Nominal Output Voltage:</strong></td>
+                                        <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Error:</strong></td>
+                                        <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Components:</strong></td>
+                                        <td>${result.componentCount}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Real World Range for Vout:</strong></td>
+                                        <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="result-diagram" id="diagram-${displayResults.indexOf(result)}"></div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
 } 

@@ -918,9 +918,27 @@ ul ul, ol ol, ul ol, ol ul {
 
 .result-table tr:last-child td {
     border-bottom: none;
-} 
+}
 
 /* Simplified noUiSlider Styling - Only the colored bar */
 .noUi-connect {
     background: var(--button-bg) !important;
+}
+
+.no-results-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-color);
+    background-color: var(--result-bg);
+    border-radius: 5px;
+    border: 1px solid var(--input-border);
+}
+
+.no-results-message p {
+    margin: 0.5rem 0;
+}
+
+.no-results-message p:first-child {
+    font-weight: 500;
+    font-size: 1.1rem;
 } 
