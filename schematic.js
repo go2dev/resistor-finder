@@ -12,9 +12,9 @@ class Schematic {
     // Create an SVG element with given dimensions
     createSVG(width, height) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', width);
-        svg.setAttribute('height', height);
+        // Don't set width/height attributes - use viewBox only
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
         return svg;
     }
 
@@ -341,8 +341,16 @@ class Diagram {
         
         // Update SVG dimensions
         const width = 300;
-        this.svg.setAttribute('height', totalHeight);
+        // Update viewBox to match content
         this.svg.setAttribute('viewBox', `0 0 ${width} ${totalHeight}`);
+        // Set width and height to establish intrinsic aspect ratio
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', totalHeight);
+        // Remove any inline styles that might interfere
+        this.svg.style.width = '';
+        this.svg.style.height = '';
+        this.svg.style.display = '';
+        this.svg.style.maxWidth = '';
         
         const centerX = width / 2;
         let currY = 30;

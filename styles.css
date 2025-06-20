@@ -335,14 +335,15 @@ button:hover {
 }
 
 .result-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     padding: 1rem;
-    margin-bottom: 1rem;
     background-color: var(--result-bg);
     border-radius: 5px;
-    border-left: 4px solid var(--result-border);
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
+    border: 1px solid var(--input-border);
+    margin-bottom: 1rem;
+    overflow: hidden;
 }
 
 .result-content {
@@ -353,21 +354,19 @@ button:hover {
 .result-diagram {
     flex: 0 0 auto;
     width: 320px;
-    max-height: 400px;
+    align-self: center;
     background-color: #f8f8f8;
     border-radius: 4px;
-    text-align: center;
     padding: 8px;
     border: 1px solid #e0e0e0;
-    line-height: 0;
+    box-sizing: border-box;
 }
 
 .result-diagram svg {
     width: 100%;
     height: auto;
-    max-width: 300px;
     display: block;
-    margin: 0 auto;
+    max-width: 100%;
 }
 
 .result-item:last-child {
@@ -789,6 +788,7 @@ footer a:hover {
 .voltage-slider-section {
     margin: 1rem 0;
     margin-bottom: 4rem;
+    padding: 0 5px;
 }
 
 .voltage-slider-section label {
@@ -987,7 +987,6 @@ ul ul, ol ol, ul ol, ol ul {
     
     .result-diagram {
         width: 100%;
-        max-height: 350px;
         max-width: none;
         align-self: center;
     }
@@ -999,7 +998,6 @@ ul ul, ol ol, ul ol, ol ul {
 
 @media (max-width: 768px) {
     .result-diagram {
-        max-height: 300px;
         padding: 4px;
     }
     
@@ -1011,4 +1009,15 @@ ul ul, ol ol, ul ol, ol ul {
         padding: 0.75rem;
         gap: 0.75rem;
     }
+}
+
+#supplyVoltageSliderNogui {
+    margin: 10px 0;
+    width: 99.5%;
+}
+
+/* Control noUiSlider width for voltage slider */
+#supplyVoltageSliderNogui .noUi-base,
+#supplyVoltageSliderNogui .noUi-connects {
+    width: 99.5% !important;
 } 

@@ -655,22 +655,58 @@ document.getElementById('sortBy').addEventListener('change', calculateAndDisplay
 
 // Theme Switcher
 const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
-const currentTheme = localStorage.getItem('theme');
 
-if (currentTheme) {
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    if (currentTheme === 'dark') {
-        toggleSwitch.checked = true;
+// Function to detect system dark mode preference
+function getSystemThemePreference() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+// Function to set theme
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    if (toggleSwitch) {
+        toggleSwitch.checked = theme === 'dark';
     }
+}
+
+// Initialize theme
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme) {
+        // User has manually set a theme preference
+        setTheme(savedTheme);
+    } else {
+        // No saved preference, use system preference
+        const systemTheme = getSystemThemePreference();
+        setTheme(systemTheme);
+    }
+}
+
+// Listen for system theme changes
+function handleSystemThemeChange(e) {
+    const savedTheme = localStorage.getItem('theme');
+    // Only auto-switch if user hasn't manually set a preference
+    if (!savedTheme) {
+        const newTheme = e.matches ? 'dark' : 'light';
+        setTheme(newTheme);
+    }
+}
+
+// Initialize theme on load
+initializeTheme();
+
+// Set up system theme change listener
+if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', handleSystemThemeChange);
 }
 
 function switchTheme(e) {
     if (e.target.checked) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
+        setTheme('dark');
     } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
+        setTheme('light');
     }    
 }
 
