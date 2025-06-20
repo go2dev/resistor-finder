@@ -795,6 +795,15 @@ function toggleResistorValue(element) {
     const allResults = calculator.findVoltageDividerCombinations();
     const displayResults = allResults.slice(0, 5);
 
+    // Update cache with new results
+    resultsCache.allResults = allResults;
+    resultsCache.calculatorState = generateStateKey(calculator, activeResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+    resultsCache.isValid = true;
+    
+    // Reset resistance range to allow full filtering with new results
+    currentResistanceRange.min = 0;
+    currentResistanceRange.max = Infinity;
+
     // Display results
     let output = '';
     
