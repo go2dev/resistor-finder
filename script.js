@@ -68,16 +68,20 @@ const ResistorUtils = {
         for (const unit of units) {
             if (value >= unit.value) {
                 const scaled = value / unit.value;
-                // If the value is a whole number, don't show decimal
-                if (Number.isInteger(scaled)) {
-                    return `${scaled}${unit.symbol}`;
+                // Round to handle floating-point precision issues
+                const roundedScaled = Math.round(scaled * 1000000) / 1000000;
+                
+                // If the value is effectively a whole number (within tolerance), don't show decimal
+                if (Math.abs(roundedScaled - Math.round(roundedScaled)) < 0.000001) {
+                    return `${Math.round(roundedScaled)}${unit.symbol}`;
                 }
+                
                 // For values like 5.1k, show as 5k1
-                const [whole, decimal] = scaled.toString().split('.');
+                const [whole, decimal] = roundedScaled.toString().split('.');
                 if (decimal && decimal.length > 0) {
                     return `${whole}${unit.symbol}${decimal[0]}`;
                 }
-                return `${scaled}${unit.symbol}`;
+                return `${roundedScaled}${unit.symbol}`;
             }
         }
         return value.toString();
@@ -395,28 +399,12 @@ class ResistorCalculator {
 // DOM Elements
 const resistorValuesInput = document.getElementById('resistorValues');
 const supplyVoltageInput = document.getElementById('supplyVoltage');
-const supplyVoltageSlider = document.getElementById('supplyVoltageSlider');
 const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
 
-// Update slider range when supply voltage changes
-function updateSliderRange(value) {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue > 0) {
-        supplyVoltageSlider.min = "0";
-        supplyVoltageSlider.max = (numValue * 2).toString();
-        supplyVoltageSlider.value = numValue.toString();
-    }
-}
-
-// Update supply voltage input when slider changes
-function updateSupplyVoltage(value) {
-    supplyVoltageInput.value = value;
-    document.getElementById('sliderValue').textContent = value;
-    calculateAndDisplayResults();
-}
+// Legacy functions removed - now using nogui slider
 
 // Event Listeners for supply voltage
 supplyVoltageInput.addEventListener('input', (e) => {
@@ -582,8 +570,8 @@ function calculateAndDisplayResults() {
     // Add voltage slider section
     output += `
         <div class="voltage-slider-section">
-            <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
-            <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+            <label for="supplyVoltageSliderNogui">Quick Adjust Supply Voltage: <span id="sliderValueNogui">${calculator.supplyVoltage}</span> V</label>
+            <div id="supplyVoltageSliderNogui" style="margin: 10px 0;"></div>
         </div>
     `;
 
@@ -653,28 +641,11 @@ function calculateAndDisplayResults() {
         diagram.renderCustom(topSection, bottomSection);
     });
 
-    // Add event listener for the slider after it's added to the DOM
-    const slider = document.getElementById('supplyVoltageSlider');
-    if (slider) {
-        slider.addEventListener('input', (e) => {
-            const newVoltage = parseFloat(e.target.value);
-            document.getElementById('sliderValue').textContent = newVoltage.toFixed(1);
-            
-            // Update each result's output voltage and error
-            document.querySelectorAll('.result-item').forEach(item => {
-                const r1 = parseFloat(item.dataset.r1);
-                const r2 = parseFloat(item.dataset.r2);
-                const outputVoltage = (r2 / (r1 + r2)) * newVoltage;
-                const error = outputVoltage - calculator.targetVoltage;
-                
-                item.querySelector('.output-voltage').textContent = outputVoltage.toFixed(2);
-                item.querySelector('.error-value').textContent = `${error > 0 ? '+' : ''}${error.toFixed(2)}`;
-            });
-        });
-    }
-
     // Initialize resistance filter slider with all results
     initializeResistanceFilter(allResults);
+    
+    // Initialize nogui supply voltage slider
+    initializeSupplyVoltageSliderNogui(calculator.supplyVoltage, calculator.targetVoltage);
 }
 
 // Event Listeners
@@ -860,8 +831,8 @@ function toggleResistorValue(element) {
                 `).join('')}
             </div>
             <div class="voltage-slider-section">
-                <label for="supplyVoltageSlider">Quick Adjust Supply Voltage: <span id="sliderValue">${calculator.supplyVoltage}</span> V</label>
-                <input type="range" id="supplyVoltageSlider" min="0" max="${calculator.supplyVoltage * 2}" step="0.1" value="${calculator.supplyVoltage}">
+                <label for="supplyVoltageSliderNogui">Quick Adjust Supply Voltage: <span id="sliderValueNogui">${calculator.supplyVoltage}</span> V</label>
+                <div id="supplyVoltageSliderNogui" style="margin: 10px 0;"></div>
             </div>
         </div>`;
 
@@ -931,28 +902,11 @@ function toggleResistorValue(element) {
         diagram.renderCustom(topSection, bottomSection);
     });
 
-    // Add event listener for the slider after it's added to the DOM
-    const slider = document.getElementById('supplyVoltageSlider');
-    if (slider) {
-        slider.addEventListener('input', (e) => {
-            const newVoltage = parseFloat(e.target.value);
-            document.getElementById('sliderValue').textContent = newVoltage.toFixed(1);
-            
-            // Update each result's output voltage and error
-            document.querySelectorAll('.result-item').forEach(item => {
-                const r1 = parseFloat(item.dataset.r1);
-                const r2 = parseFloat(item.dataset.r2);
-                const outputVoltage = (r2 / (r1 + r2)) * newVoltage;
-                const error = outputVoltage - calculator.targetVoltage;
-                
-                item.querySelector('.output-voltage').textContent = outputVoltage.toFixed(2);
-                item.querySelector('.error-value').textContent = `${error > 0 ? '+' : ''}${error.toFixed(2)}`;
-            });
-        });
-    }
-
     // Initialize resistance filter slider with all results
     initializeResistanceFilter(allResults);
+    
+    // Initialize nogui supply voltage slider
+    initializeSupplyVoltageSliderNogui(calculator.supplyVoltage, calculator.targetVoltage);
 }
 
 // Test function for resistor value parsing
@@ -1266,4 +1220,58 @@ document.getElementById('autofillBtn').addEventListener('click', () => {
     
     // Trigger the calculation
     calculateAndDisplayResults();
-}); 
+});
+
+// Initialize supply voltage slider with nogui
+function initializeSupplyVoltageSliderNogui(supplyVoltage, targetVoltage) {
+    const slider = document.getElementById('supplyVoltageSliderNogui');
+    if (!slider) {
+        console.log('Supply voltage slider element not found');
+        return;
+    }
+    
+    // Destroy existing slider if it exists
+    if (slider.noUiSlider) {
+        slider.noUiSlider.destroy();
+    }
+    
+    // Create the nogui slider
+    noUiSlider.create(slider, {
+        start: [supplyVoltage,supplyVoltage],
+        behaviour: 'unconstrained-drag-smooth-steps-tap',
+        connect: true,
+        range: {
+            'min': 0,
+            'max': supplyVoltage * 2
+        },
+        step: 0.1,
+        format: {
+            to: function (value) {
+                return parseFloat(value).toFixed(1);
+            },
+            from: function (value) {
+                return Number(value);
+            }
+        }
+    });
+    
+    // Update the display value
+    document.getElementById('sliderValueNogui').textContent = supplyVoltage.toFixed(1);
+    
+    // Add event listener for slider changes - real-time updates
+    slider.noUiSlider.on('update', function (values, handle) {
+        const newVoltage = parseFloat(values[0]);
+        document.getElementById('sliderValueNogui').textContent = newVoltage.toFixed(1);
+        
+        // Update each result's output voltage and error
+        document.querySelectorAll('.result-item').forEach(item => {
+            const r1 = parseFloat(item.dataset.r1);
+            const r2 = parseFloat(item.dataset.r2);
+            const outputVoltage = (r2 / (r1 + r2)) * newVoltage;
+            const error = outputVoltage - targetVoltage;
+            
+            item.querySelector('.output-voltage').textContent = outputVoltage.toFixed(2);
+            item.querySelector('.error-value').textContent = `${error > 0 ? '+' : ''}${error.toFixed(2)}`;
+        });
+    });
+} 

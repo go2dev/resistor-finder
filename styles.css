@@ -900,8 +900,12 @@ ul ul, ol ol, ul ol, ol ul {
 }
 
 #resistance-slider {
-    height: 40px;
-    margin: 0 10px;
+    margin: 10px 0;
+}
+
+/* Hide left handle of supply voltage slider */
+#supplyVoltageSliderNogui .noUi-handle[data-handle="1"] {
+    display: none;
 }
 
 .resistance-filter-values {
