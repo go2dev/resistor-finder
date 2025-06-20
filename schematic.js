@@ -319,7 +319,31 @@ class Diagram {
     renderCustom(topSectionStr, bottomSectionStr) {
         // Clear SVG
         while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+        
+        // Parse sections to calculate required height
+        const topSection = this.parseSection(topSectionStr);
+        const bottomSection = this.parseSection(bottomSectionStr);
+        
+        // Calculate height needed for each section
+        const getRequiredHeight = (section) => {
+            if (section.type === 'series') {
+                return section.values.length * 50 + 35; // 50px per resistor + final height
+            } else if (section.type === 'parallel') {
+                return 35 + 20; // resistor height + wire spacing
+            }
+            return 50; // default single resistor
+        };
+        
+        const topHeight = getRequiredHeight(topSection);
+        const bottomHeight = getRequiredHeight(bottomSection);
+        const baseHeight = 30 + 20 + 20 + 10 + 20 + 30; // VCC + wires + junction + ground + margins
+        const totalHeight = Math.max(220, baseHeight + topHeight + bottomHeight);
+        
+        // Update SVG dimensions
         const width = 300;
+        this.svg.setAttribute('height', totalHeight);
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${totalHeight}`);
+        
         const centerX = width / 2;
         let currY = 30;
         // V supply
@@ -328,7 +352,6 @@ class Diagram {
         this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX, currY + 20));
         currY += 20;
         // Top section
-        const topSection = this.parseSection(topSectionStr);
         const topRes = this.renderSection(topSection, centerX, currY, true);
         currY = topRes.end[1] + 20;
         // Junction (circle + horizontal wire)
@@ -359,7 +382,6 @@ class Diagram {
         this.svg.appendChild(this.schematic.drawWire(centerX, currY - junctionRadius - 10, centerX, currY));
         
         // Bottom section
-        const bottomSection = this.parseSection(bottomSectionStr);
         const bottomRes = this.renderSection(bottomSection, centerX, currY, false);
         currY = bottomRes.end[1] + 20;
         // Wire to ground

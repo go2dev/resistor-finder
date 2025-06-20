@@ -637,7 +637,7 @@ function calculateAndDisplayResults() {
         }
         const topSection = sectionToString(result.r1);
         const bottomSection = sectionToString(result.r2);
-        const diagram = new Diagram(diagramContainer.id, 300, 300);
+        const diagram = new Diagram(diagramContainer.id, 300, 220);
         diagram.renderCustom(topSection, bottomSection);
     });
 
@@ -907,7 +907,7 @@ function toggleResistorValue(element) {
         }
         const topSection = sectionToString(result.r1);
         const bottomSection = sectionToString(result.r2);
-        const diagram = new Diagram(diagramContainer.id, 300, 300);
+        const diagram = new Diagram(diagramContainer.id, 300, 220);
         diagram.renderCustom(topSection, bottomSection);
     });
 
@@ -1107,7 +1107,7 @@ function initializeResistanceFilter(results) {
                         }
                         const topSection = sectionToString(result.r1);
                         const bottomSection = sectionToString(result.r2);
-                        const diagram = new Diagram(diagramContainer.id, 300, 300);
+                        const diagram = new Diagram(diagramContainer.id, 300, 220);
                         diagram.renderCustom(topSection, bottomSection);
                     }
                 });
