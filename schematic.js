@@ -67,7 +67,7 @@ class Schematic {
     }
 
     // Draw VCC symbol
-    drawVCC(x, y) {
+    drawVCC(x, y, value) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         
         // Draw the triangle
@@ -84,7 +84,7 @@ class Schematic {
         text.setAttribute('x', x + size + 5);
         text.setAttribute('y', y + 4);
         text.setAttribute('font-size', '12px');
-        text.textContent = 'Vsupply';
+        text.textContent = `Vsupply [${value}V]`;
         
         group.appendChild(triangle);
         group.appendChild(text);
@@ -316,7 +316,7 @@ class Diagram {
     }
 
     // Render the full custom diagram
-    renderCustom(topSectionStr, bottomSectionStr) {
+    renderCustom(topSectionStr, bottomSectionStr, supplyVoltage) {
         // Clear SVG
         while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
         
@@ -355,7 +355,7 @@ class Diagram {
         const centerX = width / 2;
         let currY = 30;
         // V supply
-        this.svg.appendChild(this.schematic.drawVCC(centerX, currY));
+        this.svg.appendChild(this.schematic.drawVCC(centerX, currY, supplyVoltage));
         // Add wire from Vsupply to first resistor
         this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX, currY + 20));
         currY += 20;
