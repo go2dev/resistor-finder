@@ -1288,7 +1288,7 @@ function initializeSupplyVoltageSliderNogui(supplyVoltage, targetVoltage) {
     // Create the nogui slider
     noUiSlider.create(slider, {
         start: [supplyVoltage,supplyVoltage],
-        behaviour: 'unconstrained-drag-smooth-steps-tap',
+        behaviour: 'unconstrained-smooth-steps',
         connect: true,
         range: {
             'min': 0,
