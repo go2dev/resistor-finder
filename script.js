@@ -1241,14 +1241,14 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>Real World Range for Vout:</strong></td>
                                         <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
                                     </tr>
-                                    <tr>
-                                        <td><strong>Download:</strong></td>
-                                        <td><button class="download-btn" onclick="downloadDiagram(${displayResults.indexOf(result)}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage})">Download Diagram</button></td>
-                                    </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <div class="result-diagram" id="diagram-${displayResults.indexOf(result)}"></div>
+                        <div class="result-diagram" id="diagram-${displayResults.indexOf(result)}">
+                            <button class="diagram-download-btn" onclick="downloadDiagram(${displayResults.indexOf(result)}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage})" title="Download diagram as PNG">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
                     </div>
                 `).join('')}
             </div>
