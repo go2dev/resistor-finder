@@ -316,7 +316,7 @@ class Diagram {
     }
 
     // Render the full custom diagram
-    renderCustom(topSectionStr, bottomSectionStr, supplyVoltage) {
+    renderCustom(topSectionStr, bottomSectionStr, supplyVoltage, targetVoltage) {
         // Clear SVG
         while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
         
@@ -378,11 +378,11 @@ class Diagram {
         this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX + hWireLen, currY));
         // Add right-aligned Vout label to the end of the horizontal wire
         const voutLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        voutLabel.setAttribute('x', centerX + hWireLen - 5);
+        voutLabel.setAttribute('x', centerX + hWireLen + 30);
         voutLabel.setAttribute('y', currY - 8);
         voutLabel.setAttribute('font-size', '12px');
         voutLabel.setAttribute('text-anchor', 'end');
-        voutLabel.textContent = 'Vout';
+        voutLabel.textContent = `Vout [${targetVoltage}V]`;
         this.svg.appendChild(voutLabel);
         currY += junctionRadius + 10;
         

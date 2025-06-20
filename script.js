@@ -638,7 +638,7 @@ function calculateAndDisplayResults() {
         const topSection = sectionToString(result.r1);
         const bottomSection = sectionToString(result.r2);
         const diagram = new Diagram(diagramContainer.id, 300, 220);
-        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value);
+        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
     });
 
     // Initialize resistance filter slider with all results
@@ -944,7 +944,7 @@ function toggleResistorValue(element) {
         const topSection = sectionToString(result.r1);
         const bottomSection = sectionToString(result.r2);
         const diagram = new Diagram(diagramContainer.id, 300, 220);
-        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value);
+        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
     });
 
     // Initialize resistance filter slider with all results
@@ -1144,7 +1144,7 @@ function initializeResistanceFilter(results) {
                         const topSection = sectionToString(result.r1);
                         const bottomSection = sectionToString(result.r2);
                         const diagram = new Diagram(diagramContainer.id, 300, 220);
-                        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value);
+                        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
                     }
                 });
             }
