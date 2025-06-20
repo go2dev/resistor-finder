@@ -1042,6 +1042,11 @@ function initializeResistanceFilter(results) {
             from: function (value) {
                 return Number(value);
             }
+        },
+        pips: {
+            mode: 'count',
+            values: 5,
+            density: 4
         }
     });
     
@@ -1252,11 +1257,29 @@ function initializeSupplyVoltageSliderNogui(supplyVoltage, targetVoltage) {
             from: function (value) {
                 return Number(value);
             }
+        },
+        pips: {
+            mode: 'positions',
+            values: [0, 50, 100],
+            density: 3
         }
     });
     
     // Update the display value
     document.getElementById('sliderValueNogui').textContent = supplyVoltage.toFixed(1);
+    
+    // Add click functionality to pips
+    var pips = slider.querySelectorAll('.noUi-value');
+    
+    function clickOnPip() {
+        var value = Number(this.getAttribute('data-value'));
+        slider.noUiSlider.set(value);
+    }
+    
+    for (var i = 0; i < pips.length; i++) {
+        pips[i].style.cursor = 'pointer';
+        pips[i].addEventListener('click', clickOnPip);
+    }
     
     // Add event listener for slider changes - real-time updates
     slider.noUiSlider.on('update', function (values, handle) {

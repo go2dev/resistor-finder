@@ -212,6 +212,7 @@ h1 {
     border-radius: 5px;
     border: 1px solid var(--input-border);
     padding: 0.8rem;
+    padding-bottom: 3rem;
 }
 
 .option-group {
@@ -781,9 +782,8 @@ footer a:hover {
 
 /* Voltage Slider Section */
 .voltage-slider-section {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--input-border);
+    margin: 1rem 0;
+    margin-bottom: 4rem;
 }
 
 .voltage-slider-section label {
@@ -880,6 +880,7 @@ ul ul, ol ol, ul ol, ol ul {
 /* Resistance Filter Section */
 .resistance-filter-section {
     margin-bottom: 0;
+    margin-top: 1.5rem;
     padding: 0;
 }
 
@@ -893,6 +894,7 @@ ul ul, ol ol, ul ol, ol ul {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding: 0 20px;
 }
 
 .resistance-filter-section .theme-label {
@@ -901,6 +903,8 @@ ul ul, ol ol, ul ol, ol ul {
 
 #resistance-slider {
     margin: 10px 0;
+    width: 99.5%;
+    
 }
 
 /* Hide left handle of supply voltage slider */
