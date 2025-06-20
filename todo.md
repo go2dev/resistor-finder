@@ -2,7 +2,7 @@
 - [ ] Allow for specifying tolerance of a resistor during the input stage in brackets (which also sets its E number)
 - [ ] add a download button for the images
 - [ ] Fix styling on mobile
-- [ ] Add Vout and Vsupply labels to SVG generation
+
 
 
 ---

@@ -1020,4 +1020,26 @@ ul ul, ol ol, ul ol, ol ul {
 #supplyVoltageSliderNogui .noUi-base,
 #supplyVoltageSliderNogui .noUi-connects {
     width: 99.5% !important;
+}
+
+.download-btn {
+    padding: 0.5rem 1rem;
+    background-color: var(--button-bg);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+    display: inline-block;
+    text-align: center;
+    min-width: 120px;
+}
+
+.download-btn:hover {
+    background-color: var(--button-hover);
+}
+
+.download-btn:active {
+    transform: translateY(1px);
 } 

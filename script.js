@@ -1241,6 +1241,10 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>Real World Range for Vout:</strong></td>
                                         <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
                                     </tr>
+                                    <tr>
+                                        <td><strong>Download:</strong></td>
+                                        <td><button class="download-btn" onclick="downloadDiagram(${displayResults.indexOf(result)}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage})">Download Diagram</button></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1249,6 +1253,93 @@ function renderResults(displayResults, calculator) {
                 `).join('')}
             </div>
         </div>`;
+}
+
+// Function to convert SVG to PNG and download
+function downloadDiagram(index, r1Value, r2Value, outputVoltage) {
+    const diagramElement = document.getElementById(`diagram-${index}`);
+    const svgElement = diagramElement.querySelector('svg');
+    
+    if (!svgElement) {
+        console.error('SVG element not found');
+        return;
+    }
+    
+    // Get supply voltage and target voltage from inputs
+    const supplyVoltage = parseFloat(document.getElementById('supplyVoltage').value);
+    const targetVoltage = parseFloat(document.getElementById('targetVoltage').value);
+    
+    // Create filename in required format: voltagedivider-vsupply-vout-r1-r2.png
+    const calculator = new ResistorCalculator();
+    const r1Formatted = calculator.formatResistorValue(r1Value).replace(/[^\w]/g, ''); // Remove special chars
+    const r2Formatted = calculator.formatResistorValue(r2Value).replace(/[^\w]/g, ''); // Remove special chars
+    const filename = `voltagedivider-${supplyVoltage}V-${targetVoltage}V-${r1Formatted}-${r2Formatted}.png`;
+    
+    // Convert SVG to PNG with scaling and white background
+    convertSVGtoPNG(svgElement, filename, 2); // 2x scaling for better quality
+}
+
+// Function to convert SVG to PNG with scaling and white background
+function convertSVGtoPNG(svgElement, filename, scale = 2) {
+    // Clone the SVG to avoid modifying the original
+    const svgClone = svgElement.cloneNode(true);
+    
+    // Get original dimensions
+    const originalWidth = 300;
+    const originalHeight = 220;
+    const scaledWidth = originalWidth * scale;
+    const scaledHeight = originalHeight * scale;
+    
+    // Set explicit dimensions on the clone
+    svgClone.setAttribute('width', scaledWidth);
+    svgClone.setAttribute('height', scaledHeight);
+    
+    // Create a canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = scaledWidth;
+    canvas.height = scaledHeight;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with white background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+    
+    // Convert SVG to data URL
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    
+    // Create an image element and load the SVG
+    const img = new Image();
+    img.onload = function() {
+        // Draw the image on the canvas
+        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+        
+        // Convert canvas to PNG blob
+        canvas.toBlob(function(blob) {
+            // Create download link
+            const downloadUrl = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = filename;
+            
+            // Trigger download
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            // Clean up URLs
+            URL.revokeObjectURL(downloadUrl);
+            URL.revokeObjectURL(svgUrl);
+        }, 'image/png');
+    };
+    
+    img.onerror = function() {
+        console.error('Failed to load SVG for conversion');
+        URL.revokeObjectURL(svgUrl);
+    };
+    
+    img.src = svgUrl;
 }
 
 // Add event listener for the autofill button
