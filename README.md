@@ -40,7 +40,7 @@ Output Voltage Range: 3.30V to 3.45V
 
 - The output voltage range shows the possible range where the Vout might be accounting for the real life tolerances of components. Tolerances are determined by the E series for a given value and the calculator determines the range by trying the permutations of upper and lower bounds for a given value for each resistor in the network. 
 
-### Sorting results
+### Sorting & filtering results
 
 The options panel allows for precise filtering and sorting of the results. As there are often many results, the tool only shows the top 5 based on the filter and sort options.
 
@@ -66,7 +66,7 @@ The calculator can use variety of notation styles when entering resistor values:
     - 5.1e3 → 5k1 → 5100 Ohm
 
 
-It is possible to use these styles in combination e.g. `10, 330R, 4k7, 5.1e3, 10e6` when inputting values
+It is possible to use these styles in combination when inputting values e.g. `10, 330R, 4k7, 5.1e3, 10e6`
 
 ## How It Works
 The calculator:
