@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resistor Calculator Performance Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        input {
+            padding: 5px;
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Resistor Calculator Performance Test</h1>
+    
+    <div class="test-section">
+        <h2>Performance Comparison</h2>
+        <p>This test compares the performance of different resistor input sizes:</p>
+        
+        <div>
+            <label>Small test (5 resistors):</label>
+            <input type="text" id="smallTest" value="100,220,470,1k,2k2" readonly>
+            <button onclick="runTest('small')">Run Small Test</button>
+        </div>
+        
+        <div>
+            <label>Medium test (10 resistors):</label>
+            <input type="text" id="mediumTest" value="100,220,470,1k,2k2,4k7,10k,22k,47k,100k" readonly>
+            <button onclick="runTest('medium')">Run Medium Test</button>
+        </div>
+        
+        <div>
+            <label>Large test (20 resistors):</label>
+            <input type="text" id="largeTest" value="100,220,470,1k,2k2,4k7,10k,22k,47k,100k,220k,470k,1M,2M2,4M7,10M,22M,47M,100M,220M" readonly>
+            <button onclick="runTest('large')">Run Large Test</button>
+        </div>
+        
+        <div>
+            <label>Supply Voltage:</label>
+            <input type="number" id="supplyVoltage" value="5" step="0.1">
+        </div>
+        
+        <div>
+            <label>Target Voltage:</label>
+            <input type="number" id="targetVoltage" value="3.3" step="0.1">
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function runTest(size) {
+            const resultsDiv = document.getElementById('results');
+            const supplyVoltage = parseFloat(document.getElementById('supplyVoltage').value);
+            const targetVoltage = parseFloat(document.getElementById('targetVoltage').value);
+            
+            let resistorValues;
+            switch(size) {
+                case 'small':
+                    resistorValues = [100, 220, 470, 1000, 2200];
+                    break;
+                case 'medium':
+                    resistorValues = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000, 100000];
+                    break;
+                case 'large':
+                    resistorValues = [100, 220, 470, 1000, 2200, 4700, 10000, 22000, 47000, 100000, 220000, 470000, 1000000, 2200000, 4700000, 10000000, 22000000, 47000000, 100000000, 220000000];
+                    break;
+            }
+            
+            const calculator = new ResistorCalculator();
+            calculator.resistorValues = resistorValues;
+            calculator.supplyVoltage = supplyVoltage;
+            calculator.targetVoltage = targetVoltage;
+            calculator.allowOvershoot = true;
+            
+            const startTime = performance.now();
+            const results = calculator.findVoltageDividerCombinations();
+            const endTime = performance.now();
+            
+            const calculationTime = endTime - startTime;
+            const combinations = calculator.calculationStats.totalCombinations;
+            const validResults = calculator.calculationStats.validCombinations;
+            
+            const resultHtml = `
+                <div class="result">
+                    <h3>${size.charAt(0).toUpperCase() + size.slice(1)} Test Results:</h3>
+                    <p><strong>Input resistors:</strong> ${resistorValues.length}</p>
+                    <p><strong>Total combinations:</strong> ${combinations.toLocaleString()}</p>
+                    <p><strong>Valid results:</strong> ${validResults.toLocaleString()}</p>
+                    <p><strong>Calculation time:</strong> ${calculationTime.toFixed(2)}ms</p>
+                    <p><strong>Combinations per second:</strong> ${(combinations / (calculationTime / 1000)).toLocaleString()}</p>
+                    <p><strong>Best result error:</strong> ${results.length > 0 ? Math.abs(results[0].error).toFixed(6) + 'V' : 'N/A'}</p>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = resultHtml;
+            
+            console.log(`${size} test completed:`, {
+                resistors: resistorValues.length,
+                combinations,
+                validResults,
+                time: calculationTime,
+                combinationsPerSecond: combinations / (calculationTime / 1000)
+            });
+        }
+        
+        // Run initial test
+        setTimeout(() => runTest('small'), 100);
+    </script>
+</body>
+</html> 
