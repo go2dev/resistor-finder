@@ -267,7 +267,7 @@ h1 {
 }
 
 .autofill-range-select {
-    width: 48%;
+    width: 110px;
     padding: 0.5rem;
     border: 1px solid var(--input-border);
     border-radius: 4px;
@@ -275,6 +275,18 @@ h1 {
     background-color: var(--input-bg);
     color: var(--text-color);
     cursor: pointer;
+}
+
+.autofill-series-select {
+    width: 90px;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    margin-left: 0.25rem;
 }
 
 .autofill-range-select:focus {

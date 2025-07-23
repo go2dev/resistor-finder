@@ -44,7 +44,7 @@
                     <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
                     <div class="autofill-controls">
                         <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
-                        <span class="autofill-label">Select range:</span>
+                        <span class="autofill-label">Range:</span>
                         <select id="autofillRange" class="autofill-range-select">
                             <option value="1">Ω</option>
                             <option value="10">10Ω</option>
@@ -55,6 +55,13 @@
                             <option value="1000000">MΩ</option>
                             <option value="10000000">10MΩ</option>
                             <option value="100000000">100MΩ</option>
+                        </select>
+                        <span class="autofill-label" style="margin-left: 0.5rem;">Series:</span>
+                        <select id="autofillSeries" class="autofill-series-select">
+                            <option value="E24" selected>E24</option>
+                            <option value="E48">E48</option>
+                            <option value="E96">E96</option>
+                            <option value="E192">E192</option>
                         </select>
                     </div>
                 </div>
