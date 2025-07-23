@@ -268,6 +268,8 @@ class ResistorCalculator {
         const combinations = this.generateCombinations(this.resistorValues);
         const results = [];
         
+        console.log(`Starting calculation with ${this.resistorValues.length} resistor values, ${combinations.length} combinations`);
+        
         // Pre-calculate all resistance values to avoid recalculation
         const resistanceCache = new Map();
         for (let i = 0; i < combinations.length; i++) {
@@ -276,10 +278,27 @@ class ResistorCalculator {
             resistanceCache.set(i, resistance);
         }
         
+        // Sort combinations by resistance for more efficient searching
+        const sortedIndices = Array.from({length: combinations.length}, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        
         // Track unique voltage divider ratios to eliminate duplicates
         const seenRatios = new Map();
         
-        this.calculationStats.totalCombinations = combinations.length * combinations.length;
+        // For large datasets, we need a smarter approach
+        // Instead of testing all NxN combinations, we can use the fact that
+        // for a target voltage Vout and supply Vsupply, we need R2/(R1+R2) = Vout/Vsupply
+        // So for each R2, we can calculate the ideal R1 and search nearby values
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        
+        let processed = 0;
+        let skipped = 0;
+        const batchSize = 1000;
+        const startTime = Date.now();
+        
+        // Set a more realistic total for progress reporting
+        // We'll actually test far fewer combinations
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
         this.calculationStats.validCombinations = 0;
         this.calculationStats.voltageStats = {
             above: 0,
@@ -287,91 +306,141 @@ class ResistorCalculator {
             exact: 0
         };
 
-        let processed = 0;
-        let skipped = 0;
-        const batchSize = 1000; // Process in batches to allow UI updates
-
-        for (let i = 0; i < combinations.length; i++) {
-            for (let j = 0; j < combinations.length; j++) {
-                const r1Value = resistanceCache.get(i);
-                const r2Value = resistanceCache.get(j);
+        try {
+            // For each possible R2 value
+            for (let j = 0; j < sortedIndices.length; j++) {
+                const r2Idx = sortedIndices[j];
+                const r2Value = resistanceCache.get(r2Idx);
                 
-                // Create a unique key based on the voltage divider ratio
-                // This eliminates electrically equivalent combinations
-                const ratio = r2Value / (r1Value + r2Value);
-                const ratioKey = ratio.toFixed(10);
+                if (!r2Value || r2Value === 0) continue;
                 
-                // Check if we've already seen this exact ratio
-                const existingEntry = seenRatios.get(ratioKey);
-                if (existingEntry) {
-                    // Skip if we already have a result with same or lower total resistance
-                    const totalR = r1Value + r2Value;
-                    if (totalR >= existingEntry.totalR) {
-                        processed++;
-                        skipped++;
-                        continue;
-                    }
-                    // Otherwise, this is a better (lower resistance) solution for same ratio
-                }
+                // Calculate ideal R1 for this R2
+                // From R2/(R1+R2) = targetRatio, we get R1 = R2 * (1/targetRatio - 1)
+                const idealR1 = r2Value * (1/targetRatio - 1);
                 
-                const outputVoltage = ratio * this.supplyVoltage;
-                const error = outputVoltage - this.targetVoltage;
+                // Find R1 values close to the ideal using binary search
+                let searchRange = Math.min(combinations.length, 100); // Limit search range
                 
-                // Only include results that are within bounds or if overshoot is allowed
-                if (this.allowOvershoot || error <= 0) {
-                    this.calculationStats.validCombinations++;
+                // Binary search for closest R1
+                let left = 0, right = sortedIndices.length - 1;
+                let closestIdx = 0;
+                let minDiff = Infinity;
+                
+                while (left <= right) {
+                    const mid = Math.floor((left + right) / 2);
+                    const midValue = resistanceCache.get(sortedIndices[mid]);
+                    const diff = Math.abs(midValue - idealR1);
                     
-                    // Update voltage statistics
-                    if (Math.abs(error) < 0.0001) {
-                        this.calculationStats.voltageStats.exact++;
-                    } else if (error > 0) {
-                        this.calculationStats.voltageStats.above++;
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIdx = mid;
+                    }
+                    
+                    if (midValue < idealR1) {
+                        left = mid + 1;
                     } else {
-                        this.calculationStats.voltageStats.below++;
+                        right = mid - 1;
                     }
-                    
-                    // Calculate voltage range considering tolerances
-                    const voltageRange = this.calculateVoltageRange(r1Value, r2Value, this.supplyVoltage);
-                    
-                    const result = {
-                        r1: combinations[i],
-                        r2: combinations[j],
-                        r1Value: r1Value,
-                        r2Value: r2Value,
-                        outputVoltage: outputVoltage,
-                        error: error,
-                        componentCount: this.getComponentCount({ r1: combinations[i], r2: combinations[j] }),
-                        voltageRange: voltageRange,
-                        totalResistance: r1Value + r2Value
-                    };
-                    
-                    results.push(result);
-                    
-                    // Update our tracking map
-                    seenRatios.set(ratioKey, {
-                        totalR: r1Value + r2Value,
-                        result: result
-                    });
                 }
                 
-                processed++;
+                // Test combinations around the closest value
+                const testRange = Math.min(50, Math.floor(sortedIndices.length / 10)); // Test nearby values
+                const startIdx = Math.max(0, closestIdx - testRange);
+                const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
                 
-                // Update progress and yield control back to browser periodically
-                if (processed % batchSize === 0) {
+                for (let k = startIdx; k <= endIdx; k++) {
+                    const r1Idx = sortedIndices[k];
+                    const r1Value = resistanceCache.get(r1Idx);
+                    
+                    if (!r1Value || r1Value === 0) continue;
+                    
+                    // Create a unique key based on the voltage divider ratio
+                    const ratio = r2Value / (r1Value + r2Value);
+                    const ratioKey = ratio.toFixed(10);
+                    
+                    // Check if we've already seen this exact ratio
+                    const existingEntry = seenRatios.get(ratioKey);
+                    if (existingEntry) {
+                        const totalR = r1Value + r2Value;
+                        if (totalR >= existingEntry.totalR) {
+                            processed++;
+                            skipped++;
+                            continue;
+                        }
+                    }
+                    
+                    const outputVoltage = ratio * this.supplyVoltage;
+                    const error = outputVoltage - this.targetVoltage;
+                    
+                    // Only include results that are within bounds or if overshoot is allowed
+                    if (this.allowOvershoot || error <= 0) {
+                        this.calculationStats.validCombinations++;
+                        
+                        // Update voltage statistics
+                        if (Math.abs(error) < 0.0001) {
+                            this.calculationStats.voltageStats.exact++;
+                        } else if (error > 0) {
+                            this.calculationStats.voltageStats.above++;
+                        } else {
+                            this.calculationStats.voltageStats.below++;
+                        }
+                        
+                        // Calculate voltage range considering tolerances
+                        const voltageRange = this.calculateVoltageRange(r1Value, r2Value, this.supplyVoltage);
+                        
+                        const result = {
+                            r1: combinations[r1Idx],
+                            r2: combinations[r2Idx],
+                            r1Value: r1Value,
+                            r2Value: r2Value,
+                            outputVoltage: outputVoltage,
+                            error: error,
+                            componentCount: this.getComponentCount({ r1: combinations[r1Idx], r2: combinations[r2Idx] }),
+                            voltageRange: voltageRange,
+                            totalResistance: r1Value + r2Value
+                        };
+                        
+                        results.push(result);
+                        
+                        // Update our tracking map
+                        seenRatios.set(ratioKey, {
+                            totalR: r1Value + r2Value,
+                            result: result
+                        });
+                    }
+                    
+                    processed++;
+                }
+                
+                // Update progress periodically
+                if (j % 10 === 0) {
                     if (progressCallback) {
-                        progressCallback(processed, this.calculationStats.totalCombinations);
+                        const progress = (j / sortedIndices.length) * 100;
+                        progressCallback(Math.floor(progress), 100);
                     }
                     await new Promise(resolve => setTimeout(resolve, 0));
+                    
+                    // Log progress for debugging
+                    if (j % 100 === 0) {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const rate = j / elapsed;
+                        const remaining = (sortedIndices.length - j) / rate;
+                        console.log(`Progress: ${j}/${sortedIndices.length} R2 values tested, found ${results.length} results, ETA: ${remaining.toFixed(0)}s`);
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Error during calculation:', error);
+            throw error;
         }
         
-        // Update stats with skipped count
-        console.log(`Processed ${processed} combinations, skipped ${skipped} duplicates`);
+        // Update stats
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`Calculation complete: Tested ${processed} combinations in ${elapsed.toFixed(1)}s, skipped ${skipped} duplicates, found ${results.length} valid results`);
         
         // Final progress update
         if (progressCallback) {
-            progressCallback(processed, this.calculationStats.totalCombinations);
+            progressCallback(100, 100);
         }
 
         return results;
@@ -540,8 +609,14 @@ function hideLoadingSpinner() {
 function updateLoadingProgress(processed, total) {
     const progressText = document.querySelector('.progress-text');
     if (progressText) {
-        const percentage = ((processed / total) * 100).toFixed(1);
-        progressText.textContent = `${processed.toLocaleString()} / ${total.toLocaleString()} (${percentage}%)`;
+        if (total === 100) {
+            // Percentage mode
+            progressText.textContent = `${processed}% complete`;
+        } else {
+            // Count mode
+            const percentage = ((processed / total) * 100).toFixed(1);
+            progressText.textContent = `${processed.toLocaleString()} / ${total.toLocaleString()} (${percentage}%)`;
+        }
     }
 }
 
