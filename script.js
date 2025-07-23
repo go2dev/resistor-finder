@@ -1346,20 +1346,18 @@ function convertSVGtoPNG(svgElement, filename, scale = 2) {
 document.getElementById('autofillBtn').addEventListener('click', () => {
     // Get the multiplier from the dropdown
     const multiplier = parseFloat(document.getElementById('autofillRange').value);
-    
-    // Get the E24 values, multiply by the selected multiplier, and format them
-    const e24Values = ResistorUtils.series.E24.map(value => {
+    // Get the selected series from the dropdown
+    const seriesSelect = document.getElementById('autofillSeries');
+    const selectedSeries = seriesSelect ? seriesSelect.value : 'E24';
+    // Get the values for the selected series, fallback to E24 if not found
+    const seriesValues = ResistorUtils.series[selectedSeries] || ResistorUtils.series.E24;
+    const formattedValues = seriesValues.map(value => {
         const scaledValue = value * multiplier;
         // Use custom formatter for autofill that uses "R" instead of "Ω"
         const formatted = ResistorUtils.formatResistorValue(scaledValue);
-        // Replace ohm symbol with "R" for values that are just in ohms
         return formatted.replace('Ω', 'R');
     });
-    
-    // Join the values with commas and update the input
-    resistorValuesInput.value = e24Values.join(', ');
-    
-    // Trigger the calculation
+    resistorValuesInput.value = formattedValues.join(', ');
     calculateAndDisplayResults();
 });
 
