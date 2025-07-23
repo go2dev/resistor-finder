@@ -242,7 +242,7 @@ class ResistorCalculator {
             combinations.push(r);
         }
 
-        // Series combinations
+        // Series combinations (avoid duplicates by using j = i)
         for (let i = 0; i < resistors.length; i++) {
             for (let j = i; j < resistors.length; j++) {
                 const series = [resistors[i], resistors[j]];
@@ -251,7 +251,7 @@ class ResistorCalculator {
             }
         }
 
-        // Parallel combinations
+        // Parallel combinations (avoid duplicates by using j = i)
         for (let i = 0; i < resistors.length; i++) {
             for (let j = i; j < resistors.length; j++) {
                 const parallel = [resistors[i], resistors[j]];
@@ -261,6 +261,120 @@ class ResistorCalculator {
         }
 
         return combinations;
+    }
+
+    // Async version of findVoltageDividerCombinations for better performance
+    async findVoltageDividerCombinationsAsync(progressCallback) {
+        const combinations = this.generateCombinations(this.resistorValues);
+        const results = [];
+        
+        // Pre-calculate all resistance values to avoid recalculation
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            const combo = combinations[i];
+            const resistance = this.calculateTotalResistance(combo);
+            resistanceCache.set(i, resistance);
+        }
+        
+        // Track unique voltage divider ratios to eliminate duplicates
+        const seenRatios = new Map();
+        
+        this.calculationStats.totalCombinations = combinations.length * combinations.length;
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = {
+            above: 0,
+            below: 0,
+            exact: 0
+        };
+
+        let processed = 0;
+        let skipped = 0;
+        const batchSize = 1000; // Process in batches to allow UI updates
+
+        for (let i = 0; i < combinations.length; i++) {
+            for (let j = 0; j < combinations.length; j++) {
+                const r1Value = resistanceCache.get(i);
+                const r2Value = resistanceCache.get(j);
+                
+                // Create a unique key based on the voltage divider ratio
+                // This eliminates electrically equivalent combinations
+                const ratio = r2Value / (r1Value + r2Value);
+                const ratioKey = ratio.toFixed(10);
+                
+                // Check if we've already seen this exact ratio
+                const existingEntry = seenRatios.get(ratioKey);
+                if (existingEntry) {
+                    // Skip if we already have a result with same or lower total resistance
+                    const totalR = r1Value + r2Value;
+                    if (totalR >= existingEntry.totalR) {
+                        processed++;
+                        skipped++;
+                        continue;
+                    }
+                    // Otherwise, this is a better (lower resistance) solution for same ratio
+                }
+                
+                const outputVoltage = ratio * this.supplyVoltage;
+                const error = outputVoltage - this.targetVoltage;
+                
+                // Only include results that are within bounds or if overshoot is allowed
+                if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    
+                    // Update voltage statistics
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    
+                    // Calculate voltage range considering tolerances
+                    const voltageRange = this.calculateVoltageRange(r1Value, r2Value, this.supplyVoltage);
+                    
+                    const result = {
+                        r1: combinations[i],
+                        r2: combinations[j],
+                        r1Value: r1Value,
+                        r2Value: r2Value,
+                        outputVoltage: outputVoltage,
+                        error: error,
+                        componentCount: this.getComponentCount({ r1: combinations[i], r2: combinations[j] }),
+                        voltageRange: voltageRange,
+                        totalResistance: r1Value + r2Value
+                    };
+                    
+                    results.push(result);
+                    
+                    // Update our tracking map
+                    seenRatios.set(ratioKey, {
+                        totalR: r1Value + r2Value,
+                        result: result
+                    });
+                }
+                
+                processed++;
+                
+                // Update progress and yield control back to browser periodically
+                if (processed % batchSize === 0) {
+                    if (progressCallback) {
+                        progressCallback(processed, this.calculationStats.totalCombinations);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+        }
+        
+        // Update stats with skipped count
+        console.log(`Processed ${processed} combinations, skipped ${skipped} duplicates`);
+        
+        // Final progress update
+        if (progressCallback) {
+            progressCallback(processed, this.calculationStats.totalCombinations);
+        }
+
+        return results;
     }
 
     // Calculate total number of components in a result
@@ -412,8 +526,27 @@ supplyVoltageInput.addEventListener('input', (e) => {
     calculateAndDisplayResults();
 });
 
+// Loading spinner helper functions
+function showLoadingSpinner() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.body.classList.add('calculating');
+}
+
+function hideLoadingSpinner() {
+    document.getElementById('loadingSpinner').style.display = 'none';
+    document.body.classList.remove('calculating');
+}
+
+function updateLoadingProgress(processed, total) {
+    const progressText = document.querySelector('.progress-text');
+    if (progressText) {
+        const percentage = ((processed / total) * 100).toFixed(1);
+        progressText.textContent = `${processed.toLocaleString()} / ${total.toLocaleString()} (${percentage}%)`;
+    }
+}
+
 // Function to perform calculation and update results
-function calculateAndDisplayResults() {
+async function calculateAndDisplayResults() {
     const calculator = new ResistorCalculator();
     const errors = [];
     const warnings = [];
@@ -493,13 +626,27 @@ function calculateAndDisplayResults() {
         // Use cached results - no need to recalculate
         allResults = resultsCache.allResults;
     } else {
-        // Calculate new results and cache them
-        allResults = calculator.findVoltageDividerCombinations();
+        // Show loading spinner for large datasets
+        const needsSpinner = validResistors.length > 20;
+        if (needsSpinner) {
+            showLoadingSpinner();
+        }
         
-        // Update cache
-        resultsCache.allResults = allResults;
-        resultsCache.calculatorState = generateStateKey(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
-        resultsCache.isValid = true;
+        try {
+            // Calculate new results with progress callback
+            allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
+                updateLoadingProgress(processed, total);
+            });
+            
+            // Update cache
+            resultsCache.allResults = allResults;
+            resultsCache.calculatorState = generateStateKey(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+            resultsCache.isValid = true;
+        } finally {
+            if (needsSpinner) {
+                hideLoadingSpinner();
+            }
+        }
     }
     
     // Apply filtering and sorting to get display results
@@ -558,7 +705,7 @@ function calculateAndDisplayResults() {
                              data-input="${conv.input}"
                              data-series="${conv.series || ''}"
                              data-index="${index}" 
-                             onclick="toggleResistorValue(this)">
+                             onclick="toggleResistorValue(this).catch(console.error)">
                             <span class="formatted">${conv.formatted}</span>
                             <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
                         </div>
@@ -779,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Add this function at the end of the file, before the last closing brace
-function toggleResistorValue(element) {
+async function toggleResistorValue(element) {
     invalidateCache(); // Cache is invalid when resistor selection changes
     element.classList.toggle('disabled');
     element.classList.toggle('active');
@@ -827,8 +974,24 @@ function toggleResistorValue(element) {
         return;
     }
 
-    // Get results with only active resistors
-    const allResults = calculator.findVoltageDividerCombinations();
+    // Show loading spinner for large datasets
+    const needsSpinner = activeResistors.length > 20;
+    if (needsSpinner) {
+        showLoadingSpinner();
+    }
+    
+    let allResults;
+    try {
+        // Get results with only active resistors
+        allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
+            updateLoadingProgress(processed, total);
+        });
+    } finally {
+        if (needsSpinner) {
+            hideLoadingSpinner();
+        }
+    }
+    
     const displayResults = allResults.slice(0, 5);
 
     // Update cache with new results
@@ -869,7 +1032,7 @@ function toggleResistorValue(element) {
                          data-input="${conv.input}"
                          data-series="${conv.series || ''}"
                          data-index="${index}" 
-                         onclick="toggleResistorValue(this)">
+                         onclick="toggleResistorValue(this).catch(console.error)">
                         <span class="formatted">${conv.formatted}</span>
                         <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
                     </div>

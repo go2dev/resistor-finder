@@ -44,7 +44,7 @@
                     <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
                     <div class="autofill-controls">
                         <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
-                        <span class="autofill-label">Range:</span>
+                        <span class="autofill-label">Decade:</span>
                         <select id="autofillRange" class="autofill-range-select">
                             <option value="1">Ω</option>
                             <option value="10">10Ω</option>
@@ -127,6 +127,13 @@
         </div>
 
         <div id="results" class="results-container"></div>
+        
+        <!-- Loading spinner -->
+        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+            <div class="spinner"></div>
+            <p>Calculating combinations...</p>
+            <p class="progress-text"></p>
+        </div>
     </div>
     <footer>
         <span class="disclaimer">Disclaimer: results are provided without warranty or verification. Use at your own risk!</span>
