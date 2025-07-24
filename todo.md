@@ -3,4 +3,4 @@
 - [ ] Encode parameters in URL (allows for sharing results and calling the application with parameters)
 - [ ] Power dissipation calculation
 - [ ] Current divider mode
-- [ ] Fix non standard values appearing when using high precision series
+- [x] Fix non standard values appearing when using high precision series

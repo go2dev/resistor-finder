@@ -311,6 +311,160 @@ class ResistorCalculator {
         return combinations;
     }
 
+    // Parallel version using Web Workers
+    async findVoltageDividerCombinationsParallel(progressCallback) {
+        const combinations = this.generateCombinations(this.resistorValues);
+        
+        console.log(`Starting parallel calculation with ${this.resistorValues.length} resistor values, ${combinations.length} combinations`);
+        
+        // Pre-calculate all resistance values
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            const combo = combinations[i];
+            const resistance = this.calculateTotalResistance(combo);
+            resistanceCache.set(i, resistance);
+        }
+        
+        // Sort combinations by resistance
+        const sortedIndices = Array.from({length: combinations.length}, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        
+        // Determine number of workers based on available cores
+        const numWorkers = navigator.hardwareConcurrency || 4;
+        console.log(`Using ${numWorkers} workers for parallel processing`);
+        
+        // Split work into chunks
+        const chunkSize = Math.ceil(sortedIndices.length / numWorkers);
+        const chunks = [];
+        
+        for (let i = 0; i < numWorkers; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, sortedIndices.length);
+            if (start < end) {
+                chunks.push(Array.from({length: end - start}, (_, j) => start + j));
+            }
+        }
+        
+        // Create workers
+        const workers = [];
+        const workerPromises = [];
+        
+        // Convert Map to array for serialization
+        const resistanceCacheArray = Array.from(resistanceCache.entries());
+        
+        // Initialize stats
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = {
+            above: 0,
+            below: 0,
+            exact: 0
+        };
+        
+        const startTime = Date.now();
+        let processedChunks = 0;
+        let allResults = [];
+        
+        // Process chunks in parallel
+        for (let i = 0; i < chunks.length; i++) {
+            const worker = new Worker('resistor-worker.js');
+            workers.push(worker);
+            
+            const promise = new Promise((resolve, reject) => {
+                let initialized = false;
+                
+                worker.onmessage = (e) => {
+                    const { type } = e.data;
+                    
+                    if (type === 'initialized') {
+                        initialized = true;
+                        // Send chunk to process
+                        worker.postMessage({
+                            type: 'processChunk',
+                            data: {
+                                r2Indices: chunks[i],
+                                combinations: combinations,
+                                resistanceCacheArray: resistanceCacheArray,
+                                sortedIndices: sortedIndices,
+                                supplyVoltage: this.supplyVoltage,
+                                targetVoltage: this.targetVoltage,
+                                allowOvershoot: this.allowOvershoot,
+                                targetRatio: targetRatio
+                            }
+                        });
+                    } else if (type === 'chunkComplete') {
+                        const { results, stats } = e.data;
+                        
+                        // Use concat instead of spread to avoid stack overflow with large arrays
+                        if (results && results.length > 0) {
+                            allResults = allResults.concat(results);
+                        }
+                        
+                        // Update global stats
+                        this.calculationStats.validCombinations += stats.validCombinations;
+                        this.calculationStats.voltageStats.above += stats.voltageStats.above;
+                        this.calculationStats.voltageStats.below += stats.voltageStats.below;
+                        this.calculationStats.voltageStats.exact += stats.voltageStats.exact;
+                        
+                        processedChunks++;
+                        
+                        // Update progress
+                        if (progressCallback) {
+                            const progress = (processedChunks / chunks.length) * 100;
+                            progressCallback(Math.floor(progress), 100);
+                        }
+                        
+                        worker.terminate();
+                        resolve();
+                    } else if (type === 'error') {
+                        worker.terminate();
+                        reject(new Error(e.data.error));
+                    }
+                };
+                
+                worker.onerror = (error) => {
+                    worker.terminate();
+                    reject(error);
+                };
+                
+                // Initialize worker - only send data, not functions
+                worker.postMessage({
+                    type: 'init',
+                    data: {
+                        ResistorUtils: {
+                            series: ResistorUtils.series  // Only send the series data
+                        },
+                        resistorTolerances: resistorTolerances
+                    }
+                });
+            });
+            
+            workerPromises.push(promise);
+        }
+        
+        // Wait for all workers to complete
+        try {
+            await Promise.all(workerPromises);
+        } catch (error) {
+            console.error('Worker error:', error);
+            // Terminate all workers on error
+            workers.forEach(w => w.terminate());
+            throw error;
+        }
+        
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`Parallel calculation complete: Found ${allResults.length} results in ${elapsed.toFixed(1)}s using ${numWorkers} workers`);
+        
+        // Final progress update
+        if (progressCallback) {
+            progressCallback(100, 100);
+        }
+        
+        return allResults;
+    }
+
     // Async version of findVoltageDividerCombinations for better performance
     async findVoltageDividerCombinationsAsync(progressCallback) {
         const combinations = this.generateCombinations(this.resistorValues);
@@ -634,6 +788,7 @@ const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
+const useParallelSwitch = document.getElementById('useParallel');
 
 // Legacy functions removed - now using nogui slider
 
@@ -756,10 +911,20 @@ async function calculateAndDisplayResults() {
         }
         
         try {
-            // Calculate new results with progress callback
+            // Use parallel processing if enabled and we have a large dataset
+            const useParallel = useParallelSwitch.checked && validResistors.length > 10;
+            
+            if (useParallel) {
+                console.log('Using parallel processing');
+                allResults = await calculator.findVoltageDividerCombinationsParallel((processed, total) => {
+                    updateLoadingProgress(processed, total);
+                });
+            } else {
+                console.log('Using single-threaded processing');
             allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
                 updateLoadingProgress(processed, total);
             });
+            }
             
             // Update cache
             resultsCache.allResults = allResults;
@@ -1092,18 +1257,18 @@ function updateResultsDisplay(displayResults) {
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
         if (result) {
-            // Helper to convert r1/r2 array to string for renderCustom
-            function sectionToString(section) {
-                if (Array.isArray(section)) {
-                    const type = section.type || 'series';
-                    return section.map(v => v).join(',') + ',' + type;
-                } else {
-                    return section + ',series';
-                }
+        // Helper to convert r1/r2 array to string for renderCustom
+        function sectionToString(section) {
+            if (Array.isArray(section)) {
+                const type = section.type || 'series';
+                return section.map(v => v).join(',') + ',' + type;
+            } else {
+                return section + ',series';
             }
-            const topSection = sectionToString(result.r1);
-            const bottomSection = sectionToString(result.r2);
-            const diagram = new Diagram(diagramContainer.id, 300, 220);
+        }
+        const topSection = sectionToString(result.r1);
+        const bottomSection = sectionToString(result.r2);
+        const diagram = new Diagram(diagramContainer.id, 300, 220);
             diagram.renderCustom(topSection, bottomSection, calculator.supplyVoltage, calculator.targetVoltage);
         }
     });

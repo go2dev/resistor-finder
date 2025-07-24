@@ -95,9 +95,22 @@
                                     When enabled, the calculator will include combinations that produce voltages above the target voltage. 
                                     This can be useful when you need to find the closest possible match, even if it exceeds your target.
                                 </span>
+                                                    </div>
+                        <div class="theme-switch-wrapper" style="margin-top: 10px;">
+                            <label class="theme-switch" for="useParallel">
+                                <input type="checkbox" id="useParallel" checked />
+                                <div class="slider round"></div>
+                            </label>
+                            <span class="theme-label">Use Multi-core Processing</span>
+                            <div class="help-tooltip">
+                                ?
+                                <span class="tooltip-text">
+                                    Enable parallel processing using Web Workers to utilize multiple CPU cores. This significantly speeds up calculations for large resistor sets.
+                                </span>
                             </div>
                         </div>
                     </div>
+                </div>
                     <div class="option-group">
                         <div class="sort-options">
                             <span class="theme-label">Sort Results By:</span>
