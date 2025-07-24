@@ -1,3 +1,25 @@
+// Function to check if Web Workers are supported
+function checkWebWorkerSupport() {
+    try {
+        // Check if Worker is available
+        if (typeof Worker === 'undefined') {
+            return false;
+        }
+        
+        // Try to create a simple worker to ensure it actually works
+        const testWorker = new Worker('data:text/javascript,self.postMessage("test");');
+        testWorker.terminate();
+        return true;
+    } catch (e) {
+        console.log('Web Workers not supported:', e);
+        return false;
+    }
+}
+
+// Global flag for Web Worker support
+const webWorkerSupported = checkWebWorkerSupport();
+console.log('Web Worker support:', webWorkerSupported);
+
 // Utility object for resistor calculations and formatting
 const ResistorUtils = {
     // Resistor series data
@@ -333,7 +355,7 @@ class ResistorCalculator {
         
         // Determine number of workers based on available cores
         const numWorkers = navigator.hardwareConcurrency || 4;
-        console.log(`Using ${numWorkers} workers for parallel processing`);
+        console.log(`Using ${numWorkers} CPU cores for parallel processing`);
         
         // Split work into chunks
         const chunkSize = Math.ceil(sortedIndices.length / numWorkers);
@@ -788,7 +810,6 @@ const targetVoltageInput = document.getElementById('targetVoltage');
 const calculateBtn = document.getElementById('calculateBtn');
 const resultsContainer = document.getElementById('results');
 const overshootSwitch = document.getElementById('overshoot');
-const useParallelSwitch = document.getElementById('useParallel');
 
 // Legacy functions removed - now using nogui slider
 
@@ -800,8 +821,21 @@ supplyVoltageInput.addEventListener('input', (e) => {
 
 // Loading spinner helper functions
 function showLoadingSpinner() {
-    document.getElementById('loadingSpinner').style.display = 'block';
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    loadingSpinner.style.display = 'block';
     document.body.classList.add('calculating');
+    
+    // Add multi-core status message
+    const existingStatus = loadingSpinner.querySelector('.multicore-status');
+    if (!existingStatus && !webWorkerSupported) {
+        const statusElement = document.createElement('p');
+        statusElement.className = 'multicore-status';
+        statusElement.style.color = 'var(--text-secondary)';
+        statusElement.style.fontSize = '0.85rem';
+        statusElement.style.marginTop = '0.5rem';
+        statusElement.textContent = 'Multi-core processing not supported by this browser';
+        loadingSpinner.appendChild(statusElement);
+    }
 }
 
 function hideLoadingSpinner() {
@@ -910,20 +944,24 @@ async function calculateAndDisplayResults() {
             showLoadingSpinner();
         }
         
-        try {
-            // Use parallel processing if enabled and we have a large dataset
-            const useParallel = useParallelSwitch.checked && validResistors.length > 10;
+                try {
+            // Use parallel processing if supported and we have a large dataset
+            const useParallel = webWorkerSupported && validResistors.length > 10;
             
             if (useParallel) {
-                console.log('Using parallel processing');
+                console.log('Using multi-core parallel processing');
                 allResults = await calculator.findVoltageDividerCombinationsParallel((processed, total) => {
                     updateLoadingProgress(processed, total);
                 });
             } else {
-                console.log('Using single-threaded processing');
-            allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
-                updateLoadingProgress(processed, total);
-            });
+                if (!webWorkerSupported && validResistors.length > 10) {
+                    console.log('Web Workers not supported, falling back to single-threaded processing');
+                } else {
+                    console.log('Using single-threaded processing for small dataset');
+                }
+                allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
+                    updateLoadingProgress(processed, total);
+                });
             }
             
             // Update cache
