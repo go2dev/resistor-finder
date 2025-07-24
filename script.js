@@ -121,8 +121,14 @@ const ResistorUtils = {
 
         // Check if normalized value appears in any series array
         const seriesOrder = ['E24', 'E48', 'E96', 'E192'];
+        const tolerance = 0.0001; // Tolerance for floating-point comparison
+        
         for (const seriesName of seriesOrder) {
-            if (this.series[seriesName].includes(normalized)) {
+            // Use tolerance-based comparison instead of exact match
+            const found = this.series[seriesName].some(seriesValue => 
+                Math.abs(normalized - seriesValue) < tolerance
+            );
+            if (found) {
                 return seriesName;
             }
         }
