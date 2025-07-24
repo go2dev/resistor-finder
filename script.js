@@ -184,6 +184,48 @@ function invalidateCache() {
     resultsCache.calculatorState = null;
 }
 
+// Function to check if a result uses any of the excluded resistor values
+function resultUsesResistor(result, resistorValue) {
+    // Check r1
+    if (Array.isArray(result.r1)) {
+        if (result.r1.includes(resistorValue)) return true;
+    } else {
+        if (result.r1 === resistorValue) return true;
+    }
+    
+    // Check r2
+    if (Array.isArray(result.r2)) {
+        if (result.r2.includes(resistorValue)) return true;
+    } else {
+        if (result.r2 === resistorValue) return true;
+    }
+    
+    return false;
+}
+
+// Function to filter results based on active resistors
+function filterResultsByActiveResistors(allResults, activeResistors) {
+    // Get all resistor values from the display (both active and inactive)
+    const allResistorValues = Array.from(document.querySelectorAll('.parsed-value-box'))
+        .map(box => parseFloat(box.dataset.value));
+    
+    // Find excluded resistors (those that are not in activeResistors)
+    const excludedResistors = allResistorValues.filter(value => {
+        // Use tolerance for floating point comparison
+        return !activeResistors.some(activeValue => Math.abs(activeValue - value) < 0.0001);
+    });
+    
+    // Filter out results that use any excluded resistor
+    return allResults.filter(result => {
+        for (const excludedValue of excludedResistors) {
+            if (resultUsesResistor(result, excludedValue)) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
+
 class ResistorCalculator {
     constructor() {
         this.resistorValues = [];
@@ -1008,7 +1050,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add this function at the end of the file, before the last closing brace
 async function toggleResistorValue(element) {
-    invalidateCache(); // Cache is invalid when resistor selection changes
     element.classList.toggle('disabled');
     element.classList.toggle('active');
     
@@ -1016,186 +1057,99 @@ async function toggleResistorValue(element) {
     const activeResistors = Array.from(document.querySelectorAll('.parsed-value-box.active'))
         .map(box => parseFloat(box.dataset.value));
     
-    // Create a new calculator with only active resistors
+    // Check if we have cached results we can filter
+    if (resultsCache.isValid && resultsCache.allResults) {
+        // Use cached results and filter them
+        const filteredResults = filterResultsByActiveResistors(resultsCache.allResults, activeResistors);
+        
+        // Apply current resistance filter and sorting
+        const displayResults = filterAndSortResults(filteredResults, currentResistanceRange.min, currentResistanceRange.max);
+        
+        // Update the display without recalculating
+        updateResultsDisplay(displayResults);
+    } else {
+        // No cache available, need to recalculate (this should only happen on first load)
+        invalidateCache();
+        await calculateAndDisplayResults();
+    }
+}
+
+// New function to update only the results display without regenerating the entire UI
+function updateResultsDisplay(displayResults) {
+    // Find the results section
+    const resultsSection = document.querySelector('.results-section');
+    if (!resultsSection) return;
+    
+    // Create a dummy calculator for formatting
     const calculator = new ResistorCalculator();
+    calculator.supplyVoltage = parseFloat(supplyVoltageInput.value);
+    calculator.targetVoltage = parseFloat(targetVoltageInput.value);
     
-    // Parse and validate resistor values
-    const errors = [];
-    const warnings = [];
+    // Replace just the results section
+    resultsSection.outerHTML = renderResults(displayResults, calculator);
     
-    // Add all active resistors to the calculator
-    calculator.resistorValues = activeResistors;
-    
-    // Validate supply voltage
-    const supplyResult = calculator.validateVoltage(supplyVoltageInput.value, true);
-    if (!supplyResult.valid) {
-        errors.push(`Supply Voltage: ${supplyResult.error}`);
-    } else {
-        calculator.supplyVoltage = supplyResult.value;
-    }
-
-    // Validate target voltage
-    const targetResult = calculator.validateVoltage(targetVoltageInput.value);
-    if (!targetResult.valid) {
-        errors.push(`Target Voltage: ${targetResult.error}`);
-    } else {
-        calculator.targetVoltage = targetResult.value;
-    }
-
-    // Set overshoot option
-    calculator.allowOvershoot = overshootSwitch.checked;
-
-    // If there are critical errors, show them and stop
-    if (errors.length > 0) {
-        resultsContainer.innerHTML = `
-            <div class="error">
-                <h3>Errors:</h3>
-                <ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>
-            </div>`;
-        return;
-    }
-
-    // Show loading spinner for large datasets
-    const needsSpinner = activeResistors.length > 20;
-    if (needsSpinner) {
-        showLoadingSpinner();
-    }
-    
-    let allResults;
-    try {
-        // Get results with only active resistors
-        allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
-            updateLoadingProgress(processed, total);
-        });
-    } finally {
-        if (needsSpinner) {
-            hideLoadingSpinner();
-        }
-    }
-    
-    const displayResults = allResults.slice(0, 5);
-
-    // Update cache with new results
-    resultsCache.allResults = allResults;
-    resultsCache.calculatorState = generateStateKey(calculator, activeResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
-    resultsCache.isValid = true;
-    
-    // Reset resistance range to allow full filtering with new results
-    currentResistanceRange.min = 0;
-    currentResistanceRange.max = Infinity;
-
-    // Display results
-    let output = '';
-    
-    // Get the original input conversions from the current display
-    const originalConversions = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
-        input: box.dataset.input || box.querySelector('.formatted').textContent,
-        value: parseFloat(box.dataset.value),
-        formatted: box.querySelector('.formatted').textContent,
-        active: box.classList.contains('active'),
-        series: box.dataset.series || ResistorUtils.findResistorSeries(parseFloat(box.dataset.value))
-    }));
-    
-    // Add parsed values display with original conversions
-    output += `
-        <div class="parsed-values">
-            <h3>Available Resistors</h3>
-            <div class="help-tooltip">
-                ?
-                <span class="tooltip-text">
-                    Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
-                </span>
-            </div>
-            <div class="parsed-values-grid">
-                ${originalConversions.map((conv, index) => `
-                    <div class="parsed-value-box ${conv.active ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}" 
-                         data-value="${conv.value}" 
-                         data-input="${conv.input}"
-                         data-series="${conv.series || ''}"
-                         data-index="${index}" 
-                         onclick="toggleResistorValue(this).catch(console.error)">
-                        <span class="formatted">${conv.formatted}</span>
-                        <span class="box-tooltip">${conv.value} Ω<br>${conv.series ? 'Series: ' + conv.series : 'Non-standard value'}</span>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="voltage-slider-section">
-                <label for="supplyVoltageSliderNogui">Quick Adjust Supply Voltage: <span id="sliderValueNogui">${calculator.supplyVoltage}</span> V</label>
-                <div id="supplyVoltageSliderNogui" style="margin: 10px 0;"></div>
-            </div>
-        </div>`;
-
-    output += renderResults(displayResults, calculator);
-
-    // Add calculation details if enabled
-        output += `
-            <div class="details-section">
-                <h3>Calculation Details</h3>
-                <div class="details-content">
-                    <div class="input-conversions">
-                        <h4>Input Value Conversions</h4>
-                        <table class="details-table">
-                            <thead>
-                                <tr>
-                                    <th>Input</th>
-                                    <th>Value (Ω)</th>
-                                    <th>Formatted</th>
-                                    <th>Series</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${originalConversions.map(conv => `
-                                    <tr>
-                                        <td>${conv.input}</td>
-                                        <td>${conv.value}</td>
-                                        <td>${conv.formatted}</td>
-                                        <td>${conv.series || 'None'}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="combination-stats">
-                        <h4>Combination Statistics</h4>
-                        <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
-                        <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
-                        <div class="voltage-stats">
-                            <h4>Voltage Distribution</h4>
-                            <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
-                            <p>Below target: ${calculator.calculationStats.voltageStats.below.toLocaleString()}</p>
-                            <p>Exactly at target: ${calculator.calculationStats.voltageStats.exact.toLocaleString()}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-    resultsContainer.innerHTML = output;
-
-    // Initialize diagrams for each result
+    // Reinitialize diagrams for the new results
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
-        // Helper to convert r1/r2 array to string for renderCustom
-        function sectionToString(section) {
-            if (Array.isArray(section)) {
-                // Use the .type property if present, otherwise default to 'series'
-                const type = section.type || 'series';
-                return section.map(v => v).join(',') + ',' + type;
-            } else {
-                // Single resistor, treat as series
-                return section + ',series';
+        if (result) {
+            // Helper to convert r1/r2 array to string for renderCustom
+            function sectionToString(section) {
+                if (Array.isArray(section)) {
+                    const type = section.type || 'series';
+                    return section.map(v => v).join(',') + ',' + type;
+                } else {
+                    return section + ',series';
+                }
             }
+            const topSection = sectionToString(result.r1);
+            const bottomSection = sectionToString(result.r2);
+            const diagram = new Diagram(diagramContainer.id, 300, 220);
+            diagram.renderCustom(topSection, bottomSection, calculator.supplyVoltage, calculator.targetVoltage);
         }
-        const topSection = sectionToString(result.r1);
-        const bottomSection = sectionToString(result.r2);
-        const diagram = new Diagram(diagramContainer.id, 300, 220);
-        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
     });
-
-    // Initialize resistance filter slider with all results
-    initializeResistanceFilter(allResults);
     
-    // Initialize nogui supply voltage slider
-    initializeSupplyVoltageSliderNogui(calculator.supplyVoltage, calculator.targetVoltage);
+    // Update the resistance filter to reflect the new filtered results
+    const filteredAllResults = filterResultsByActiveResistors(resultsCache.allResults, activeResistors);
+    updateResistanceFilterRange(filteredAllResults);
+}
+
+// Function to update the resistance filter range based on filtered results
+function updateResistanceFilterRange(filteredResults) {
+    const slider = document.getElementById('resistance-slider');
+    if (!slider || !slider.noUiSlider) return;
+    
+    if (filteredResults.length === 0) {
+        // No results, disable the slider
+        slider.setAttribute('disabled', true);
+        return;
+    } else {
+        // Re-enable the slider if it was disabled
+        slider.removeAttribute('disabled');
+    }
+    
+    // Calculate new min and max from filtered results
+    const resistances = filteredResults.map(r => r.totalResistance);
+    const minRes = Math.min(...resistances);
+    const maxRes = Math.max(...resistances);
+    
+    // Only update if the range has changed significantly
+    const currentRange = slider.noUiSlider.options.range;
+    if (Math.abs(currentRange.min - minRes) > 0.01 || Math.abs(currentRange.max - maxRes) > 0.01) {
+        // Reset current filter range to include all results
+        currentResistanceRange.min = minRes;
+        currentResistanceRange.max = maxRes;
+        
+        // Update slider range
+        slider.noUiSlider.updateOptions({
+            range: {
+                'min': minRes,
+                'max': maxRes
+            }
+        });
+        
+        // Reset slider position to full range
+        slider.noUiSlider.set([minRes, maxRes]);
+    }
 }
 
 // Test function for resistor value parsing
