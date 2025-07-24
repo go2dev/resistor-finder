@@ -11,14 +11,12 @@ function checkWebWorkerSupport() {
         testWorker.terminate();
         return true;
     } catch (e) {
-        console.log('Web Workers not supported:', e);
         return false;
     }
 }
 
 // Global flag for Web Worker support
 const webWorkerSupported = checkWebWorkerSupport();
-console.log('Web Worker support:', webWorkerSupported);
 
 // Utility object for resistor calculations and formatting
 const ResistorUtils = {
@@ -263,6 +261,11 @@ class ResistorCalculator {
                 above: 0,
                 below: 0,
                 exact: 0
+            },
+            processingInfo: {
+                calculationTime: 0,
+                cpuCoresUsed: 1,
+                processingMode: 'single-threaded'
             }
         };
     }
@@ -337,8 +340,6 @@ class ResistorCalculator {
     async findVoltageDividerCombinationsParallel(progressCallback) {
         const combinations = this.generateCombinations(this.resistorValues);
         
-        console.log(`Starting parallel calculation with ${this.resistorValues.length} resistor values, ${combinations.length} combinations`);
-        
         // Pre-calculate all resistance values
         const resistanceCache = new Map();
         for (let i = 0; i < combinations.length; i++) {
@@ -355,7 +356,6 @@ class ResistorCalculator {
         
         // Determine number of workers based on available cores
         const numWorkers = navigator.hardwareConcurrency || 4;
-        console.log(`Using ${numWorkers} CPU cores for parallel processing`);
         
         // Split work into chunks
         const chunkSize = Math.ceil(sortedIndices.length / numWorkers);
@@ -477,7 +477,13 @@ class ResistorCalculator {
         }
         
         const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`Parallel calculation complete: Found ${allResults.length} results in ${elapsed.toFixed(1)}s using ${numWorkers} workers`);
+        
+        // Update processing info
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: numWorkers,
+            processingMode: 'multi-core parallel'
+        };
         
         // Final progress update
         if (progressCallback) {
@@ -491,8 +497,6 @@ class ResistorCalculator {
     async findVoltageDividerCombinationsAsync(progressCallback) {
         const combinations = this.generateCombinations(this.resistorValues);
         const results = [];
-        
-        console.log(`Starting calculation with ${this.resistorValues.length} resistor values, ${combinations.length} combinations`);
         
         // Pre-calculate all resistance values to avoid recalculation
         const resistanceCache = new Map();
@@ -644,13 +648,7 @@ class ResistorCalculator {
                     }
                     await new Promise(resolve => setTimeout(resolve, 0));
                     
-                    // Log progress for debugging
-                    if (j % 100 === 0) {
-                        const elapsed = (Date.now() - startTime) / 1000;
-                        const rate = j / elapsed;
-                        const remaining = (sortedIndices.length - j) / rate;
-                        console.log(`Progress: ${j}/${sortedIndices.length} R2 values tested, found ${results.length} results, ETA: ${remaining.toFixed(0)}s`);
-                    }
+                    // Progress tracking handled by progress callback
                 }
             }
         } catch (error) {
@@ -660,7 +658,13 @@ class ResistorCalculator {
         
         // Update stats
         const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`Calculation complete: Tested ${processed} combinations in ${elapsed.toFixed(1)}s, skipped ${skipped} duplicates, found ${results.length} valid results`);
+        
+        // Update processing info
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: 1,
+            processingMode: 'single-threaded'
+        };
         
         // Final progress update
         if (progressCallback) {
@@ -949,16 +953,10 @@ async function calculateAndDisplayResults() {
             const useParallel = webWorkerSupported && validResistors.length > 10;
             
             if (useParallel) {
-                console.log('Using multi-core parallel processing');
                 allResults = await calculator.findVoltageDividerCombinationsParallel((processed, total) => {
                     updateLoadingProgress(processed, total);
                 });
             } else {
-                if (!webWorkerSupported && validResistors.length > 10) {
-                    console.log('Web Workers not supported, falling back to single-threaded processing');
-                } else {
-                    console.log('Using single-threaded processing for small dataset');
-                }
                 allResults = await calculator.findVoltageDividerCombinationsAsync((processed, total) => {
                     updateLoadingProgress(processed, total);
                 });
@@ -1082,6 +1080,9 @@ async function calculateAndDisplayResults() {
                         <h4>Combination Statistics</h4>
                         <p>Total combinations tested: ${calculator.calculationStats.totalCombinations.toLocaleString()}</p>
                         <p>Valid combinations: ${calculator.calculationStats.validCombinations.toLocaleString()}</p>
+                        <p>Calculation time: ${calculator.calculationStats.processingInfo.calculationTime.toFixed(2)}s</p>
+                        <p>Processing mode: ${calculator.calculationStats.processingInfo.processingMode}</p>
+                        <p>CPU cores used: ${calculator.calculationStats.processingInfo.cpuCoresUsed}</p>
                         <div class="voltage-stats">
                             <h4>Voltage Distribution</h4>
                             <p>Above target: ${calculator.calculationStats.voltageStats.above.toLocaleString()}</p>
