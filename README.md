@@ -36,21 +36,21 @@ Components: 4
 Output Voltage Range: 3.30V to 3.45V
 ```
 
-- The error value indicates how far from the target Vout an idealised divider would in volts. Positive numbers overshoot and negative numbers are under the target.   
+- The error value indicates how far from the target Vout an idealised divider would be in volts. Positive numbers overshoot the target and negative numbers are under the target.   
 
-- The output voltage range shows the possible range where the Vout might be accounting for the real life tolerances of components. Tolerances are determined by the E series for a given value and the calculator determines the range by trying the permutations of upper and lower bounds for a given value for each resistor in the network. 
+- The output voltage range shows the possible range where the Vout might be, accounting for the real life tolerances of components. Tolerances are determined by the E series for a given value and the calculator determines the range by trying the permutations of upper and lower bounds for a given value for each resistor in the network. 
 
 ### Sorting & filtering results
 
 The options panel allows for precise filtering and sorting of the results. As there are often many results, the tool only shows the top 5 based on the filter and sort options.
 
 - Sort by radio buttons change the criteria by which the results are shown
-- The total resistance slider can be moved from either end to only show results within a certain range, useful if you are looking for a target total resistance to match the impedance of a DAC or have overall power draw requirements in a battery powered application. 
+- The total resistance slider can be moved from either end to only show results within a certain range, which is useful if you are looking for a target total resistance to match the impedance of a DAC or have overall power draw requirements in a battery-powered application. 
   - Grab the handles to adjust the range and drag the body to the slider to shift the range
 
 ## Resistor Value Notation
 
-The calculator can use variety of notation styles when entering resistor values:
+The calculator can use a variety of notation styles when entering resistor values:
 - Plain numbers for ohms:
     - 10 → 10 Ohm
     - 1000 → 1 kilo Ohm
@@ -71,13 +71,13 @@ It is possible to use these styles in combination when inputting values e.g. `10
 ## How It Works
 The calculator:
 1. Takes your available resistor values
-2. Generates all possible combinations (single resistors, series, and parallel)
-3. Uses an intelligent search algorithm to efficiently find optimal voltage divider combinations
-4. Sorts the results by how close they get to your target voltage
+2. Generates a list of all possible combinations (single resistors, series, and parallel)
+3. Reduces the search space by removing 'obviously' wrong combinations and then performs the calculations
+4. Sorts the results by user set criteria
 5. Shows the top 5 best matches
 
-### Search Space Optimization
-Rather than testing every possible pairing of resistor combinations, the calculator uses a smart optimization strategy. For each bottom resistor (R2) in the voltage divider, it calculates the mathematically ideal top resistor (R1) that would produce exactly the target voltage. It then uses binary search on pre-sorted resistance values to quickly locate the closest available R1 value, and only tests a small range of nearby candidates. This approach dramatically reduces computation time - for example, with 100 resistor values, it tests only a few thousand combinations instead of all ten thousand possible pairings. The calculator also eliminates duplicate results by tracking voltage divider ratios and keeping only the lowest total resistance for each unique ratio. When multiple CPU cores are available, the work is split across parallel workers for even faster results.
+### Search Space Optimisation
+Rather than testing every possible pairing of resistor combinations, the calculator uses a smart optimisation strategy. For each bottom resistor (R2) in the voltage divider, it calculates the mathematically ideal top resistor (R1) that would produce exactly the target voltage. It then uses binary search on pre-sorted resistance values to quickly locate the closest available R1 value, and only tests a small range of nearby candidates. This approach dramatically reduces computation time - for example, with 100 resistor values, it tests only a few thousand combinations instead of all ten thousand possible pairings. The calculator also eliminates duplicate results by tracking voltage divider ratios and keeping only the lowest total resistance for each unique ratio. When multiple CPU cores are available, the work is split across parallel workers for even faster results.
 
 
 ## Running Locally
