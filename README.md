@@ -72,9 +72,12 @@ It is possible to use these styles in combination when inputting values e.g. `10
 The calculator:
 1. Takes your available resistor values
 2. Generates all possible combinations (single resistors, series, and parallel)
-3. Calculates the output voltage for each combination
+3. Uses an intelligent search algorithm to efficiently find optimal voltage divider combinations
 4. Sorts the results by how close they get to your target voltage
 5. Shows the top 5 best matches
+
+### Search Space Optimization
+Rather than testing every possible pairing of resistor combinations, the calculator uses a smart optimization strategy. For each bottom resistor (R2) in the voltage divider, it calculates the mathematically ideal top resistor (R1) that would produce exactly the target voltage. It then uses binary search on pre-sorted resistance values to quickly locate the closest available R1 value, and only tests a small range of nearby candidates. This approach dramatically reduces computation time - for example, with 100 resistor values, it tests only a few thousand combinations instead of all ten thousand possible pairings. The calculator also eliminates duplicate results by tracking voltage divider ratios and keeping only the lowest total resistance for each unique ratio. When multiple CPU cores are available, the work is split across parallel workers for even faster results.
 
 
 ## Running Locally
