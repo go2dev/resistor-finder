@@ -7,6 +7,14 @@ const resultsContainer = document.getElementById('results');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resistorTolerances = ResistorUtils.resistorTolerances;
 
+const LIMITS = {
+    maxParallel: 10,
+    maxSeriesBlocks: 10,
+    maxBlocks: 2048,
+    maxCombos: 200000,
+    maxInputResistors: 60
+};
+
 function formatCombination(combo) {
     const formatSection = (section) => {
         if (!Array.isArray(section)) {
@@ -113,7 +121,17 @@ function generateCombinations(resistors, options = {}) {
         if (comboCount >= maxCombos) break;
     }
 
-    return combinations;
+    return {
+        combinations,
+        stats: {
+            blockCount: filteredBlocks.length,
+            comboCount: combinations.length,
+            maxParallel,
+            maxSeriesBlocks,
+            maxBlocks,
+            maxCombos
+        }
+    };
 }
 
 function resistanceOf(section) {
@@ -131,6 +149,61 @@ function resistanceOf(section) {
 function countComponents(section) {
     if (!Array.isArray(section)) return 1;
     return section.reduce((sum, item) => sum + countComponents(item), 0);
+}
+
+function applyResistorHeuristic(resistors, targetValue, limit) {
+    if (!targetValue || resistors.length <= limit) {
+        return {
+            resistors,
+            trimmed: false,
+            removedCount: 0
+        };
+    }
+
+    const sortedByDiff = resistors
+        .map(resistor => ({
+            resistor,
+            diff: Math.abs(resistor.value - targetValue)
+        }))
+        .sort((a, b) => a.diff - b.diff);
+
+    const selection = new Map();
+    sortedByDiff.slice(0, limit).forEach(entry => {
+        selection.set(entry.resistor.id, entry.resistor);
+    });
+
+    const sortedByValue = resistors.slice().sort((a, b) => a.value - b.value);
+    sortedByValue.slice(0, 3).forEach(resistor => selection.set(resistor.id, resistor));
+    sortedByValue.slice(-3).forEach(resistor => selection.set(resistor.id, resistor));
+
+    let filtered = Array.from(selection.values());
+    if (filtered.length > limit) {
+        filtered = filtered
+            .map(resistor => ({
+                resistor,
+                diff: Math.abs(resistor.value - targetValue)
+            }))
+            .sort((a, b) => a.diff - b.diff)
+            .slice(0, limit)
+            .map(entry => entry.resistor);
+    }
+
+    return {
+        resistors: filtered,
+        trimmed: filtered.length < resistors.length,
+        removedCount: resistors.length - filtered.length
+    };
+}
+
+function getEffectiveLimits(resistorCount) {
+    let maxParallel = LIMITS.maxParallel;
+    if (resistorCount > 40) maxParallel = Math.min(maxParallel, 6);
+    if (resistorCount > 55) maxParallel = Math.min(maxParallel, 5);
+    if (resistorCount > 70) maxParallel = Math.min(maxParallel, 4);
+    return {
+        ...LIMITS,
+        maxParallel
+    };
 }
 
 function calculateResistorBounds(resistor) {
@@ -182,7 +255,7 @@ function useWorkerForInput(resistorCount) {
     return typeof Worker !== 'undefined' && resistorCount >= 12;
 }
 
-function runWorkerCalculation(resistors, targetValue, sortBy) {
+function runWorkerCalculation(resistors, targetValue, sortBy, options) {
     return new Promise((resolve, reject) => {
         const worker = new Worker('target-resistance-worker.js');
         const payload = {
@@ -190,20 +263,20 @@ function runWorkerCalculation(resistors, targetValue, sortBy) {
             targetValue,
             sortBy,
             options: {
-                maxParallel: 10,
-                maxSeriesBlocks: 10,
-                maxBlocks: 2048,
-                maxCombos: 200000
+                maxParallel: options.maxParallel,
+                maxSeriesBlocks: options.maxSeriesBlocks,
+                maxBlocks: options.maxBlocks,
+                maxCombos: options.maxCombos
             }
         };
 
         const cleanup = () => worker.terminate();
 
         worker.addEventListener('message', (event) => {
-            const { type, results, error } = event.data || {};
+            const { type, results, error, stats } = event.data || {};
             if (type === 'result') {
                 cleanup();
-                resolve(results || []);
+                resolve({ results: results || [], stats: stats || null });
             } else if (type === 'error') {
                 cleanup();
                 reject(new Error(error || 'Worker failed'));
@@ -222,6 +295,8 @@ function runWorkerCalculation(resistors, targetValue, sortBy) {
 function parseResistorList(values, options) {
     const warnings = [];
     const resistors = [];
+    const conversions = [];
+    const activeStateMap = options.activeStateMap || new Map();
     values.forEach((value, index) => {
         if (!value) return;
         try {
@@ -233,38 +308,61 @@ function parseResistorList(values, options) {
             if (parsed.warnings && parsed.warnings.length > 0) {
                 parsed.warnings.forEach(warning => warnings.push(`Resistor ${index + 1} ${value}: ${warning}`));
             }
+            const seriesName = parsed.series || ResistorUtils.findResistorSeries(parsed.value);
+            const active = activeStateMap.has(index) ? activeStateMap.get(index) : true;
             resistors.push({
                 id: index,
                 value: parsed.value,
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
-                series: parsed.series || ResistorUtils.findResistorSeries(parsed.value),
+                series: seriesName,
                 formatted: ResistorUtils.formatResistorValue(parsed.value),
                 input: value,
-                source: parsed.source
+                source: parsed.source,
+                active
+            });
+            conversions.push({
+                id: index,
+                input: value,
+                value: parsed.value,
+                formatted: ResistorUtils.formatResistorValue(parsed.value),
+                series: seriesName,
+                tolerance: parsed.tolerance,
+                powerRating: parsed.powerRating,
+                powerCode: parsed.powerCode,
+                active
             });
         } catch (error) {
             warnings.push(`Resistor ${index + 1} ${value} ignored: ${error.message}`);
         }
     });
 
-    return { resistors, warnings };
+    return { resistors, warnings, conversions };
 }
 
 async function calculateResults() {
     const warnings = [];
+    const calculationStart = performance.now();
     const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
     const snapToSeries = document.getElementById('snapToSeries')?.checked;
     const snapSeries = document.getElementById('autofillSeries')?.value || 'E24';
+    const activeStates = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
+        id: parseInt(box.dataset.id, 10),
+        active: box.classList.contains('active')
+    }));
+    const activeStateMap = new Map(activeStates.map(state => [state.id, state.active]));
 
-    const { resistors, warnings: parseWarnings } = parseResistorList(resistorInputs, {
+    const { resistors, warnings: parseWarnings, conversions } = parseResistorList(resistorInputs, {
         snapToSeries,
-        snapSeries
+        snapSeries,
+        activeStateMap
     });
     warnings.push(...parseWarnings);
 
-    if (!resistors.length) {
+    const activeResistors = resistors.filter(resistor => resistor.active !== false);
+
+    if (!activeResistors.length) {
         warnings.push('At least one valid resistor value is required');
     }
 
@@ -293,11 +391,46 @@ async function calculateResults() {
 
     const sortBy = sortBySelect?.value || 'error';
     let results = [];
+    let calcStats = {
+        inputCount: resistors.length,
+        activeCount: activeResistors.length,
+        filteredCount: activeResistors.length,
+        filteredByHeuristic: false,
+        removedByHeuristic: 0,
+        blockCount: null,
+        comboCount: null,
+        maxParallel: LIMITS.maxParallel,
+        maxSeriesBlocks: LIMITS.maxSeriesBlocks,
+        maxBlocks: LIMITS.maxBlocks,
+        maxCombos: LIMITS.maxCombos,
+        workerUsed: false,
+        calculationTimeMs: null
+    };
 
-    if (useWorkerForInput(resistors.length)) {
+    const { resistors: filteredResistors, trimmed, removedCount } = applyResistorHeuristic(
+        activeResistors,
+        targetValue,
+        LIMITS.maxInputResistors
+    );
+    const effectiveLimits = getEffectiveLimits(filteredResistors.length);
+    calcStats.filteredCount = filteredResistors.length;
+    calcStats.filteredByHeuristic = trimmed;
+    calcStats.removedByHeuristic = removedCount;
+    calcStats.maxParallel = effectiveLimits.maxParallel;
+    calcStats.maxSeriesBlocks = effectiveLimits.maxSeriesBlocks;
+    calcStats.maxBlocks = effectiveLimits.maxBlocks;
+    calcStats.maxCombos = effectiveLimits.maxCombos;
+
+    if (useWorkerForInput(filteredResistors.length)) {
+        calcStats.workerUsed = true;
         showLoadingSpinner();
         try {
-            results = await runWorkerCalculation(resistors, targetValue, sortBy);
+            const workerResult = await runWorkerCalculation(filteredResistors, targetValue, sortBy, effectiveLimits);
+            results = workerResult.results;
+            if (workerResult.stats) {
+                calcStats.blockCount = workerResult.stats.blockCount ?? null;
+                calcStats.comboCount = workerResult.stats.comboCount ?? null;
+            }
         } catch (error) {
             warnings.push(`Worker failed: ${error.message}. Falling back to local calculation.`);
         } finally {
@@ -306,14 +439,16 @@ async function calculateResults() {
     }
 
     if (results.length === 0) {
-        const combos = generateCombinations(resistors, {
-            maxParallel: 10,
-            maxSeriesBlocks: 10,
-            maxBlocks: 2048,
-            maxCombos: 200000,
+        const { combinations, stats } = generateCombinations(filteredResistors, {
+            maxParallel: effectiveLimits.maxParallel,
+            maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
+            maxBlocks: effectiveLimits.maxBlocks,
+            maxCombos: effectiveLimits.maxCombos,
             targetValue
         });
-        results = combos.map(combo => {
+        calcStats.blockCount = stats.blockCount;
+        calcStats.comboCount = stats.comboCount;
+        results = combinations.map(combo => {
             const totalResistance = resistanceOf(combo);
             const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
             return {
@@ -350,6 +485,7 @@ async function calculateResults() {
             resistanceRange: calculateSectionBounds(result.combo)
         };
     });
+    calcStats.calculationTimeMs = Math.round(performance.now() - calculationStart);
 
     let output = '';
     if (warnings.length > 0) {
@@ -392,6 +528,15 @@ async function calculateResults() {
                     </tbody>
                 </table>
             </div>`;
+    }
+
+    if (conversions.length > 0 && window.CommonUI?.renderParsedValuesGrid) {
+        output += CommonUI.renderParsedValuesGrid({
+            conversions,
+            resistorTolerances,
+            onClickHandler: 'toggleResistorValue',
+            tooltipText: 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value'
+        });
     }
 
     output += `
@@ -437,6 +582,21 @@ async function calculateResults() {
                     </div>
                 `;
                 }).join('')}
+            </div>
+        </div>`;
+
+    output += `
+        <div class="details-section">
+            <h3>Calculation Stats</h3>
+            <div class="details-content">
+                <div class="combination-stats">
+                    <p>Inputs: ${calcStats.inputCount} total, ${calcStats.activeCount} active</p>
+                    <p>Filtered inputs used: ${calcStats.filteredCount}${calcStats.filteredByHeuristic ? ` (reduced by ${calcStats.removedByHeuristic}, cap ${LIMITS.maxInputResistors})` : ''}</p>
+                    <p>Parallel limit: ${calcStats.maxParallel}, Series blocks: ${calcStats.maxSeriesBlocks}, Parallel blocks: ${calcStats.maxBlocks}</p>
+                    <p>Max combos: ${calcStats.maxCombos.toLocaleString()}, Combos generated: ${calcStats.comboCount != null ? calcStats.comboCount.toLocaleString() : 'n/a'}</p>
+                    <p>Worker used: ${calcStats.workerUsed ? 'Yes' : 'No'}, Block count: ${calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
+                    <p>Calculation time: ${calcStats.calculationTimeMs != null ? `${calcStats.calculationTimeMs}ms` : 'n/a'}</p>
+                </div>
             </div>
         </div>`;
 
@@ -536,6 +696,13 @@ function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
     };
 
     img.src = svgUrl;
+}
+
+async function toggleResistorValue(element) {
+    if (!element) return;
+    element.classList.toggle('disabled');
+    element.classList.toggle('active');
+    await calculateResults();
 }
 
 calculateBtn.addEventListener('click', calculateResults);

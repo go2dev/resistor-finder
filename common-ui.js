@@ -78,4 +78,45 @@
             <span class="disclaimer">Version: <span id="appVersion">dev</span></span>
         `;
     }
+
+    window.CommonUI = window.CommonUI || {};
+    window.CommonUI.renderParsedValuesGrid = function ({
+        title = 'Available resistors',
+        tooltipText = 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value',
+        conversions = [],
+        resistorTolerances = ResistorUtils.resistorTolerances,
+        onClickHandler = 'toggleResistorValue'
+    } = {}) {
+        if (!conversions.length) return '';
+        const sorted = conversions.slice().sort((a, b) => a.value - b.value);
+        return `
+            <div class="parsed-values">
+                <h3>${title}</h3>
+                <div class="help-tooltip">
+                    ?
+                    <span class="tooltip-text">${tooltipText}</span>
+                </div>
+                <div class="parsed-values-grid">
+                    ${sorted.map((conv, index) => {
+                        const seriesLabel = conv.series ? `Series: ${conv.series}` : 'Non-standard value';
+                        const toleranceValue = conv.tolerance != null
+                            ? `${conv.tolerance}%`
+                            : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
+                        const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : 'Power code: none';
+                        return `
+                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
+                             data-id="${conv.id}"
+                             data-value="${conv.value}"
+                             data-input="${conv.input}"
+                             data-series="${conv.series || ''}"
+                             data-index="${index}"
+                             onclick="${onClickHandler}(this).catch(console.error)">
+                            <span class="formatted">${conv.formatted}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}<br>${powerLabel}</span>
+                        </div>
+                    `;
+                    }).join('')}
+                </div>
+            </div>`;
+    };
 })();

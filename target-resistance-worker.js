@@ -102,7 +102,17 @@ function generateCombinations(resistors, options = {}) {
         if (comboCount >= maxCombos) break;
     }
 
-    return combinations;
+    return {
+        combinations,
+        stats: {
+            blockCount: filteredBlocks.length,
+            comboCount: combinations.length,
+            maxParallel,
+            maxSeriesBlocks,
+            maxBlocks,
+            maxCombos
+        }
+    };
 }
 
 self.addEventListener('message', (event) => {
@@ -111,11 +121,11 @@ self.addEventListener('message', (event) => {
 
     try {
         const { resistors, targetValue, options, sortBy } = data;
-        const combos = generateCombinations(resistors, {
+        const { combinations, stats } = generateCombinations(resistors, {
             ...options,
             targetValue
         });
-        const results = combos.map(combo => {
+        const results = combinations.map(combo => {
             const totalResistance = resistanceOf(combo);
             const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
             return {
@@ -144,7 +154,7 @@ self.addEventListener('message', (event) => {
             return Math.abs(a.error) - Math.abs(b.error);
         });
 
-        self.postMessage({ type: 'result', results: results.slice(0, 5) });
+        self.postMessage({ type: 'result', results: results.slice(0, 5), stats });
     } catch (error) {
         self.postMessage({ type: 'error', error: error.message });
     }

@@ -114,7 +114,7 @@ Tolerance letter codes (from RKM code):
 | B           | ±0.1%     |
 | C           | ±0.25%    |
 | D           | ±0.5%     |
-| E           | ±0.005%   |
+| E           | ±0.5%     |
 | F           | ±1.0%     |
 | G           | ±2.0%     |
 | H           | ±3.0%     |

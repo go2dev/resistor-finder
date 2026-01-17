@@ -461,7 +461,7 @@ class ResistorCalculator {
                         }
                         
                         // Calculate voltage range considering tolerances
-                        const voltageRange = this.calculateVoltageRange(r1, r2, this.supplyVoltage);
+                        const voltageRange = this.calculateVoltageRange(combinations[r1Idx], combinations[r2Idx], this.supplyVoltage);
                         
                         const result = {
                             r1: combinations[r1Idx],
@@ -894,41 +894,13 @@ async function calculateAndDisplayResults() {
     }
 
     // Add parsed values display
-    if (calculator.calculationStats.inputConversions.length > 0) {
-        // Sort inputConversions by value in ascending order
-        calculator.calculationStats.inputConversions.sort((a, b) => a.value - b.value);
-        
-        output += `
-            <div class="parsed-values">
-                <h3>Available resistors</h3>
-                <div class="help-tooltip">
-                    ?
-                    <span class="tooltip-text">
-                        Click a value to temporarily exclude/include it from the calculation. Colours inidicate the E series of the value
-                    </span>
-                </div>
-                <div class="parsed-values-grid">
-                    ${calculator.calculationStats.inputConversions.map((conv, index) => {
-                        const seriesLabel = conv.series ? `Series: ${conv.series}` : 'Non-standard value';
-                        const toleranceValue = conv.tolerance != null
-                            ? `${conv.tolerance}%`
-                            : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
-                        const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : 'Power code: none';
-                        return `
-                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
-                             data-id="${conv.id}"
-                             data-value="${conv.value}"
-                             data-input="${conv.input}"
-                             data-series="${conv.series || ''}"
-                             data-index="${index}"
-                             onclick="toggleResistorValue(this).catch(console.error)">
-                            <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}<br>${powerLabel}</span>
-                        </div>
-                    `;
-                    }).join('')}
-                </div>
-            </div>`;
+    if (calculator.calculationStats.inputConversions.length > 0 && window.CommonUI?.renderParsedValuesGrid) {
+        output += CommonUI.renderParsedValuesGrid({
+            conversions: calculator.calculationStats.inputConversions,
+            resistorTolerances,
+            onClickHandler: 'toggleResistorValue',
+            tooltipText: 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value'
+        });
     }
 
     output += renderResults(displayResults, calculator);
