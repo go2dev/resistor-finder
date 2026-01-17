@@ -4,6 +4,8 @@ const targetResistanceInput = document.getElementById('targetResistance');
 const calculateBtn = document.getElementById('calculateBtn');
 const sortBySelect = document.getElementById('sortBy');
 const resultsContainer = document.getElementById('results');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const resistorTolerances = ResistorUtils.resistorTolerances;
 
 function formatCombination(combo) {
     const formatSection = (section) => {
@@ -131,6 +133,92 @@ function countComponents(section) {
     return section.reduce((sum, item) => sum + countComponents(item), 0);
 }
 
+function calculateResistorBounds(resistor) {
+    const value = resistor.value ?? resistor;
+    let tolerance = resistor.tolerance;
+    if (tolerance == null) {
+        const seriesName = resistor.series || ResistorUtils.findResistorSeries(value);
+        tolerance = seriesName ? resistorTolerances[seriesName] : 0;
+    }
+    const multiplier = tolerance / 100;
+    return {
+        lower: value * (1 - multiplier),
+        upper: value * (1 + multiplier)
+    };
+}
+
+function calculateSectionBounds(section) {
+    if (!Array.isArray(section)) {
+        return calculateResistorBounds(section);
+    }
+
+    const type = section.type || 'series';
+    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+
+    if (type === 'parallel') {
+        const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
+        const max = 1 / bounds.reduce((sum, b) => sum + (1 / b.upper), 0);
+        return { lower: min, upper: max };
+    }
+
+    const lower = bounds.reduce((sum, b) => sum + b.lower, 0);
+    const upper = bounds.reduce((sum, b) => sum + b.upper, 0);
+    return { lower, upper };
+}
+
+function showLoadingSpinner() {
+    if (loadingSpinner) {
+        loadingSpinner.style.display = 'block';
+    }
+}
+
+function hideLoadingSpinner() {
+    if (loadingSpinner) {
+        loadingSpinner.style.display = 'none';
+    }
+}
+
+function useWorkerForInput(resistorCount) {
+    return typeof Worker !== 'undefined' && resistorCount >= 12;
+}
+
+function runWorkerCalculation(resistors, targetValue, sortBy) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker('target-resistance-worker.js');
+        const payload = {
+            resistors,
+            targetValue,
+            sortBy,
+            options: {
+                maxParallel: 10,
+                maxSeriesBlocks: 10,
+                maxBlocks: 2048,
+                maxCombos: 200000
+            }
+        };
+
+        const cleanup = () => worker.terminate();
+
+        worker.addEventListener('message', (event) => {
+            const { type, results, error } = event.data || {};
+            if (type === 'result') {
+                cleanup();
+                resolve(results || []);
+            } else if (type === 'error') {
+                cleanup();
+                reject(new Error(error || 'Worker failed'));
+            }
+        });
+
+        worker.addEventListener('error', (err) => {
+            cleanup();
+            reject(err);
+        });
+
+        worker.postMessage({ type: 'calculate', data: payload });
+    });
+}
+
 function parseResistorList(values, options) {
     const warnings = [];
     const resistors = [];
@@ -164,7 +252,7 @@ function parseResistorList(values, options) {
     return { resistors, warnings };
 }
 
-function calculateResults() {
+async function calculateResults() {
     const warnings = [];
     const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
     const snapToSeries = document.getElementById('snapToSeries')?.checked;
@@ -203,43 +291,65 @@ function calculateResults() {
         return;
     }
 
-    const combos = generateCombinations(resistors, {
-        maxParallel: 10,
-        maxSeriesBlocks: 10,
-        maxBlocks: 2048,
-        maxCombos: 200000,
-        targetValue
-    });
-    const results = combos.map(combo => {
-        const totalResistance = resistanceOf(combo);
-        const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
-        return {
-            combo,
-            totalResistance,
-            error: totalResistance - targetValue,
-            errorPercent,
-            componentCount: countComponents(combo)
-        };
-    });
-
     const sortBy = sortBySelect?.value || 'error';
-    results.sort((a, b) => {
-        if (sortBy === 'components') {
-            if (a.componentCount !== b.componentCount) {
-                return a.componentCount - b.componentCount;
+    let results = [];
+
+    if (useWorkerForInput(resistors.length)) {
+        showLoadingSpinner();
+        try {
+            results = await runWorkerCalculation(resistors, targetValue, sortBy);
+        } catch (error) {
+            warnings.push(`Worker failed: ${error.message}. Falling back to local calculation.`);
+        } finally {
+            hideLoadingSpinner();
+        }
+    }
+
+    if (results.length === 0) {
+        const combos = generateCombinations(resistors, {
+            maxParallel: 10,
+            maxSeriesBlocks: 10,
+            maxBlocks: 2048,
+            maxCombos: 200000,
+            targetValue
+        });
+        results = combos.map(combo => {
+            const totalResistance = resistanceOf(combo);
+            const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
+            return {
+                combo,
+                comboLabel: formatCombination(combo),
+                totalResistance,
+                error: totalResistance - targetValue,
+                errorPercent,
+                componentCount: countComponents(combo)
+            };
+        });
+
+        results.sort((a, b) => {
+            if (sortBy === 'components') {
+                if (a.componentCount !== b.componentCount) {
+                    return a.componentCount - b.componentCount;
+                }
+                return Math.abs(a.error) - Math.abs(b.error);
+            }
+            if (sortBy === 'totalResistanceAsc') {
+                return a.totalResistance - b.totalResistance;
+            }
+            if (sortBy === 'totalResistanceDesc') {
+                return b.totalResistance - a.totalResistance;
             }
             return Math.abs(a.error) - Math.abs(b.error);
-        }
-        if (sortBy === 'totalResistanceAsc') {
-            return a.totalResistance - b.totalResistance;
-        }
-        if (sortBy === 'totalResistanceDesc') {
-            return b.totalResistance - a.totalResistance;
-        }
-        return Math.abs(a.error) - Math.abs(b.error);
-    });
+        });
+    }
 
-    const topResults = results.slice(0, 5);
+    const topResults = results.slice(0, 5).map(result => {
+        if (!result.combo) return result;
+        return {
+            ...result,
+            resistanceRange: calculateSectionBounds(result.combo)
+        };
+    });
 
     let output = '';
     if (warnings.length > 0) {
@@ -288,14 +398,17 @@ function calculateResults() {
         <div class="results-section">
             <h3>Closest Matches</h3>
             <div id="resultsList">
-                ${topResults.map(result => `
+                ${topResults.map((result, index) => {
+                    const comboText = result.comboLabel || formatCombination(result.combo);
+                    const comboLabel = encodeURIComponent(comboText);
+                    return `
                     <div class="result-item">
                         <div class="result-content">
                             <table class="result-table">
                                 <tbody>
                                     <tr>
                                         <td><strong>Combination:</strong></td>
-                                        <td>${formatCombination(result.combo)}</td>
+                                        <td>${comboText}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Total Resistance:</strong></td>
@@ -306,15 +419,24 @@ function calculateResults() {
                                         <td>${ResistorUtils.formatResistorValue(Math.abs(result.error))} (${Math.abs(result.errorPercent).toFixed(2)}%)</td>
                                     </tr>
                                     <tr>
+                                        <td><strong>Real World Resistance Range:</strong></td>
+                                        <td>${result.resistanceRange ? `${ResistorUtils.formatResistorValue(result.resistanceRange.lower)} to ${ResistorUtils.formatResistorValue(result.resistanceRange.upper)}` : '—'}</td>
+                                    </tr>
+                                    <tr>
                                         <td><strong>Components:</strong></td>
                                         <td>${result.componentCount}</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <div class="result-diagram" id="diagram-${topResults.indexOf(result)}"></div>
+                        <div class="result-diagram" id="diagram-${index}" data-combo="${comboLabel}" data-total="${result.totalResistance}" data-target="${targetValue}">
+                            <button class="diagram-download-btn" onclick="downloadTargetDiagram(${index})" title="Download diagram as PNG">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
                     </div>
-                `).join('')}
+                `;
+                }).join('')}
             </div>
         </div>`;
 
@@ -331,8 +453,89 @@ function initializeTargetDiagrams(results) {
             [`Total: ${ResistorUtils.formatResistorValue(result.totalResistance)}`]
         );
         const diagram = new Diagram(diagramContainer.id, 300, 160);
-        diagram.renderTextDiagram(lines, 'Target Network');
+        diagram.renderTextDiagram(lines, '');
     });
+}
+
+function downloadTargetDiagram(index) {
+    const diagramElement = document.getElementById(`diagram-${index}`);
+    if (!diagramElement) return;
+    const svgElement = diagramElement.querySelector('svg');
+    if (!svgElement) return;
+
+    const targetValue = targetResistanceInput.value;
+    const comboLabel = decodeURIComponent(diagramElement.dataset.combo || '');
+    const totalValue = parseFloat(diagramElement.dataset.total || '0');
+    const targetNumeric = parseFloat(diagramElement.dataset.target || '');
+    const formattedTotal = ResistorUtils.formatResistorValue(totalValue).replace(/[^\w]/g, '');
+    const sanitizedCombo = comboLabel.replace(/[^\w]+/g, '-').slice(0, 40);
+    const filename = `target-${targetValue}-${formattedTotal}-${sanitizedCombo}.png`;
+    const targetLine = Number.isFinite(targetNumeric)
+        ? [`Target: ${ResistorUtils.formatResistorValue(targetNumeric)}`]
+        : [];
+
+    convertSVGtoPNG(svgElement, filename, 2, targetLine);
+}
+
+function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
+    const svgClone = svgElement.cloneNode(true);
+    const originalWidth = svgElement.viewBox?.baseVal?.width || 300;
+    const originalHeight = svgElement.viewBox?.baseVal?.height || 160;
+    const lineHeight = 16;
+    const padding = 16;
+    const extraHeight = extraLines.length ? padding + lineHeight * extraLines.length : 0;
+    const updatedHeight = originalHeight + extraHeight;
+    const scaledWidth = originalWidth * scale;
+    const scaledHeight = updatedHeight * scale;
+
+    svgClone.setAttribute('width', scaledWidth);
+    svgClone.setAttribute('height', scaledHeight);
+    svgClone.setAttribute('viewBox', `0 0 ${originalWidth} ${updatedHeight}`);
+
+    if (extraLines.length) {
+        extraLines.forEach((line, index) => {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', padding);
+            text.setAttribute('y', originalHeight + padding + lineHeight * (index + 1));
+            text.setAttribute('font-size', '12px');
+            text.textContent = line;
+            svgClone.appendChild(text);
+        });
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = scaledWidth;
+    canvas.height = scaledHeight;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = function() {
+        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+        canvas.toBlob(function(blob) {
+            const downloadUrl = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = filename;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(downloadUrl);
+            URL.revokeObjectURL(svgUrl);
+        }, 'image/png');
+    };
+
+    img.onerror = function() {
+        URL.revokeObjectURL(svgUrl);
+    };
+
+    img.src = svgUrl;
 }
 
 calculateBtn.addEventListener('click', calculateResults);
