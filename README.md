@@ -64,11 +64,11 @@ Use the Target Resistance page to find the closest single/series/parallel combin
 
 ## Snap to E-series Values
 
-Enable the Snap to E-series toggle to coerce parsed values to the nearest E-series value. If a tolerance is specified, the closest matching E-series is chosen. Otherwise the selected series is used.
+Enable the Snap to E-series toggle to coerce parsed values to the nearest E-series value. If a tolerance is specified, the closest matching E-series is chosen. Otherwise the selected series is used. When disabled, values are used exactly as entered (including non-standard values), and no snapping is applied.
 
 ## JLC PCB Basics Autofill
 
-Use the "Autofill JLC PCB Basics Values" button to populate the input with JLCPCB Basic resistor values (cost-effective assembly).
+Use the "Autofill JLC PCB Basics Values" button to populate the input with JLCPCB Basic resistor values. At the time of writing, JLCPCB does not charge a loading fee for basic parts, so using these values can be more cost-effective for assembly.
 
 ## Resistor Value Notation (RKM / R notation, IEC 60062)
 
@@ -205,5 +205,7 @@ npx http-server -p 8000
 ## License
 
 This project is licensed under the MIT License.
+
+Warranty: none provided. Use at your own risk; results are not validated.
 
 
