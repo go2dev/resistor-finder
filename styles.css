@@ -249,6 +249,10 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.input-section #calculateBtn {
+    margin-top: 0.75rem;
+}
+
 .voltage-inputs {
     display: block;
 }
@@ -457,6 +461,7 @@ button:hover {
 
 .solution-slider-control .noUi-connect {
     background: var(--button-bg);
+    height: 100%;
 }
 
 .solution-slider-control .noUi-base,
@@ -464,12 +469,16 @@ button:hover {
     height: 6px;
 }
 
+.solution-slider-control .noUi-connects {
+    background: var(--input-border);
+}
+
 .solution-slider-control .noUi-handle {
     width: 16px;
     height: 16px;
     right: -8px;
     top: -6px;
-    border-radius: 50%;
+    border-radius: 3px;
 }
 
 .result-warning {
@@ -490,20 +499,25 @@ button:hover {
 .result-diagram {
     flex: 0 0 auto;
     width: 320px;
+    min-height: 220px;
     align-self: center;
-    background-color: #f8f8f8;
+    background-color: var(--result-bg);
     border-radius: 4px;
     padding: 8px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--input-border);
     box-sizing: border-box;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .result-diagram svg {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
     max-width: 100%;
+    max-height: 100%;
 }
 
 .result-item:last-child {
@@ -579,15 +593,16 @@ footer a:hover {
 }
 
 .warning {
-    background-color: #fff3e0;
-    border-left: 4px solid #ff9800;
+    background-color: var(--warning-bg);
+    border-left: 4px solid var(--warning-border);
     padding: 15px;
     margin-bottom: 20px;
     border-radius: 4px;
+    color: var(--warning-text);
 }
 
 .warning h3 {
-    color: #e65100;
+    color: var(--warning-text);
     margin-top: 0;
     margin-bottom: 10px;
 }
@@ -602,7 +617,7 @@ footer a:hover {
 }
 
 .warnings-section h3 {
-    color: #e65100;
+    color: var(--warning-text);
     margin-bottom: 1rem;
 }
 

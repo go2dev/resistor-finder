@@ -90,6 +90,22 @@
                 <button id="calculateBtn">Find Closest Matches</button>
             </div>
 
+            <div class="options-section">
+                <label>Options:</label>
+                <div class="options-box">
+                    <div class="option-group">
+                        <div class="sort-options">
+                            <span class="theme-label">Sort Results By:</span>
+                            <select name="sortBy" id="sortBy" class="sort-select">
+                                <option value="error" selected>Lowest Error (Ω / %)</option>
+                                <option value="components">Lowest Component Count</option>
+                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
+                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="results" class="results-container"></div>
@@ -100,8 +116,11 @@
         Made by <a href="https://mynameis.dev" target="_blank">Dev</a> © <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> 2025
         <br>
         <span class="disclaimer">Source on <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a></span>
+        <br>
+        <span class="disclaimer">Version: <span id="appVersion">dev</span></span>
     </footer>
     <script src="resistor-utils.js"></script>
+    <script src="schematic.js"></script>
     <script src="target-resistance.js"></script>
 </body>
 </html>

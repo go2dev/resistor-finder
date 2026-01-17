@@ -17,6 +17,8 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 ## Usage
 
+### Voltage Divider
+
 1. Enter your available resistor values as comma-separated numbers (e.g., `10,220,470,1000,2k2,1M`)
 2. Enter your supply voltage (V)
 3. Enter your target output voltage (V)
@@ -61,6 +63,7 @@ Use the Target Resistance page to find the closest single/series/parallel combin
 1. Enter your available resistor values as comma-separated numbers
 2. Enter your target resistance
 3. Click "Find Closest Matches"
+4. Review error shown as absolute Ω and percentage
 
 ## Snap to E-series Values
 
@@ -156,7 +159,7 @@ If a power code is supplied and a solution exceeds it, a warning is shown.
 
 ## Power Dissipation & Package Recommendation
 
-Each solution includes power dissipation per leg and a minimum recommended package size. This LUT is based on general/normal parts and may vary by manufacturer:
+Each solution includes power dissipation per leg and a minimum recommended package size. This table is based on a very general 'rule of thumb' - please do your own due diligence and consult the datasheets for your components!
 
 | Package Code (Imperial) | Package Code (Metric) | Power Rating (W) |
 |-------------------------|-----------------------|------------------|

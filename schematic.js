@@ -272,6 +272,37 @@ class Diagram {
         return { values, type };
     }
 
+    renderTextDiagram(lines, title = 'Network') {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const width = 300;
+        const lineHeight = 18;
+        const padding = 16;
+        const totalLines = 1 + lines.length;
+        const height = Math.max(140, padding * 2 + totalLines * lineHeight);
+
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', height);
+
+        const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        titleText.setAttribute('x', padding);
+        titleText.setAttribute('y', padding + lineHeight);
+        titleText.setAttribute('font-size', '13px');
+        titleText.setAttribute('font-weight', '600');
+        titleText.textContent = title;
+        this.svg.appendChild(titleText);
+
+        lines.forEach((line, index) => {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', padding);
+            text.setAttribute('y', padding + lineHeight * (index + 2));
+            text.setAttribute('font-size', '12px');
+            text.textContent = line;
+            this.svg.appendChild(text);
+        });
+    }
+
     // Render a section (series or parallel)
     renderSection(section, x, y, isTop) {
         const spacing = 50;
@@ -346,11 +377,6 @@ class Diagram {
         // Set width and height to establish intrinsic aspect ratio
         this.svg.setAttribute('width', width);
         this.svg.setAttribute('height', totalHeight);
-        // Remove any inline styles that might interfere
-        this.svg.style.width = '';
-        this.svg.style.height = '';
-        this.svg.style.display = '';
-        this.svg.style.maxWidth = '';
         
         const centerX = width / 2;
         let currY = 30;

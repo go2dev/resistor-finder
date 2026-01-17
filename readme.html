@@ -93,7 +93,8 @@
 
         initializeTheme();
 
-        const readmeCandidates = ['README.md', 'readme.md'];
+        const cacheBust = `cb=${Date.now()}`;
+        const readmeCandidates = [`README.md?${cacheBust}`, `readme.md?${cacheBust}`];
         const contentEl = document.getElementById('content');
 
         function tryLoadReadme(index) {

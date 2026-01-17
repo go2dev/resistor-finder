@@ -1015,6 +1015,7 @@ document.getElementById('snapToSeries').addEventListener('change', calculateAndD
 
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
+const appVersionEl = document.getElementById('appVersion');
 
 // Function to detect system dark mode preference
 function getSystemThemePreference() {
@@ -1044,6 +1045,19 @@ function initializeTheme() {
     }
 }
 
+function initializeAppVersion() {
+    if (!appVersionEl) return;
+    const cacheBust = Date.now();
+    fetch(`version.json?cb=${cacheBust}`)
+        .then(response => response.ok ? response.json() : null)
+        .then(data => {
+            if (data && data.version) {
+                appVersionEl.textContent = data.version;
+            }
+        })
+        .catch(() => {});
+}
+
 // Listen for system theme changes
 function handleSystemThemeChange(e) {
     const savedTheme = localStorage.getItem('theme');
@@ -1056,6 +1070,7 @@ function handleSystemThemeChange(e) {
 
 // Initialize theme on load
 initializeTheme();
+initializeAppVersion();
 
 // Set up system theme change listener
 if (window.matchMedia) {
@@ -1441,9 +1456,9 @@ function initializeResistanceFilter(results) {
                         function sectionToString(section) {
                             if (Array.isArray(section)) {
                                 const type = section.type || 'series';
-                                return section.map(v => v).join(',') + ',' + type;
+                                return section.map(v => v.value ?? v).join(',') + ',' + type;
                             } else {
-                                return section + ',series';
+                                return (section.value ?? section) + ',series';
                             }
                         }
                         const topSection = sectionToString(result.r1);
@@ -1658,7 +1673,7 @@ function renderResults(displayResults, calculator) {
                                 </tbody>
                             </table>
                             <div class="solution-slider">
-                                <label>Supply Voltage (this solution): <span class="solution-slider-value">${calculator.supplyVoltage.toFixed(1)}</span> V</label>
+                                <label>Supply Voltage: <span class="solution-slider-value">${calculator.supplyVoltage.toFixed(1)}</span> V</label>
                                 <div class="solution-slider-control" id="solution-slider-${index}"></div>
                             </div>
                             ${warningHtml}
