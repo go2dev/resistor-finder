@@ -30,6 +30,51 @@ function countComponents(section) {
     return section.reduce((sum, item) => sum + countComponents(item), 0);
 }
 
+function calculateResistorBounds(resistor) {
+    const value = resistor.value ?? resistor;
+    let tolerance = resistor.tolerance;
+    if (tolerance == null) {
+        const seriesName = resistor.series || ResistorUtils.findResistorSeries(value);
+        tolerance = seriesName ? ResistorUtils.resistorTolerances[seriesName] : 0;
+    }
+    const multiplier = tolerance / 100;
+    return {
+        lower: value * (1 - multiplier),
+        upper: value * (1 + multiplier)
+    };
+}
+
+function calculateSectionBounds(section) {
+    if (!Array.isArray(section)) {
+        return calculateResistorBounds(section);
+    }
+
+    const type = section.type || 'series';
+    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+
+    if (type === 'parallel') {
+        const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
+        const max = 1 / bounds.reduce((sum, b) => sum + (1 / b.upper), 0);
+        return { lower: min, upper: max };
+    }
+
+    const lower = bounds.reduce((sum, b) => sum + b.lower, 0);
+    const upper = bounds.reduce((sum, b) => sum + b.upper, 0);
+    return { lower, upper };
+}
+
+function buildSingleBounds(resistors) {
+    return resistors.map(resistor => ({
+        lower: calculateResistorBounds(resistor).lower,
+        upper: calculateResistorBounds(resistor).upper
+    }));
+}
+
+function overlapsSingle(bounds, singleBounds) {
+    return singleBounds.some(single => bounds.lower <= single.upper && bounds.upper >= single.lower);
+}
+
+
 function generateCombinations(resistors, options = {}) {
     const maxParallel = options.maxParallel ?? 5;
     const maxSeriesBlocks = options.maxSeriesBlocks ?? 5;
@@ -37,6 +82,9 @@ function generateCombinations(resistors, options = {}) {
     const maxCombos = options.maxCombos ?? 20000;
     const targetValue = options.targetValue ?? null;
     const blocks = [];
+    const singleBounds = buildSingleBounds(resistors);
+    let prunedBlocks = 0;
+    let prunedCombos = 0;
 
     const buildIndexCombos = (startIdx, depth, targetDepth, current, result) => {
         if (depth === targetDepth) {
@@ -58,6 +106,11 @@ function generateCombinations(resistors, options = {}) {
         combos.forEach(indices => {
             const parallel = indices.map(idx => resistors[idx]);
             parallel.type = 'parallel';
+            const bounds = calculateSectionBounds(parallel);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedBlocks += 1;
+                return;
+            }
             blocks.push(parallel);
         });
     }
@@ -96,6 +149,11 @@ function generateCombinations(resistors, options = {}) {
             }
             const series = indices.map(idx => filteredBlocks[idx]);
             series.type = 'series';
+            const bounds = calculateSectionBounds(series);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedCombos += 1;
+                return;
+            }
             combinations.push(series);
             comboCount += 1;
         });
@@ -107,6 +165,8 @@ function generateCombinations(resistors, options = {}) {
         stats: {
             blockCount: filteredBlocks.length,
             comboCount: combinations.length,
+            prunedBlocks,
+            prunedCombos,
             maxParallel,
             maxSeriesBlocks,
             maxBlocks,
@@ -154,7 +214,11 @@ self.addEventListener('message', (event) => {
             return Math.abs(a.error) - Math.abs(b.error);
         });
 
-        self.postMessage({ type: 'result', results: results.slice(0, 5), stats });
+        self.postMessage({
+            type: 'result',
+            results,
+            stats
+        });
     } catch (error) {
         self.postMessage({ type: 'error', error: error.message });
     }

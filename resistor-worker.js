@@ -195,7 +195,11 @@ function processChunk(data) {
             const existingEntry = seenRatios.get(ratioKey);
             if (existingEntry) {
                 const totalR = r1Value + r2Value;
-                if (totalR >= existingEntry.totalR) {
+                const componentCount = getComponentCount(combinations[r1Idx], combinations[r2Idx]);
+                if (
+                    componentCount > existingEntry.componentCount
+                    || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                ) {
                     stats.processed++;
                     stats.skipped++;
                     continue;
@@ -238,6 +242,7 @@ function processChunk(data) {
                 // Update our tracking map
                 seenRatios.set(ratioKey, {
                     totalR: r1Value + r2Value,
+                    componentCount: result.componentCount,
                     result: result
                 });
             }

@@ -6,6 +6,11 @@ const sortBySelect = document.getElementById('sortBy');
 const resultsContainer = document.getElementById('results');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resistorTolerances = ResistorUtils.resistorTolerances;
+let resultsCache = {
+    cacheKey: null,
+    allResults: null,
+    workerUsed: false
+};
 
 const LIMITS = {
     maxParallel: 10,
@@ -14,6 +19,55 @@ const LIMITS = {
     maxCombos: 200000,
     maxInputResistors: 60
 };
+
+function normalizeResistorInput(value) {
+    return value.trim().toLowerCase();
+}
+
+function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries) {
+    return JSON.stringify({
+        resistors: resistorInputs.map(input => normalizeResistorInput(input)),
+        target: normalizeResistorInput(targetValue),
+        snapToSeries,
+        snapSeries
+    });
+}
+
+function getActiveKeyMap() {
+    const map = new Map();
+    document.querySelectorAll('.parsed-value-box').forEach(box => {
+        const key = box.dataset.key || box.dataset.input || box.dataset.id;
+        if (!key) return;
+        map.set(key, box.classList.contains('active'));
+    });
+    return map;
+}
+
+function resultUsesResistorKey(section, resistorKey) {
+    if (!section) return false;
+    if (!Array.isArray(section)) {
+        return (section?.key ?? section?.id ?? null) === resistorKey;
+    }
+    return section.some(item => resultUsesResistorKey(item, resistorKey));
+}
+
+function filterResultsByActiveKeys(allResults, activeKeys) {
+    const activeSet = new Set(activeKeys);
+    const allKeys = Array.from(document.querySelectorAll('.parsed-value-box'))
+        .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
+        .filter(Boolean);
+    const excludedKeys = allKeys.filter(key => !activeSet.has(key));
+    if (excludedKeys.length === 0) return allResults;
+
+    return allResults.filter(result => {
+        for (const excludedKey of excludedKeys) {
+            if (resultUsesResistorKey(result.combo, excludedKey)) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
 
 function formatCombination(combo) {
     const formatSection = (section) => {
@@ -53,6 +107,9 @@ function generateCombinations(resistors, options = {}) {
     const maxCombos = options.maxCombos ?? 20000;
     const targetValue = options.targetValue ?? null;
     const blocks = [];
+    const singleBounds = buildSingleBounds(resistors);
+    let prunedBlocks = 0;
+    let prunedCombos = 0;
 
     const buildIndexCombos = (startIdx, depth, targetDepth, current, result) => {
         if (depth === targetDepth) {
@@ -76,6 +133,11 @@ function generateCombinations(resistors, options = {}) {
         combos.forEach(indices => {
             const parallel = indices.map(idx => resistors[idx]);
             parallel.type = 'parallel';
+            const bounds = calculateSectionBounds(parallel);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedBlocks += 1;
+                return;
+            }
             blocks.push(parallel);
         });
     }
@@ -115,6 +177,11 @@ function generateCombinations(resistors, options = {}) {
             }
             const series = indices.map(idx => filteredBlocks[idx]);
             series.type = 'series';
+            const bounds = calculateSectionBounds(series);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedCombos += 1;
+                return;
+            }
             combinations.push(series);
             comboCount += 1;
         });
@@ -126,6 +193,8 @@ function generateCombinations(resistors, options = {}) {
         stats: {
             blockCount: filteredBlocks.length,
             comboCount: combinations.length,
+            prunedBlocks,
+            prunedCombos,
             maxParallel,
             maxSeriesBlocks,
             maxBlocks,
@@ -204,6 +273,55 @@ function getEffectiveLimits(resistorCount) {
         ...LIMITS,
         maxParallel
     };
+}
+
+function buildSingleBounds(resistors) {
+    return resistors.map(resistor => ({
+        lower: calculateResistorBounds(resistor).lower,
+        upper: calculateResistorBounds(resistor).upper
+    }));
+}
+
+function overlapsSingle(bounds, singleBounds) {
+    return singleBounds.some(single => bounds.lower <= single.upper && bounds.upper >= single.lower);
+}
+
+function applyErrorFilter(results, maxPercent) {
+    const within = results.filter(result => Number.isFinite(result.errorPercent) && Math.abs(result.errorPercent) <= maxPercent);
+    if (within.length > 0) {
+        return { results: within, fallbackUsed: false };
+    }
+    return { results, fallbackUsed: true };
+}
+
+function getSafeResistanceRange(section) {
+    const range = calculateSectionBounds(section);
+    if (!Number.isFinite(range.lower) || !Number.isFinite(range.upper)) {
+        const total = resistanceOf(section);
+        if (Number.isFinite(total)) {
+            return { lower: total, upper: total };
+        }
+        return null;
+    }
+    return range;
+}
+
+function sortResults(results, sortBy) {
+    return results.sort((a, b) => {
+        if (sortBy === 'components') {
+            if (a.componentCount !== b.componentCount) {
+                return a.componentCount - b.componentCount;
+            }
+            return Math.abs(a.error) - Math.abs(b.error);
+        }
+        if (sortBy === 'totalResistanceAsc') {
+            return a.totalResistance - b.totalResistance;
+        }
+        if (sortBy === 'totalResistanceDesc') {
+            return b.totalResistance - a.totalResistance;
+        }
+        return Math.abs(a.error) - Math.abs(b.error);
+    });
 }
 
 function calculateResistorBounds(resistor) {
@@ -297,9 +415,14 @@ function parseResistorList(values, options) {
     const resistors = [];
     const conversions = [];
     const activeStateMap = options.activeStateMap || new Map();
+    const occurrenceMap = new Map();
     values.forEach((value, index) => {
         if (!value) return;
         try {
+            const normalizedInput = normalizeResistorInput(value);
+            const occurrence = (occurrenceMap.get(normalizedInput) || 0) + 1;
+            occurrenceMap.set(normalizedInput, occurrence);
+            const key = `${normalizedInput}::${occurrence}`;
             const parsed = ResistorUtils.parseResistorInput(value, options);
             if (parsed.value <= 0) {
                 warnings.push(`Resistor ${index + 1} ${value} ignored: value must be positive`);
@@ -309,9 +432,10 @@ function parseResistorList(values, options) {
                 parsed.warnings.forEach(warning => warnings.push(`Resistor ${index + 1} ${value}: ${warning}`));
             }
             const seriesName = parsed.series || ResistorUtils.findResistorSeries(parsed.value);
-            const active = activeStateMap.has(index) ? activeStateMap.get(index) : true;
+            const active = activeStateMap.has(key) ? activeStateMap.get(key) : true;
             resistors.push({
                 id: index,
+                key,
                 value: parsed.value,
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
@@ -324,6 +448,7 @@ function parseResistorList(values, options) {
             });
             conversions.push({
                 id: index,
+                key,
                 input: value,
                 value: parsed.value,
                 formatted: ResistorUtils.formatResistorValue(parsed.value),
@@ -347,11 +472,8 @@ async function calculateResults() {
     const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
     const snapToSeries = document.getElementById('snapToSeries')?.checked;
     const snapSeries = document.getElementById('autofillSeries')?.value || 'E24';
-    const activeStates = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
-        id: parseInt(box.dataset.id, 10),
-        active: box.classList.contains('active')
-    }));
-    const activeStateMap = new Map(activeStates.map(state => [state.id, state.active]));
+    const activeStateMap = getActiveKeyMap();
+    const cacheKey = buildCacheKey(resistorInputs, targetResistanceInput.value, snapToSeries, snapSeries);
 
     const { resistors, warnings: parseWarnings, conversions } = parseResistorList(resistorInputs, {
         snapToSeries,
@@ -399,6 +521,9 @@ async function calculateResults() {
         removedByHeuristic: 0,
         blockCount: null,
         comboCount: null,
+        prunedBlocks: 0,
+        prunedCombos: 0,
+        errorFilterFallback: false,
         maxParallel: LIMITS.maxParallel,
         maxSeriesBlocks: LIMITS.maxSeriesBlocks,
         maxBlocks: LIMITS.maxBlocks,
@@ -421,7 +546,11 @@ async function calculateResults() {
     calcStats.maxBlocks = effectiveLimits.maxBlocks;
     calcStats.maxCombos = effectiveLimits.maxCombos;
 
-    if (useWorkerForInput(filteredResistors.length)) {
+    const useCache = resultsCache.cacheKey === cacheKey && Array.isArray(resultsCache.allResults);
+    if (useCache && !resultsCache.workerUsed) {
+        results = resultsCache.allResults.slice();
+        calcStats.workerUsed = false;
+    } else if (useWorkerForInput(filteredResistors.length)) {
         calcStats.workerUsed = true;
         showLoadingSpinner();
         try {
@@ -430,6 +559,8 @@ async function calculateResults() {
             if (workerResult.stats) {
                 calcStats.blockCount = workerResult.stats.blockCount ?? null;
                 calcStats.comboCount = workerResult.stats.comboCount ?? null;
+                calcStats.prunedBlocks = workerResult.stats.prunedBlocks ?? 0;
+                calcStats.prunedCombos = workerResult.stats.prunedCombos ?? 0;
             }
         } catch (error) {
             warnings.push(`Worker failed: ${error.message}. Falling back to local calculation.`);
@@ -439,6 +570,7 @@ async function calculateResults() {
     }
 
     if (results.length === 0) {
+        showLoadingSpinner();
         const { combinations, stats } = generateCombinations(filteredResistors, {
             maxParallel: effectiveLimits.maxParallel,
             maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
@@ -448,6 +580,8 @@ async function calculateResults() {
         });
         calcStats.blockCount = stats.blockCount;
         calcStats.comboCount = stats.comboCount;
+        calcStats.prunedBlocks = stats.prunedBlocks ?? 0;
+        calcStats.prunedCombos = stats.prunedCombos ?? 0;
         results = combinations.map(combo => {
             const totalResistance = resistanceOf(combo);
             const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
@@ -460,29 +594,28 @@ async function calculateResults() {
                 componentCount: countComponents(combo)
             };
         });
-
-        results.sort((a, b) => {
-            if (sortBy === 'components') {
-                if (a.componentCount !== b.componentCount) {
-                    return a.componentCount - b.componentCount;
-                }
-                return Math.abs(a.error) - Math.abs(b.error);
-            }
-            if (sortBy === 'totalResistanceAsc') {
-                return a.totalResistance - b.totalResistance;
-            }
-            if (sortBy === 'totalResistanceDesc') {
-                return b.totalResistance - a.totalResistance;
-            }
-            return Math.abs(a.error) - Math.abs(b.error);
-        });
+        hideLoadingSpinner();
     }
+
+    results = sortResults(results, sortBy);
+    const filtered = applyErrorFilter(results, 20);
+    results = filtered.results;
+    calcStats.errorFilterFallback = filtered.fallbackUsed;
+
+    const activeKeys = activeResistors.map(resistor => resistor.key).filter(Boolean);
+    results = filterResultsByActiveKeys(results, activeKeys);
+
+    resultsCache = {
+        cacheKey,
+        allResults: results.slice(),
+        workerUsed: calcStats.workerUsed
+    };
 
     const topResults = results.slice(0, 5).map(result => {
         if (!result.combo) return result;
         return {
             ...result,
-            resistanceRange: calculateSectionBounds(result.combo)
+            resistanceRange: getSafeResistanceRange(result.combo)
         };
     });
     calcStats.calculationTimeMs = Math.round(performance.now() - calculationStart);
@@ -546,6 +679,8 @@ async function calculateResults() {
                 ${topResults.map((result, index) => {
                     const comboText = result.comboLabel || formatCombination(result.combo);
                     const comboLabel = encodeURIComponent(comboText);
+                    const errorPercentAbs = Math.abs(result.errorPercent);
+                    const errorClass = errorPercentAbs > 20 ? 'error-high' : '';
                     return `
                     <div class="result-item">
                         <div class="result-content">
@@ -561,7 +696,7 @@ async function calculateResults() {
                                     </tr>
                                     <tr>
                                         <td><strong>Error (abs):</strong></td>
-                                        <td>${ResistorUtils.formatResistorValue(Math.abs(result.error))} (${Math.abs(result.errorPercent).toFixed(2)}%)</td>
+                                        <td class="${errorClass}">${ResistorUtils.formatResistorValue(Math.abs(result.error))} (${errorPercentAbs.toFixed(2)}%)</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Real World Resistance Range:</strong></td>
@@ -595,6 +730,8 @@ async function calculateResults() {
                     <p>Parallel limit: ${calcStats.maxParallel}, Series blocks: ${calcStats.maxSeriesBlocks}, Parallel blocks: ${calcStats.maxBlocks}</p>
                     <p>Max combos: ${calcStats.maxCombos.toLocaleString()}, Combos generated: ${calcStats.comboCount != null ? calcStats.comboCount.toLocaleString() : 'n/a'}</p>
                     <p>Worker used: ${calcStats.workerUsed ? 'Yes' : 'No'}, Block count: ${calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
+                    <p>Pruned blocks: ${calcStats.prunedBlocks.toLocaleString()}, Pruned combos: ${calcStats.prunedCombos.toLocaleString()}</p>
+                    <p>20% cutoff fallback: ${calcStats.errorFilterFallback ? 'Yes (showing nearest matches)' : 'No'}</p>
                     <p>Calculation time: ${calcStats.calculationTimeMs != null ? `${calcStats.calculationTimeMs}ms` : 'n/a'}</p>
                 </div>
             </div>

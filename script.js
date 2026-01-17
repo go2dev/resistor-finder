@@ -28,6 +28,8 @@ let resultsCache = {
     isValid: false
 };
 
+let activeStateCache = new Map();
+
 // Global variables to store current resistance filter range
 let currentResistanceRange = {
     min: 0,
@@ -64,28 +66,58 @@ function invalidateCache() {
     resultsCache.calculatorState = null;
 }
 
-// Function to check if a result uses any of the excluded resistor ids
-function resultUsesResistor(result, resistorId) {
+function getNumericInputValue(input, label) {
+    if (!input) {
+        return { valid: false, error: `${label} input not found` };
+    }
+    const raw = input.value !== '' ? input.value : input.defaultValue;
+    const parsed = parseFloat(raw);
+    if (!Number.isFinite(parsed)) {
+        return { valid: false, error: `Invalid ${label} value` };
+    }
+    if (parsed <= 0) {
+        return { valid: false, error: `${label} must be positive` };
+    }
+    return { valid: true, value: parsed };
+}
+
+function normalizeResistorInput(value) {
+    return value.trim().toLowerCase();
+}
+
+function getActiveKeyMap() {
+    const map = new Map();
+    document.querySelectorAll('.parsed-value-box').forEach(box => {
+        const key = box.dataset.key || box.dataset.input || box.dataset.id;
+        if (!key) return;
+        map.set(key, box.classList.contains('active'));
+    });
+    return map;
+}
+
+function resultUsesResistorKey(result, resistorKey) {
     const sectionHasResistor = (section) => {
         if (Array.isArray(section)) {
-            return section.some(resistor => (resistor.id ?? null) === resistorId);
+            return section.some(resistor => (resistor?.key ?? resistor?.id ?? null) === resistorKey);
         }
-        return (section?.id ?? null) === resistorId;
+        return (section?.key ?? section?.id ?? null) === resistorKey;
     };
 
     return sectionHasResistor(result.r1) || sectionHasResistor(result.r2);
 }
 
-// Function to filter results based on active resistors
-function filterResultsByActiveResistors(allResults, activeResistorIds) {
-    const allResistorIds = Array.from(document.querySelectorAll('.parsed-value-box'))
-        .map(box => parseInt(box.dataset.id, 10));
+function filterResultsByActiveResistors(allResults, activeKeys) {
+    const activeSet = new Set(activeKeys);
+    const allKeys = Array.from(document.querySelectorAll('.parsed-value-box'))
+        .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
+        .filter(Boolean);
 
-    const excludedResistors = allResistorIds.filter(id => !activeResistorIds.includes(id));
+    const excludedKeys = allKeys.filter(key => !activeSet.has(key));
+    if (excludedKeys.length === 0) return allResults;
 
     return allResults.filter(result => {
-        for (const excludedId of excludedResistors) {
-            if (resultUsesResistor(result, excludedId)) {
+        for (const excludedKey of excludedKeys) {
+            if (resultUsesResistorKey(result, excludedKey)) {
                 return false;
             }
         }
@@ -437,7 +469,11 @@ class ResistorCalculator {
                     const existingEntry = seenRatios.get(ratioKey);
                     if (existingEntry) {
                         const totalR = r1Value + r2Value;
-                        if (totalR >= existingEntry.totalR) {
+                        const componentCount = this.getComponentCount({ r1: combinations[r1Idx], r2: combinations[r2Idx] });
+                        if (
+                            componentCount > existingEntry.componentCount
+                            || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                        ) {
                             processed++;
                             skipped++;
                             continue;
@@ -480,6 +516,7 @@ class ResistorCalculator {
                         // Update our tracking map
                         seenRatios.set(ratioKey, {
                             totalR: r1Value + r2Value,
+                            componentCount: result.componentCount,
                             result: result
                         });
                     }
@@ -740,19 +777,23 @@ async function calculateAndDisplayResults() {
     const validResistors = [];
     
     // Store current active states
-    const activeStates = Array.from(document.querySelectorAll('.parsed-value-box')).map(box => ({
-        id: parseInt(box.dataset.id, 10),
-        active: box.classList.contains('active')
-    }));
+    const domActiveMap = getActiveKeyMap();
+    const activeStateMap = domActiveMap.size > 0 ? domActiveMap : activeStateCache;
+    const occurrenceMap = new Map();
     
     resistorInputs.forEach((value, index) => {
         if (!value) return; // Skip empty values
+        const normalizedInput = normalizeResistorInput(value);
+        const occurrence = (occurrenceMap.get(normalizedInput) || 0) + 1;
+        occurrenceMap.set(normalizedInput, occurrence);
+        const key = `${normalizedInput}::${occurrence}`;
         const result = calculator.validateResistorValue(value);
         if (result.valid) {
             const parsed = result.parsed;
             const seriesName = parsed.series || ResistorUtils.findResistorSeries(parsed.value);
             const resistorEntry = {
                 id: index,
+                key,
                 value: parsed.value,
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
@@ -760,7 +801,8 @@ async function calculateAndDisplayResults() {
                 series: seriesName,
                 formatted: calculator.formatResistorValue(parsed.value),
                 input: value,
-                source: parsed.source
+                source: parsed.source,
+                active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             };
             validResistors.push(resistorEntry);
             if (parsed.warnings && parsed.warnings.length > 0) {
@@ -768,6 +810,7 @@ async function calculateAndDisplayResults() {
             }
             calculator.calculationStats.inputConversions.push({
                 id: index,
+                key,
                 input: value,
                 value: parsed.value,
                 formatted: calculator.formatResistorValue(parsed.value),
@@ -775,7 +818,7 @@ async function calculateAndDisplayResults() {
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
-                active: activeStates.find(state => state.id === index)?.active ?? true
+                active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             });
         } else {
             warnings.push(`Resistor ${index + 1} ${value} ignored: ${result.error}`);
@@ -783,17 +826,19 @@ async function calculateAndDisplayResults() {
     });
 
     // Validate supply voltage
-    const supplyResult = calculator.validateVoltage(supplyVoltageInput.value, true);
+    const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
     if (!supplyResult.valid) {
-        errors.push(`Supply Voltage: ${supplyResult.error}`);
+        errors.push(supplyResult.error);
     } else {
         calculator.supplyVoltage = supplyResult.value;
     }
 
     // Validate target voltage
-    const targetResult = calculator.validateVoltage(targetVoltageInput.value);
+    const targetResult = getNumericInputValue(targetVoltageInput, 'Target Voltage');
     if (!targetResult.valid) {
-        errors.push(`Target Voltage: ${targetResult.error}`);
+        errors.push(targetResult.error);
+    } else if (calculator.supplyVoltage && targetResult.value > calculator.supplyVoltage) {
+        errors.push('Target voltage cannot exceed supply voltage');
     } else {
         calculator.targetVoltage = targetResult.value;
     }
@@ -951,6 +996,9 @@ async function calculateAndDisplayResults() {
             </div>`;
 
     resultsContainer.innerHTML = output;
+    activeStateCache = new Map(
+        calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
+    );
 
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
@@ -1129,10 +1177,15 @@ document.addEventListener('DOMContentLoaded', () => {
 async function toggleResistorValue(element) {
     element.classList.toggle('disabled');
     element.classList.toggle('active');
+    const key = element.dataset.key || element.dataset.input || element.dataset.id;
+    if (key) {
+        activeStateCache.set(key, element.classList.contains('active'));
+    }
     
     // Get all active resistor values
     const activeResistors = Array.from(document.querySelectorAll('.parsed-value-box.active'))
-        .map(box => parseInt(box.dataset.id, 10));
+        .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
+        .filter(Boolean);
     
     // Check if we have cached results we can filter
     if (resultsCache.isValid && resultsCache.allResults) {
@@ -1159,8 +1212,10 @@ function updateResultsDisplay(displayResults) {
     
     // Create a dummy calculator for formatting
     const calculator = new ResistorCalculator();
-    calculator.supplyVoltage = parseFloat(supplyVoltageInput.value);
-    calculator.targetVoltage = parseFloat(targetVoltageInput.value);
+    const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+    const targetResult = getNumericInputValue(targetVoltageInput, 'Target Voltage');
+    calculator.supplyVoltage = supplyResult.valid ? supplyResult.value : 0;
+    calculator.targetVoltage = targetResult.valid ? targetResult.value : 0;
     
     // Replace just the results section
     resultsSection.outerHTML = renderResults(displayResults, calculator);
@@ -1189,7 +1244,8 @@ function updateResultsDisplay(displayResults) {
     
     // Update the resistance filter to reflect the new filtered results
     const activeResistors = Array.from(document.querySelectorAll('.parsed-value-box.active'))
-        .map(box => parseInt(box.dataset.id, 10));
+        .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
+        .filter(Boolean);
     const filteredAllResults = filterResultsByActiveResistors(resultsCache.allResults, activeResistors);
     updateResistanceFilterRange(filteredAllResults);
 }
@@ -1638,8 +1694,8 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>Power Dissipation:</strong></td>
                                         <td class="power-values">R1: ${formatWatts(powerStats.r1Stats.total)}, R2: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}</td>
                                     </tr>
-                                    <tr>
-                                        <td><strong>Package Recommendation:</strong></td>
+                    <tr>
+                                        <td><strong>Minimum package size recommendation:</strong></td>
                                         <td class="package-recommendation">${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})</td>
                                     </tr>
                                 </tbody>
@@ -1671,12 +1727,16 @@ function initializeResultCardSliders(displayResults, calculator) {
             slider.noUiSlider.destroy();
         }
 
+        const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+        const baseSupply = supplyResult.valid ? supplyResult.value : calculator.supplyVoltage;
+        const sliderSupply = Number.isFinite(baseSupply) && baseSupply > 0 ? baseSupply : 0.1;
+
         noUiSlider.create(slider, {
-            start: [calculator.supplyVoltage],
+            start: [sliderSupply],
             connect: [true, false],
             range: {
                 min: 0,
-                max: calculator.supplyVoltage * 2
+                max: sliderSupply * 2
             },
             step: 0.1,
             format: {

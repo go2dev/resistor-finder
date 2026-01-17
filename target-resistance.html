@@ -43,7 +43,15 @@
                 <div id="resistorInputSection"></div>
                 
                 <div class="input-group">
-                    <label for="targetResistance">Target Resistance (Ω):</label>
+                    <label for="targetResistance">Target Resistance (Ω):
+                        <div class="help-tooltip">
+                            ?
+                            <span class="tooltip-text">
+                                You can add tolerance in brackets for the target in this mode (e.g. 33k(1%) or 33k(A)).
+                                Target tolerance is not supported in the voltage divider tool.
+                            </span>
+                        </div>
+                    </label>
                     <input type="text" id="targetResistance" value="33k">
                 </div>
                 

@@ -61,9 +61,11 @@ The options panel allows for precise filtering and sorting of the results. As th
 Use the Target Resistance page to find the closest single/series/parallel combinations to a desired resistance value.
 
 1. Enter your available resistor values as comma-separated numbers
-2. Enter your target resistance
+2. Enter your target resistance (tolerance in brackets is supported here)
 3. Click "Find Closest Matches"
 4. Review error shown as absolute Ω and percentage
+
+Target resistance tolerances are supported only in this mode; the voltage divider target voltage does not accept tolerance.
 
 ## Snap to E-series Values
 
@@ -100,6 +102,7 @@ See [RKM code](https://en.wikipedia.org/wiki/RKM_code) for more details. E-serie
 ## Tolerance Input
 
 You can add tolerance in brackets after the value. If omitted, the E-series tolerance is used for any value that matches a standard series.
+Target resistance tolerances are supported in Target Resistance mode only.
 
 Examples:
 - `10k(1%)`

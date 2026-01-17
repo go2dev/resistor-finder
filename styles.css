@@ -1144,6 +1144,11 @@ ul ul, ol ol, ul ol, ol ul {
     border-bottom: none;
 }
 
+.error-high {
+    color: var(--error-text);
+    font-weight: 600;
+}
+
 /* Simplified noUiSlider Styling - Only the colored bar */
 .noUi-connect {
     background: var(--button-bg) !important;

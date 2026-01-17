@@ -68,14 +68,13 @@
 
     const pageFooter = document.getElementById('pageFooter');
     if (pageFooter) {
+        const currentYear = new Date().getFullYear();
         pageFooter.innerHTML = `
             <span class="disclaimer">Disclaimer: results are provided without warranty or verification. Use at your own risk!</span>
             <br>
-            Made by <a href="https://mynameis.dev" target="_blank">Dev</a> © <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> 2025
+            Made by <a href="https://mynameis.dev" target="_blank">Dev</a> © <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> ${currentYear}
             <br>
-            <span class="disclaimer">Source on <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a></span>
-            <br>
-            <span class="disclaimer">Version: <span id="appVersion">dev</span></span>
+            <span class="disclaimer">Source on <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a> · Version: <span id="appVersion">dev</span></span>
         `;
     }
 
@@ -102,17 +101,19 @@
                         const toleranceValue = conv.tolerance != null
                             ? `${conv.tolerance}%`
                             : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
-                        const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : 'Power code: none';
+                        const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : '';
+                        const powerLine = powerLabel ? `<br>${powerLabel}` : '';
                         return `
                         <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
                              data-id="${conv.id}"
                              data-value="${conv.value}"
                              data-input="${conv.input}"
                              data-series="${conv.series || ''}"
+                             data-key="${conv.key || ''}"
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
                             <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}<br>${powerLabel}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}</span>
                         </div>
                     `;
                     }).join('')}
