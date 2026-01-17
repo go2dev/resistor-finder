@@ -210,7 +210,7 @@ document.getElementById('autofillJlcBtn').addEventListener('click', () => {
 document.getElementById('snapToSeries').addEventListener('change', calculateResults);
 
 // Theme Switcher
-const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+const toggleSwitch = document.getElementById('checkbox');
 
 function getSystemThemePreference() {
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

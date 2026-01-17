@@ -1014,7 +1014,7 @@ document.getElementById('sortBy').addEventListener('change', calculateAndDisplay
 document.getElementById('snapToSeries').addEventListener('change', calculateAndDisplayResults);
 
 // Theme Switcher
-const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+const toggleSwitch = document.getElementById('checkbox');
 
 // Function to detect system dark mode preference
 function getSystemThemePreference() {
