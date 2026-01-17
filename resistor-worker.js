@@ -6,14 +6,14 @@ let resistorTolerances = null;
 
 // Calculate total resistance based on connection type
 function calculateTotalResistance(resistors) {
-    if (!Array.isArray(resistors)) return resistors;
+    if (!Array.isArray(resistors)) return resistors.value ?? resistors;
     if (resistors.type === 'parallel') {
         // Calculate parallel resistance
-        const reciprocalSum = resistors.reduce((sum, r) => sum + 1/r, 0);
+        const reciprocalSum = resistors.reduce((sum, r) => sum + 1 / (r.value ?? r), 0);
         return 1 / reciprocalSum;
     }
     // Series resistance
-    return resistors.reduce((sum, r) => sum + r, 0);
+    return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);
 }
 
 // Calculate output voltage for a voltage divider
@@ -51,8 +51,13 @@ function findResistorSeries(value) {
 }
 
 // Calculate bounds for a resistor value based on its series
-function calculateResistorBounds(value, series) {
-    const tolerance = series && resistorTolerances ? resistorTolerances[series] : 0;
+function calculateResistorBounds(resistor) {
+    const value = resistor.value ?? resistor;
+    let tolerance = resistor.tolerance;
+    if (tolerance == null) {
+        const seriesName = resistor.series || findResistorSeries(value);
+        tolerance = seriesName && resistorTolerances ? resistorTolerances[seriesName] : 0;
+    }
     const multiplier = tolerance / 100;
     return {
         lower: value * (1 - multiplier),
@@ -60,15 +65,29 @@ function calculateResistorBounds(value, series) {
     };
 }
 
+function calculateSectionBounds(section) {
+    if (!Array.isArray(section)) {
+        return calculateResistorBounds(section);
+    }
+
+    const type = section.type || 'series';
+    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+
+    if (type === 'parallel') {
+        const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
+        const max = 1 / bounds.reduce((sum, b) => sum + (1 / b.upper), 0);
+        return { lower: min, upper: max };
+    }
+
+    const lower = bounds.reduce((sum, b) => sum + b.lower, 0);
+    const upper = bounds.reduce((sum, b) => sum + b.upper, 0);
+    return { lower, upper };
+}
+
 // Calculate voltage range for a voltage divider considering tolerances
 function calculateVoltageRange(r1, r2, supplyVoltage) {
-    // Get series for each resistor
-    const r1Series = findResistorSeries(r1);
-    const r2Series = findResistorSeries(r2);
-
-    // Calculate bounds for each resistor
-    const r1Bounds = calculateResistorBounds(r1, r1Series);
-    const r2Bounds = calculateResistorBounds(r2, r2Series);
+    const r1Bounds = calculateSectionBounds(r1);
+    const r2Bounds = calculateSectionBounds(r2);
 
     // Calculate all possible combinations
     const combinations = [
@@ -200,7 +219,7 @@ function processChunk(data) {
                 }
                 
                 // Calculate voltage range considering tolerances
-                const voltageRange = calculateVoltageRange(r1Value, r2Value, supplyVoltage);
+                const voltageRange = calculateVoltageRange(combinations[r1Idx], combinations[r2Idx], supplyVoltage);
                 
                 const result = {
                     r1: combinations[r1Idx],
