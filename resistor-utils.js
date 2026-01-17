@@ -217,18 +217,17 @@ const ResistorUtils = {
             if (eiaMatch) {
                 const code = parseInt(eiaMatch[1], 10);
                 const letter = eiaMatch[2].toUpperCase();
-                const baseValues = this.getEia96BaseValues();
-                if (code < 1 || code > baseValues.length) {
-                    throw new Error('Invalid EIA-96 code');
-                }
-                const baseValue = baseValues[code - 1];
                 const multiplier = this.eia96Multipliers[letter];
-                if (!multiplier) {
-                    throw new Error('Invalid EIA-96 multiplier');
+                if (multiplier) {
+                    const baseValues = this.getEia96BaseValues();
+                    if (code < 1 || code > baseValues.length) {
+                        throw new Error('Invalid EIA-96 code');
+                    }
+                    const baseValue = baseValues[code - 1];
+                    parsedValue = baseValue * multiplier;
+                    series = 'E96';
+                    source = 'eia96';
                 }
-                parsedValue = baseValue * multiplier;
-                series = 'E96';
-                source = 'eia96';
             }
         }
 
