@@ -55,16 +55,51 @@
     <div class="markdown-content" id="content"></div>
 
     <script>
-        // Fetch and render the README content
-        fetch('README.md')
-            .then(response => response.text())
-            .then(text => {
-                document.getElementById('content').innerHTML = marked.parse(text);
-            })
-            .catch(error => {
-                console.error('Error loading README:', error);
-                document.getElementById('content').innerHTML = '<p>Error loading documentation. Please try again later.</p>';
-            });
+        function getSystemThemePreference() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            } else {
+                setTheme(getSystemThemePreference());
+            }
+        }
+
+        initializeTheme();
+
+        const readmeCandidates = ['README.md', 'readme.md'];
+        const contentEl = document.getElementById('content');
+
+        function tryLoadReadme(index) {
+            if (index >= readmeCandidates.length) {
+                contentEl.innerHTML = `
+                    <p>Error loading documentation.</p>
+                    <p>Please view the README on GitHub: <a href="https://github.com/go2dev/resistor-finder" target="_blank">go2dev/resistor-finder</a></p>
+                `;
+                return;
+            }
+
+            fetch(readmeCandidates[index])
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${readmeCandidates[index]}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    contentEl.innerHTML = marked.parse(text);
+                })
+                .catch(() => tryLoadReadme(index + 1));
+        }
+
+        tryLoadReadme(0);
     </script>
 </body>
 </html> 
