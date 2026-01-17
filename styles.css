@@ -17,6 +17,13 @@
     --error-bg: #ffebee;
     --error-border: #f44336;
     --error-text: #d32f2f;
+    --border-color: #ddd;
+    --bg-secondary: #f0f0f0;
+    --accent-color: #3498db;
+    --text-primary: #333;
+    --warning-bg: #fff3e0;
+    --warning-border: #ff9800;
+    --warning-text: #e65100;
 }
 
 [data-theme="dark"] {
@@ -37,6 +44,13 @@
     --error-bg: #2d1b1b;
     --error-border: #f44336;
     --error-text: #ffffff;
+    --border-color: #4d4d4d;
+    --bg-secondary: #3a3a3a;
+    --accent-color: #6bb2ff;
+    --text-primary: #e0e0e0;
+    --warning-bg: #3a2b1a;
+    --warning-border: #ff9800;
+    --warning-text: #ffb74d;
 }
 
 /* Theme Toggle Fixed Position */
@@ -235,8 +249,12 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.voltage-inputs {
+    display: block;
+}
+
 .input-group .autofill-btn {
-    width: 48%;
+    width: auto;
     margin-top: 0.5rem;
     padding: 0.5rem;
     background-color: var(--button-bg);
@@ -254,10 +272,21 @@ h1 {
 
 .autofill-controls {
     display: flex;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-top: 0.5rem;
+}
+
+.autofill-row {
+    display: flex;
+    gap: 1rem;
     align-items: flex-end;
     justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.autofill-btn-full {
+    width: 100%;
 }
 
 .autofill-label {
@@ -302,6 +331,30 @@ label {
     margin-bottom: 0.5rem;
     font-weight: 500;
     color: var(--text-color);
+}
+
+.top-nav {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: -1rem 0 2rem;
+    flex-wrap: wrap;
+}
+
+.nav-link {
+    color: var(--link-color);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--input-border);
+    background-color: var(--input-bg);
+    font-size: 0.9rem;
+}
+
+.nav-link.active {
+    background-color: var(--button-bg);
+    color: white;
+    border-color: var(--button-bg);
 }
 
 input {
@@ -364,6 +417,47 @@ button:hover {
     border: 1px solid var(--input-border);
     margin-bottom: 1rem;
     overflow: hidden;
+}
+
+.solution-slider {
+    margin-top: 0.75rem;
+}
+
+.solution-slider label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.solution-slider-control {
+    width: 100%;
+}
+
+.solution-slider-control .noUi-connect {
+    background: var(--button-bg);
+}
+
+.solution-slider-control .noUi-base,
+.solution-slider-control .noUi-connects {
+    height: 6px;
+}
+
+.solution-slider-control .noUi-handle {
+    width: 16px;
+    height: 16px;
+    right: -8px;
+    top: -6px;
+    border-radius: 50%;
+}
+
+.result-warning {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--warning-border);
+    border-radius: 4px;
+    background-color: var(--warning-bg);
+    color: var(--warning-text);
+    font-size: 0.9rem;
 }
 
 .result-content {
@@ -634,6 +728,18 @@ footer a:hover {
 @media (max-width: 768px) {
     .help-tooltip .tooltip-text {
         width: 200px;
+    }
+}
+
+@media (min-width: 900px) {
+    .voltage-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .voltage-inputs .input-group {
+        margin-bottom: 0;
     }
 }
 

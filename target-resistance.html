@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voltage Divider Resistor Calculator</title>
+    <title>Target Resistance Calculator</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="nuis/nouislider.css">
     <link
   rel="icon"
   href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
@@ -23,23 +22,11 @@
         </label>
     </div>
     <div class="container">
-        <h1>Voltage Divider Resistor Calculator
-            <div class="help-tooltip">
-                ?
-                <span class="tooltip-text">
-                    Find the best resistor combinations for a voltage divider circuit from a fixed list of resistor values.
-                    Enter your available resistor values, supply voltage, and target output voltage to find optimal combinations.
-                    <br><br>
-                    Works best on desktop.
-                    <br><br>
-                    <a href="readme.html" target="_blank" style="color: var(--accent-color); text-decoration: underline;">View documentation →</a>
-                </span>
-            </div>
-        </h1>
+        <h1>Target Resistance Calculator</h1>
 
         <div class="top-nav">
-            <a href="index.html" class="nav-link active">Voltage Divider</a>
-            <a href="target-resistance.html" class="nav-link">Target Resistance</a>
+            <a href="index.html" class="nav-link">Voltage Divider</a>
+            <a href="target-resistance.html" class="nav-link active">Target Resistance</a>
             <a href="readme.html" target="_blank" class="nav-link">Documentation</a>
         </div>
         
@@ -77,40 +64,17 @@
                     </div>
                 </div>
                 
-                <div class="voltage-inputs">
-                    <div class="input-group">
-                        <label for="supplyVoltage">Supply Voltage (V<sub>supply</sub>):</label>
-                        <input type="number" id="supplyVoltage" value="5" step="0.1">
-                    </div>
-                    
-                    <div class="input-group">
-                        <label for="targetVoltage">Target Voltage (V<sub>out</sub>):</label>
-                        <input type="number" id="targetVoltage" value="3.3">
-                    </div>
+                <div class="input-group">
+                    <label for="targetResistance">Target Resistance (Ω):</label>
+                    <input type="text" id="targetResistance" value="33k">
                 </div>
                 
-                <button id="calculateBtn">Calculate Combinations</button>
+                <button id="calculateBtn">Find Closest Matches</button>
             </div>
 
             <div class="options-section">
                 <label>Options:</label>
                 <div class="options-box">
-                    <div class="option-group">
-                        <div class="theme-switch-wrapper">
-                            <label class="theme-switch" for="overshoot">
-                                <input type="checkbox" id="overshoot" checked />
-                                <div class="slider round"></div>
-                            </label>
-                            <span class="theme-label">Allow Voltage Overshoot</span>
-                            <div class="help-tooltip">
-                                ?
-                                <span class="tooltip-text">
-                                    When enabled, the calculator will include combinations that produce voltages above the target voltage. 
-                                    This can be useful when you need to find the closest possible match, even if it exceeds your target.
-                                </span>
-                                                    </div>
-                    </div>
-                </div>
                     <div class="option-group">
                         <div class="theme-switch-wrapper">
                             <label class="theme-switch" for="snapToSeries">
@@ -127,42 +91,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="option-group">
-                        <div class="sort-options">
-                            <span class="theme-label">Sort Results By:</span>
-                            <select name="sortBy" id="sortBy" class="sort-select">
-                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
-                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
-                                <option value="error" selected>Lowest Error</option>
-                                <option value="components">Lowest Component Count</option>
-                            </select>
-                            <div class="resistance-filter-section" style="display: none;">
-                                <span class="theme-label">Filter Total Resistance [Min: <span id="resistance-min">0</span> - Max: <span id="resistance-max">0</span>]
-                                    <div class="help-tooltip" style="display: inline;">
-                                        ?
-                                        <span class="tooltip-text">
-                                            Move the handles to set the filter range. Drag the range from the middle to adjust the filter while maintaining the min-max range.
-                                        </span>
-                                    </div>
-                                </span>
-                                <div class="resistance-filter-container">
-                                    <div id="resistance-slider"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
 
         <div id="results" class="results-container"></div>
-        
-        <!-- Loading spinner -->
-        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
-            <div class="spinner"></div>
-            <p>Calculating combinations...</p>
-            <p class="progress-text"></p>
-        </div>
     </div>
     <footer>
         <span class="disclaimer">Disclaimer: results are provided without warranty or verification. Use at your own risk!</span>
@@ -170,11 +103,8 @@
         Made by <a href="https://mynameis.dev" target="_blank">Dev</a> © <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> 2025
         <br>
         <span class="disclaimer">Source on <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a></span>
-       
     </footer>
     <script src="resistor-utils.js"></script>
-    <script src="script.js"></script>
-    <script src="schematic.js"></script>
-    <script src="nuis/nouislider.js"></script>
+    <script src="target-resistance.js"></script>
 </body>
-</html> 
+</html>
