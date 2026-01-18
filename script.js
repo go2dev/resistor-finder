@@ -1718,43 +1718,43 @@ function renderResults(displayResults, calculator) {
                             <table class="result-table">
                                 <tbody>
                                     <tr>
-                                        <td><strong>R<sub>TOP</sub>:</strong></td>
+                                        <td><strong>R<sub>TOP</sub></strong></td>
                                         <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>R<sub>BOTTOM</sub>:</strong></td>
+                                        <td><strong>R<sub>BOT</sub></strong></td>
                                         <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>R<sub>TOP</sub>:R<sub>BOTTOM</sub> ratio:</strong></td>
+                                        <td><strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong></td>
                                         <td>${Number.isFinite(result.r2Value) && result.r2Value !== 0 ? `${(result.r1Value / result.r2Value).toFixed(3)}:1` : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Total Resistance:</strong></td>
+                                        <td><strong>Total Resistance</strong></td>
                                         <td class="total-resistance">${calculator.formatResistorValue(result.totalResistance)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Nominal Output Voltage:</strong></td>
+                                        <td><strong>Nominal Output Voltage</strong></td>
                                         <td><span class="output-voltage">${result.outputVoltage.toFixed(2)}</span> V</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Error:</strong></td>
+                                        <td><strong>Error</strong></td>
                                         <td><span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Components:</strong></td>
+                                        <td><strong>Components</strong></td>
                                         <td>${result.componentCount}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Real World Range for Vout:</strong></td>
+                                        <td><strong>Real World Range for Vout</strong></td>
                                         <td><span class="voltage-range">${result.voltageRange.min.toFixed(2)} V to ${result.voltageRange.max.toFixed(2)} V</span></td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Power Dissipation:</strong></td>
-                                        <td class="power-values">R1: ${formatWatts(powerStats.r1Stats.total)}, R2: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}</td>
+                                        <td><strong>Power Dissipation</strong></td>
+                                        <td class="power-values">R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Min package size recommendation:</strong></td>
+                                        <td><strong>Min package size recommendation</strong></td>
                                         <td class="package-recommendation">${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})</td>
                                     </tr>
                                 </tbody>
@@ -1829,7 +1829,7 @@ function initializeResultCardSliders(displayResults, calculator) {
             const powerStats = getPowerStatsForResult(result, newVoltage);
             const powerElement = card.querySelector('.power-values');
             if (powerElement) {
-                powerElement.textContent = `R1: ${formatWatts(powerStats.r1Stats.total)}, R2: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
+                powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
             }
 
             const packageRec = getPackageRecommendation(powerStats.maxComponentPower);

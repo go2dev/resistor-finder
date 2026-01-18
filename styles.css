@@ -843,17 +843,17 @@ footer a:hover {
 }
 
 .parsed-values-grid {
-    --parsed-box-width: 88px;
+    --parsed-box-width: 70px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--parsed-box-width), 1fr));
-    gap: 0.5rem;
+    gap: 0.3rem;
 }
 
 .parsed-value-box {
     background-color: var(--result-bg);
     border: 1px solid #808080;
     border-radius: var(--squircle-radius-sm);
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.4rem;
     font-size: 0.9rem;
     color: #333;
     display: flex;
