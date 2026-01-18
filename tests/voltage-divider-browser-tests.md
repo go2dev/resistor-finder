@@ -15,12 +15,12 @@ Use a local server and open `index.html`. Run each test from a clean page load u
 - **Action:** Toggle "Allow Voltage Overshoot" off/on.
 - **Expected:** With overshoot off, results should not exceed target Vout; with overshoot on, results may exceed target.
 
-### 3) Snap to E‑series toggle
-- **Input:** Available values `9.1k, 9.76k, 10.4k`
+### 3) Snap to E‑series toggle (non‑standard only)
+- **Input:** Available values `4k123, 4k123(0.1%), 4k7`
 - **Supply:** `5`
 - **Target:** `2.5`
 - **Action:** Toggle "Snap to E‑series values" off/on.
-- **Expected:** With snap on, values should align to nearest E‑series and results change; with snap off, values used as‑is.
+- **Expected:** `4k7` (standard) stays unchanged. `4k123` snaps to nearest series only when enabled (e.g. `4k3`). `4k123(0.1%)` snaps to E192 (e.g. `4k12`).
 
 ### 4) RKM / EIA‑96 / marking inputs
 - **Input:** Available values `4k7, 4K99, 96C, EB1041`
@@ -28,11 +28,11 @@ Use a local server and open `index.html`. Run each test from a clean page load u
 - **Target:** `3.3`
 - **Expected:** Parsed values show in the available grid with correct formatting; no parsing errors for valid codes.
 
-### 5) Tolerance parsing in list
+### 5) Tolerance parsing & series color
 - **Input:** Available values `10k(1%), 10k(D), 4k99(A)`
 - **Supply:** `5`
 - **Target:** `2.5`
-- **Expected:** Tooltip shows tolerance for each entry; real‑world range reflects tolerance.
+- **Expected:** Tooltips show tolerance; `10k(1%)` shows E96 color, `10k(D)` shows E192 color.
 
 ### 6) Invalid input handling
 - **Input:** Available values `10k(apple), 22k`

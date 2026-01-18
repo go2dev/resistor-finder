@@ -235,14 +235,21 @@ const ResistorUtils = {
             parsedValue = this.parseResistorValue(working);
         }
 
+        const standardSeries = this.findResistorSeries(parsedValue);
+        const toleranceSeries = this.getSeriesForTolerance(tolerance);
         const snapToSeries = options.snapToSeries;
-        if (snapToSeries) {
-            const toleranceSeries = this.getSeriesForTolerance(tolerance);
+        if (snapToSeries && !standardSeries) {
             const fallbackSeries = options.snapSeries || 'E24';
             const targetSeries = series || toleranceSeries || fallbackSeries;
             const snapped = this.snapToSeries(parsedValue, targetSeries);
             parsedValue = snapped;
             series = targetSeries;
+        }
+
+        if (!series) {
+            series = toleranceSeries || standardSeries || null;
+        } else if (toleranceSeries) {
+            series = toleranceSeries;
         }
 
         return {

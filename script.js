@@ -810,7 +810,10 @@ async function calculateAndDisplayResults() {
         const result = calculator.validateResistorValue(value);
         if (result.valid) {
             const parsed = result.parsed;
-            const seriesName = parsed.series || ResistorUtils.findResistorSeries(parsed.value);
+            const toleranceSeries = parsed.tolerance != null
+                ? ResistorUtils.getSeriesForTolerance(parsed.tolerance)
+                : null;
+            const seriesName = toleranceSeries || parsed.series || ResistorUtils.findResistorSeries(parsed.value);
             const resistorEntry = {
                 id: index,
                 key,

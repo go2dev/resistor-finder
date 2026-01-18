@@ -448,7 +448,10 @@ function parseResistorList(values, options) {
             if (parsed.warnings && parsed.warnings.length > 0) {
                 parsed.warnings.forEach(warning => warnings.push(`Resistor ${index + 1} ${value}: ${warning}`));
             }
-            const seriesName = parsed.series || ResistorUtils.findResistorSeries(parsed.value);
+            const toleranceSeries = parsed.tolerance != null
+                ? ResistorUtils.getSeriesForTolerance(parsed.tolerance)
+                : null;
+            const seriesName = toleranceSeries || parsed.series || ResistorUtils.findResistorSeries(parsed.value);
             const active = activeStateMap.has(key) ? activeStateMap.get(key) : true;
             resistors.push({
                 id: index,
