@@ -843,8 +843,9 @@ footer a:hover {
 }
 
 .parsed-values-grid {
-    display: flex;
-    flex-wrap: wrap;
+    --parsed-box-width: 88px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--parsed-box-width), 1fr));
     gap: 0.5rem;
 }
 
@@ -860,6 +861,8 @@ footer a:hover {
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
+    width: var(--parsed-box-width);
+    justify-content: center;
 }
 
 .parsed-value-box:hover {

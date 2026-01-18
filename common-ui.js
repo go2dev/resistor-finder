@@ -86,14 +86,14 @@
             if (!boxes.length) return;
             boxes.forEach(box => {
                 box.style.minWidth = '';
+                box.style.width = '';
             });
             let maxWidth = 0;
             boxes.forEach(box => {
                 maxWidth = Math.max(maxWidth, box.getBoundingClientRect().width);
             });
-            boxes.forEach(box => {
-                box.style.minWidth = `${Math.ceil(maxWidth)}px`;
-            });
+            const targetWidth = Math.ceil(maxWidth);
+            grid.style.setProperty('--parsed-box-width', `${targetWidth}px`);
         });
     };
     window.CommonUI.renderParsedValuesGrid = function ({
