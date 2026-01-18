@@ -1713,12 +1713,16 @@ function renderResults(displayResults, calculator) {
                             <table class="result-table">
                                 <tbody>
                                     <tr>
-                                        <td><strong>R1:</strong></td>
+                                        <td><strong>R<sub>TOP</sub>:</strong></td>
                                         <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>R2:</strong></td>
+                                        <td><strong>R<sub>BOTTOM</sub>:</strong></td>
                                         <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>R<sub>TOP</sub>:R<sub>BOTTOM</sub> ratio:</strong></td>
+                                        <td>${Number.isFinite(result.r2Value) && result.r2Value !== 0 ? `${(result.r1Value / result.r2Value).toFixed(3)}:1` : '—'}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Total Resistance:</strong></td>
@@ -1744,8 +1748,8 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>Power Dissipation:</strong></td>
                                         <td class="power-values">R1: ${formatWatts(powerStats.r1Stats.total)}, R2: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}</td>
                                     </tr>
-                    <tr>
-                                        <td><strong>Minimum package size recommendation:</strong></td>
+                                    <tr>
+                                        <td><strong>Min package size recommendation:</strong></td>
                                         <td class="package-recommendation">${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})</td>
                                     </tr>
                                 </tbody>

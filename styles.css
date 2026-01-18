@@ -1128,16 +1128,17 @@ ul ul, ol ol, ul ol, ol ul {
     padding: 0.25rem 0.5rem;
     vertical-align: top;
     border-bottom: 1px solid var(--input-border);
+    white-space: nowrap;
 }
 
 .result-table td:first-child {
     font-weight: 500;
-    width: 40%;
+    width: 35%;
     color: var(--text-color);
 }
 
 .result-table td:last-child {
-    width: 60%;
+    width: 65%;
 }
 
 .result-table tr:last-child td {
