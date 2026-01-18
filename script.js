@@ -822,6 +822,7 @@ async function calculateAndDisplayResults() {
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 series: seriesName,
+                debug: parsed.debug,
                 formatted: calculator.formatResistorValue(parsed.value),
                 input: value,
                 source: parsed.source,
@@ -841,6 +842,7 @@ async function calculateAndDisplayResults() {
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
+                debug: parsed.debug,
                 active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             });
         } else {
@@ -893,10 +895,13 @@ async function calculateAndDisplayResults() {
             });
         }
 
-        resultsContainer.innerHTML = output;
-        activeStateCache = new Map(
-            calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
-        );
+    resultsContainer.innerHTML = output;
+    activeStateCache = new Map(
+        calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
+    );
+    if (window.CommonUI?.normalizeParsedValueWidths) {
+        requestAnimationFrame(() => window.CommonUI.normalizeParsedValueWidths(resultsContainer));
+    }
         return;
     }
 

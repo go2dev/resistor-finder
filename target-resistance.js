@@ -461,6 +461,7 @@ function parseResistorList(values, options) {
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 series: seriesName,
+                debug: parsed.debug,
                 formatted: ResistorUtils.formatResistorValue(parsed.value),
                 input: value,
                 source: parsed.source,
@@ -476,6 +477,7 @@ function parseResistorList(values, options) {
                 tolerance: parsed.tolerance,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
+                debug: parsed.debug,
                 active
             });
         } catch (error) {
@@ -761,6 +763,9 @@ async function calculateResults() {
         </div>`;
 
     resultsContainer.innerHTML = output;
+    if (window.CommonUI?.normalizeParsedValueWidths) {
+        requestAnimationFrame(() => window.CommonUI.normalizeParsedValueWidths(resultsContainer));
+    }
     initializeTargetDiagrams(topResults);
 }
 

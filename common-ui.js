@@ -79,6 +79,23 @@
     }
 
     window.CommonUI = window.CommonUI || {};
+    window.CommonUI.normalizeParsedValueWidths = function (root = document) {
+        const grids = root.querySelectorAll('.parsed-values-grid');
+        grids.forEach(grid => {
+            const boxes = Array.from(grid.querySelectorAll('.parsed-value-box'));
+            if (!boxes.length) return;
+            boxes.forEach(box => {
+                box.style.minWidth = '';
+            });
+            let maxWidth = 0;
+            boxes.forEach(box => {
+                maxWidth = Math.max(maxWidth, box.getBoundingClientRect().width);
+            });
+            boxes.forEach(box => {
+                box.style.minWidth = `${Math.ceil(maxWidth)}px`;
+            });
+        });
+    };
     window.CommonUI.renderParsedValuesGrid = function ({
         title = 'Available resistors',
         tooltipText = 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value',
@@ -103,6 +120,9 @@
                             : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
                         const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : '';
                         const powerLine = powerLabel ? `<br>${powerLabel}` : '';
+                        const debugInfo = (globalThis?.DEBUG_RESISTOR_FINDER && conv.debug)
+                            ? `<br>Input: ${conv.input}<br>Std: ${conv.debug.standardSeries ?? '—'} | Tol: ${conv.debug.toleranceSeries ?? '—'} | Snap: ${conv.debug.snapped ? 'yes' : 'no'}<br>Value: ${conv.debug.parsedValueBeforeSnap ?? '—'} → ${conv.debug.parsedValueAfterSnap ?? '—'}`
+                            : '';
                         return `
                         <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
                              data-id="${conv.id}"
@@ -113,7 +133,7 @@
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
                             <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${debugInfo}</span>
                         </div>
                     `;
                     }).join('')}

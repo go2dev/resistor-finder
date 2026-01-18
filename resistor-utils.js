@@ -98,6 +98,28 @@ const ResistorUtils = {
         return null;
     },
 
+    snapToAnySeries(value) {
+        const seriesOrder = ['E24', 'E48', 'E96', 'E192'];
+        let best = {
+            value: value,
+            series: null,
+            diff: Infinity
+        };
+        seriesOrder.forEach(seriesName => {
+            if (!this.series[seriesName]) return;
+            const snapped = this.snapToSeries(value, seriesName);
+            const diff = Math.abs(snapped - value);
+            if (diff < best.diff) {
+                best = {
+                    value: snapped,
+                    series: seriesName,
+                    diff
+                };
+            }
+        });
+        return best;
+    },
+
     snapToSeries(value, seriesName) {
         if (!seriesName || !this.series[seriesName]) return value;
         if (value <= 0) return value;
@@ -182,6 +204,18 @@ const ResistorUtils = {
         let series = null;
         let parsedValue = null;
         let source = 'value';
+        const debug = {
+            input: working,
+            snapToSeries: Boolean(options.snapToSeries),
+            snapSeries: options.snapSeries || 'E24',
+            toleranceSeries: null,
+            standardSeries: null,
+            isStandardValue: null,
+            snapped: false,
+            snapTargetSeries: null,
+            parsedValueBeforeSnap: null,
+            parsedValueAfterSnap: null
+        };
 
         const toleranceMatch = working.match(/^(.*)\((.*)\)$/);
         if (toleranceMatch) {
@@ -235,21 +269,47 @@ const ResistorUtils = {
             parsedValue = this.parseResistorValue(working);
         }
 
-        const standardSeries = this.findResistorSeries(parsedValue);
+        let standardSeries = this.findResistorSeries(parsedValue);
+        const isStandardValue = standardSeries != null;
         const toleranceSeries = this.getSeriesForTolerance(tolerance);
         const snapToSeries = options.snapToSeries;
-        if (snapToSeries && !standardSeries) {
-            const fallbackSeries = options.snapSeries || 'E24';
-            const targetSeries = series || toleranceSeries || fallbackSeries;
-            const snapped = this.snapToSeries(parsedValue, targetSeries);
-            parsedValue = snapped;
-            series = targetSeries;
+        debug.standardSeries = standardSeries;
+        debug.toleranceSeries = toleranceSeries;
+        debug.isStandardValue = isStandardValue;
+        debug.parsedValueBeforeSnap = parsedValue;
+        if (snapToSeries && !isStandardValue) {
+            if (toleranceSeries) {
+                const targetSeries = series || toleranceSeries;
+                debug.snapTargetSeries = targetSeries;
+                const snapped = this.snapToSeries(parsedValue, targetSeries);
+                parsedValue = snapped;
+                series = targetSeries;
+            } else {
+                const best = this.snapToAnySeries(parsedValue);
+                parsedValue = best.value;
+                series = best.series;
+                debug.snapTargetSeries = best.series;
+            }
+            standardSeries = this.findResistorSeries(parsedValue);
+            debug.snapped = true;
+            debug.parsedValueAfterSnap = parsedValue;
         }
 
         if (!series) {
             series = toleranceSeries || standardSeries || null;
         } else if (toleranceSeries) {
             series = toleranceSeries;
+        }
+
+        if (!debug.parsedValueAfterSnap) {
+            debug.parsedValueAfterSnap = parsedValue;
+        }
+
+        if (globalThis?.DEBUG_RESISTOR_FINDER) {
+            if (debug.snapped && debug.isStandardValue) {
+                console.warn('[resistor-utils] snapped standard value', debug);
+            }
+            console.log('[resistor-utils] parseResistorInput', debug);
         }
 
         return {
@@ -259,7 +319,8 @@ const ResistorUtils = {
             powerCode,
             series,
             source,
-            warnings
+            warnings,
+            debug
         };
     },
 
