@@ -1012,6 +1012,26 @@ async function calculateAndDisplayResults() {
         });
     }
 
+    // Add snap to E-series toggle
+    const snapChecked = document.getElementById('snapToSeries')?.checked ? 'checked' : '';
+    output += `
+        <div class="snap-toggle-section">
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="snapToSeries">
+                    <input type="checkbox" id="snapToSeries" ${snapChecked} onchange="calculateAndDisplayResults()" />
+                    <div class="slider round"></div>
+                </label>
+                <span class="theme-label">Snap to E-series values</span>
+                <div class="help-tooltip">
+                    ?
+                    <span class="tooltip-text">
+                        When enabled, parsed values are snapped to the nearest E-series value. If a tolerance is specified,
+                        the closest matching E-series is used. When disabled, inputs are used as-is, including non-standard values.
+                    </span>
+                </div>
+            </div>
+        </div>`;
+
     output += renderResults(displayResults, calculator);
 
     // Add calculation details if enabled
@@ -1100,7 +1120,6 @@ async function calculateAndDisplayResults() {
 calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
 document.getElementById('sortBy').addEventListener('change', calculateAndDisplayResults);
-document.getElementById('snapToSeries').addEventListener('change', calculateAndDisplayResults);
 
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
@@ -1615,6 +1634,30 @@ function getPackageRecommendation(power) {
     return match || packagePowerRatings[packagePowerRatings.length - 1];
 }
 
+function gcdInt(a, b) {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y) {
+        const temp = y;
+        y = x % y;
+        x = temp;
+    }
+    return x || 1;
+}
+
+function formatRatio(r1Value, r2Value) {
+    if (!Number.isFinite(r1Value) || !Number.isFinite(r2Value) || r2Value === 0) {
+        return '—';
+    }
+    const scale = 1000;
+    const r1Int = Math.round(r1Value * scale);
+    const r2Int = Math.round(r2Value * scale);
+    const divisor = gcdInt(r1Int, r2Int);
+    const left = r1Int / divisor;
+    const right = r2Int / divisor;
+    const exact = Number.isInteger(r1Value) && Number.isInteger(r2Value);
+    return `${exact ? '' : '≈'}${left}:${right}`;
+}
 function getSectionPowerStats(section, current, voltageDrop) {
     if (!Array.isArray(section)) {
         const value = section.value ?? section;
@@ -1727,7 +1770,7 @@ function renderResults(displayResults, calculator) {
                                     </tr>
                                     <tr>
                                         <td><strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong></td>
-                                        <td>${Number.isFinite(result.r2Value) && result.r2Value !== 0 ? `${(result.r1Value / result.r2Value).toFixed(3)}:1` : '—'}</td>
+                                        <td>${formatRatio(result.r1Value, result.r2Value)}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Total Resistance</strong></td>

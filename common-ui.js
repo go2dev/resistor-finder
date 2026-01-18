@@ -17,22 +17,6 @@
             <div class="input-group">
                 <label for="resistorValues">Available Resistor Values (Ω):</label>
                 <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100, 4K7, 4K99, 96C, EB1041, 10k(1%), 10k(D), 100m)">
-                <div class="inline-option">
-                    <div class="theme-switch-wrapper">
-                        <label class="theme-switch" for="snapToSeries">
-                            <input type="checkbox" id="snapToSeries" />
-                            <div class="slider round"></div>
-                        </label>
-                        <span class="theme-label">Snap to E-series values</span>
-                        <div class="help-tooltip">
-                            ?
-                            <span class="tooltip-text">
-                                When enabled, parsed values are snapped to the nearest E-series value. If a tolerance is specified,
-                                the closest matching E-series is used. When disabled, inputs are used as-is, including non-standard values.
-                            </span>
-                        </div>
-                    </div>
-                </div>
                 <div class="autofill-controls">
                     <div class="autofill-row">
                         <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
