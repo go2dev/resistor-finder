@@ -165,6 +165,23 @@ function generateCombinations(resistors, options = {}) {
     const combinations = [];
     let comboCount = 0;
 
+    filteredBlocks.forEach(block => {
+        if (comboCount >= maxCombos) return;
+        if (Array.isArray(block)) return;
+        for (let size = 2; size <= maxSeriesBlocks; size++) {
+            if (comboCount >= maxCombos) return;
+            const series = Array.from({ length: size }, () => block);
+            series.type = 'series';
+            const bounds = calculateSectionBounds(series);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedCombos += 1;
+                continue;
+            }
+            combinations.push(series);
+            comboCount += 1;
+        }
+    });
+
     for (let size = 1; size <= maxSeriesBlocks; size++) {
         const combos = [];
         buildIndexCombos(0, 0, size, [], combos);
@@ -547,12 +564,16 @@ async function calculateResults() {
     calcStats.maxCombos = effectiveLimits.maxCombos;
 
     const useCache = resultsCache.cacheKey === cacheKey && Array.isArray(resultsCache.allResults);
-    if (useCache && !resultsCache.workerUsed) {
+    if (useCache) {
         results = resultsCache.allResults.slice();
-        calcStats.workerUsed = false;
-    } else if (useWorkerForInput(filteredResistors.length)) {
-        calcStats.workerUsed = true;
+        calcStats.workerUsed = resultsCache.workerUsed;
+    } else {
         showLoadingSpinner();
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    if (!useCache && useWorkerForInput(filteredResistors.length)) {
+        calcStats.workerUsed = true;
         try {
             const workerResult = await runWorkerCalculation(filteredResistors, targetValue, sortBy, effectiveLimits);
             results = workerResult.results;
@@ -570,7 +591,6 @@ async function calculateResults() {
     }
 
     if (results.length === 0) {
-        showLoadingSpinner();
         const { combinations, stats } = generateCombinations(filteredResistors, {
             maxParallel: effectiveLimits.maxParallel,
             maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
@@ -601,13 +621,13 @@ async function calculateResults() {
     const filtered = applyErrorFilter(results, 20);
     results = filtered.results;
     calcStats.errorFilterFallback = filtered.fallbackUsed;
-
+    const fullResults = results.slice();
     const activeKeys = activeResistors.map(resistor => resistor.key).filter(Boolean);
     results = filterResultsByActiveKeys(results, activeKeys);
 
     resultsCache = {
         cacheKey,
-        allResults: results.slice(),
+        allResults: fullResults,
         workerUsed: calcStats.workerUsed
     };
 
@@ -664,7 +684,7 @@ async function calculateResults() {
     }
 
     if (conversions.length > 0 && window.CommonUI?.renderParsedValuesGrid) {
-        output += CommonUI.renderParsedValuesGrid({
+        output += window.CommonUI.renderParsedValuesGrid({
             conversions,
             resistorTolerances,
             onClickHandler: 'toggleResistorValue',

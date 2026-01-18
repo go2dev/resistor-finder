@@ -137,6 +137,23 @@ function generateCombinations(resistors, options = {}) {
     const combinations = [];
     let comboCount = 0;
 
+    filteredBlocks.forEach(block => {
+        if (comboCount >= maxCombos) return;
+        if (Array.isArray(block)) return;
+        for (let size = 2; size <= maxSeriesBlocks; size++) {
+            if (comboCount >= maxCombos) return;
+            const series = Array.from({ length: size }, () => block);
+            series.type = 'series';
+            const bounds = calculateSectionBounds(series);
+            if (overlapsSingle(bounds, singleBounds)) {
+                prunedCombos += 1;
+                continue;
+            }
+            combinations.push(series);
+            comboCount += 1;
+        }
+    });
+
     for (let size = 1; size <= maxSeriesBlocks; size++) {
         const combos = [];
         buildIndexCombos(0, 0, size, [], combos);

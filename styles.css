@@ -1145,7 +1145,7 @@ ul ul, ol ol, ul ol, ol ul {
 }
 
 .error-high {
-    color: var(--error-text);
+    color: var(--error-border);
     font-weight: 600;
 }
 

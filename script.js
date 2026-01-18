@@ -66,6 +66,12 @@ function invalidateCache() {
     resultsCache.calculatorState = null;
 }
 
+function logDividerDebug(...args) {
+    if (window.DEBUG_RESISTOR_FINDER) {
+        console.log('[divider]', ...args);
+    }
+}
+
 function getNumericInputValue(input, label) {
     if (!input) {
         return { valid: false, error: `${label} input not found` };
@@ -773,7 +779,21 @@ async function calculateAndDisplayResults() {
     const warnings = [];
     
     // Parse and validate resistor values
-    const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
+    const resistorInputsRaw = resistorValuesInput.value.split(',').map(v => v.trim());
+    const uniqueInputMap = new Map();
+    const resistorInputs = [];
+    resistorInputsRaw.forEach(input => {
+        if (!input) return;
+        const normalized = normalizeResistorInput(input);
+        if (uniqueInputMap.has(normalized)) {
+            return;
+        }
+        uniqueInputMap.set(normalized, true);
+        resistorInputs.push(input);
+    });
+    if (resistorInputs.length !== resistorInputsRaw.filter(Boolean).length) {
+        resistorValuesInput.value = resistorInputs.join(', ');
+    }
     const validResistors = [];
     
     // Store current active states
@@ -846,27 +866,43 @@ async function calculateAndDisplayResults() {
     // Set overshoot option
     calculator.allowOvershoot = overshootSwitch.checked;
 
+    const activeResistors = validResistors.filter(resistor => resistor.active !== false);
+
     // Check if we have enough valid inputs to proceed
-    if (validResistors.length === 0) {
-        errors.push('At least one valid resistor value is required');
+    if (activeResistors.length === 0) {
+        errors.push('At least one active resistor value is required');
     }
 
     // If there are critical errors, show them and stop
     if (errors.length > 0) {
-        resultsContainer.innerHTML = `
+        let output = `
             <div class="error">
                 <h3>Errors:</h3>
                 <ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>
             </div>`;
+
+        if (calculator.calculationStats.inputConversions.length > 0 && window.CommonUI?.renderParsedValuesGrid) {
+            output += window.CommonUI.renderParsedValuesGrid({
+                conversions: calculator.calculationStats.inputConversions,
+                resistorTolerances,
+                onClickHandler: 'toggleResistorValue',
+                tooltipText: 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value'
+            });
+        }
+
+        resultsContainer.innerHTML = output;
+        activeStateCache = new Map(
+            calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
+        );
         return;
     }
 
     // Proceed with calculation using valid inputs
-    calculator.resistorValues = validResistors;
+    calculator.resistorValues = activeResistors;
     
     // Check if we can use cached results
     let allResults;
-    const useCache = isCacheValid(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+    const useCache = isCacheValid(calculator, activeResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
     
     if (useCache) {
         // Use cached results - no need to recalculate
@@ -894,7 +930,7 @@ async function calculateAndDisplayResults() {
             
             // Update cache
             resultsCache.allResults = allResults;
-            resultsCache.calculatorState = generateStateKey(calculator, validResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
+            resultsCache.calculatorState = generateStateKey(calculator, activeResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
             resultsCache.isValid = true;
         } finally {
             if (needsSpinner) {
@@ -904,7 +940,27 @@ async function calculateAndDisplayResults() {
     }
     
     // Apply filtering and sorting to get display results
-    const displayResults = filterAndSortResults(allResults, currentResistanceRange.min, currentResistanceRange.max);
+    let displayResults = filterAndSortResults(allResults, currentResistanceRange.min, currentResistanceRange.max);
+    if (displayResults.length === 0 && allResults.length > 0) {
+        const resistances = allResults.map(r => r.totalResistance);
+        const minRes = Math.min(...resistances);
+        const maxRes = Math.max(...resistances);
+        currentResistanceRange.min = minRes;
+        currentResistanceRange.max = maxRes;
+        const slider = document.getElementById('resistance-slider');
+        if (slider && slider.noUiSlider) {
+            slider.noUiSlider.updateOptions({
+                range: {
+                    min: minRes,
+                    max: maxRes
+                }
+            });
+            slider.noUiSlider.set([minRes, maxRes]);
+            formatResistanceSliderPips(slider);
+        }
+        logDividerDebug('Reset filter range due to empty results', { minRes, maxRes });
+        displayResults = filterAndSortResults(allResults, currentResistanceRange.min, currentResistanceRange.max);
+    }
 
     // Display results with warnings if any
     let output = '';
@@ -940,7 +996,7 @@ async function calculateAndDisplayResults() {
 
     // Add parsed values display
     if (calculator.calculationStats.inputConversions.length > 0 && window.CommonUI?.renderParsedValuesGrid) {
-        output += CommonUI.renderParsedValuesGrid({
+        output += window.CommonUI.renderParsedValuesGrid({
             conversions: calculator.calculationStats.inputConversions,
             resistorTolerances,
             onClickHandler: 'toggleResistorValue',
@@ -996,6 +1052,11 @@ async function calculateAndDisplayResults() {
             </div>`;
 
     resultsContainer.innerHTML = output;
+    logDividerDebug('Results updated', {
+        allResults: allResults.length,
+        displayResults: displayResults.length,
+        filterRange: currentResistanceRange
+    });
     activeStateCache = new Map(
         calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
     );
@@ -1181,27 +1242,10 @@ async function toggleResistorValue(element) {
     if (key) {
         activeStateCache.set(key, element.classList.contains('active'));
     }
-    
-    // Get all active resistor values
-    const activeResistors = Array.from(document.querySelectorAll('.parsed-value-box.active'))
-        .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
-        .filter(Boolean);
-    
-    // Check if we have cached results we can filter
-    if (resultsCache.isValid && resultsCache.allResults) {
-        // Use cached results and filter them
-        const filteredResults = filterResultsByActiveResistors(resultsCache.allResults, activeResistors);
-        
-        // Apply current resistance filter and sorting
-        const displayResults = filterAndSortResults(filteredResults, currentResistanceRange.min, currentResistanceRange.max);
-        
-        // Update the display without recalculating
-        updateResultsDisplay(displayResults);
-    } else {
-        // No cache available, need to recalculate (this should only happen on first load)
-        invalidateCache();
-        await calculateAndDisplayResults();
-    }
+
+    // Recalculate using only active inputs to avoid ratio dedupe removing valid alternatives
+    invalidateCache();
+    await calculateAndDisplayResults();
 }
 
 // New function to update only the results display without regenerating the entire UI
@@ -1247,17 +1291,19 @@ function updateResultsDisplay(displayResults) {
         .map(box => box.dataset.key || box.dataset.input || box.dataset.id)
         .filter(Boolean);
     const filteredAllResults = filterResultsByActiveResistors(resultsCache.allResults, activeResistors);
-    updateResistanceFilterRange(filteredAllResults);
+    const shouldResetRange = displayResults.length === 0 && filteredAllResults.length > 0;
+    updateResistanceFilterRange(filteredAllResults, shouldResetRange);
 }
 
 // Function to update the resistance filter range based on filtered results
-function updateResistanceFilterRange(filteredResults) {
+function updateResistanceFilterRange(filteredResults, forceReset = false) {
     const slider = document.getElementById('resistance-slider');
     if (!slider || !slider.noUiSlider) return;
     
     if (filteredResults.length === 0) {
         // No results, disable the slider
         slider.setAttribute('disabled', true);
+        logDividerDebug('Filter range update: no results');
         return;
     } else {
         // Re-enable the slider if it was disabled
@@ -1271,7 +1317,7 @@ function updateResistanceFilterRange(filteredResults) {
     
     // Only update if the range has changed significantly
     const currentRange = slider.noUiSlider.options.range;
-    if (Math.abs(currentRange.min - minRes) > 0.01 || Math.abs(currentRange.max - maxRes) > 0.01) {
+    if (forceReset || Math.abs(currentRange.min - minRes) > 0.01 || Math.abs(currentRange.max - maxRes) > 0.01) {
         // Reset current filter range to include all results
         currentResistanceRange.min = minRes;
         currentResistanceRange.max = maxRes;
@@ -1287,6 +1333,7 @@ function updateResistanceFilterRange(filteredResults) {
         // Reset slider position to full range
         slider.noUiSlider.set([minRes, maxRes]);
         formatResistanceSliderPips(slider);
+        logDividerDebug('Filter range reset', { minRes, maxRes, forceReset });
     }
 }
 
