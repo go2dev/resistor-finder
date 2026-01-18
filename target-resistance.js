@@ -6,11 +6,7 @@ const sortBySelect = document.getElementById('sortBy');
 const resultsContainer = document.getElementById('results');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resistorTolerances = ResistorUtils.resistorTolerances;
-let resultsCache = {
-    cacheKey: null,
-    allResults: null,
-    workerUsed: false
-};
+const resultsCache = new Map();
 
 const LIMITS = {
     maxParallel: 10,
@@ -387,7 +383,14 @@ function hideLoadingSpinner() {
 }
 
 function useWorkerForInput(resistorCount) {
-    return typeof Worker !== 'undefined' && resistorCount >= 12;
+    return typeof Worker !== 'undefined' && resistorCount >= 6;
+}
+
+function getWorkerCount(resistorCount) {
+    if (!useWorkerForInput(resistorCount)) return 0;
+    const cores = navigator.hardwareConcurrency || 2;
+    if (cores < 2 || resistorCount < 8) return 1;
+    return Math.min(cores, 4);
 }
 
 function runWorkerCalculation(resistors, targetValue, sortBy, options) {
@@ -427,12 +430,92 @@ function runWorkerCalculation(resistors, targetValue, sortBy, options) {
     });
 }
 
+function runWorkerCalculationParallel(resistors, targetValue, sortBy, options, workerCount) {
+    return new Promise((resolve, reject) => {
+        const workers = [];
+        const aggregatedResults = [];
+        const aggregatedStats = {
+            blockCount: null,
+            comboCount: 0,
+            prunedBlocks: 0,
+            prunedCombos: 0
+        };
+        const perWorkerMaxCombos = Math.ceil(options.maxCombos / workerCount);
+        let completed = 0;
+        let settled = false;
+
+        const cleanup = () => workers.forEach(worker => worker.terminate());
+
+        const finalizeError = (error) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(error);
+        };
+
+        const finalizeSuccess = () => {
+            if (settled) return;
+            settled = true;
+            aggregatedStats.comboCount = aggregatedResults.length;
+            resolve({ results: aggregatedResults, stats: aggregatedStats });
+        };
+
+        for (let i = 0; i < workerCount; i++) {
+            const worker = new Worker('target-resistance-worker.js');
+            workers.push(worker);
+
+            worker.addEventListener('message', (event) => {
+                const { type, results, error, stats } = event.data || {};
+                if (type === 'result') {
+                    if (Array.isArray(results) && results.length) {
+                        aggregatedResults.push(...results);
+                    }
+                    if (stats) {
+                        aggregatedStats.prunedCombos += stats.prunedCombos ?? 0;
+                        if (aggregatedStats.blockCount == null && stats.blockCount != null) {
+                            aggregatedStats.blockCount = stats.blockCount;
+                            aggregatedStats.prunedBlocks = stats.prunedBlocks ?? 0;
+                        }
+                    }
+                    completed += 1;
+                    worker.terminate();
+                    if (completed === workerCount) {
+                        finalizeSuccess();
+                    }
+                } else if (type === 'error') {
+                    finalizeError(new Error(error || 'Worker failed'));
+                }
+            });
+
+            worker.addEventListener('error', (err) => finalizeError(err));
+
+            worker.postMessage({
+                type: 'calculateChunk',
+                data: {
+                    resistors,
+                    targetValue,
+                    sortBy,
+                    options: {
+                        maxParallel: options.maxParallel,
+                        maxSeriesBlocks: options.maxSeriesBlocks,
+                        maxBlocks: options.maxBlocks,
+                        maxCombos: perWorkerMaxCombos
+                    },
+                    chunkIndex: i,
+                    chunkCount: workerCount
+                }
+            });
+        }
+    });
+}
+
 function parseResistorList(values, options) {
     const warnings = [];
     const resistors = [];
     const conversions = [];
     const activeStateMap = options.activeStateMap || new Map();
     const occurrenceMap = new Map();
+    const dedupeKeys = options.snapToSeries ? new Set() : null;
     values.forEach((value, index) => {
         if (!value) return;
         try {
@@ -452,6 +535,15 @@ function parseResistorList(values, options) {
                 ? ResistorUtils.getSeriesForTolerance(parsed.tolerance)
                 : null;
             const seriesName = toleranceSeries || parsed.series || ResistorUtils.findResistorSeries(parsed.value);
+            const dedupeKey = dedupeKeys
+                ? `${parsed.value}|${parsed.tolerance ?? ''}|${parsed.powerRating ?? ''}|${parsed.powerCode ?? ''}|${seriesName ?? ''}`
+                : null;
+            if (dedupeKey && dedupeKeys.has(dedupeKey)) {
+                return;
+            }
+            if (dedupeKey) {
+                dedupeKeys.add(dedupeKey);
+            }
             const active = activeStateMap.has(key) ? activeStateMap.get(key) : true;
             resistors.push({
                 id: index,
@@ -511,23 +603,28 @@ async function calculateResults() {
     }
 
     let targetValue;
-    try {
-        const parsedTarget = ResistorUtils.parseResistorInput(targetResistanceInput.value, {
-            snapToSeries,
-            snapSeries
-        });
-        targetValue = parsedTarget.value;
-        if (parsedTarget.warnings && parsedTarget.warnings.length > 0) {
-            parsedTarget.warnings.forEach(warning => warnings.push(`Target resistance: ${warning}`));
+    const targetInputValue = targetResistanceInput.value.trim();
+    if (!targetInputValue) {
+        warnings.push('Target resistance value required');
+    } else {
+        try {
+            const parsedTarget = ResistorUtils.parseResistorInput(targetInputValue, {
+                snapToSeries,
+                snapSeries
+            });
+            targetValue = parsedTarget.value;
+            if (parsedTarget.warnings && parsedTarget.warnings.length > 0) {
+                parsedTarget.warnings.forEach(warning => warnings.push(`Target resistance: ${warning}`));
+            }
+        } catch (error) {
+            warnings.push(`Target resistance: ${error.message}`);
         }
-    } catch (error) {
-        warnings.push(`Target resistance ignored: ${error.message}`);
     }
 
     if (!targetValue || targetValue <= 0) {
         resultsContainer.innerHTML = `
-            <div class="error">
-                <h3>Errors:</h3>
+            <div class="warning">
+                <h3>Warnings</h3>
                 <ul>${warnings.map(w => `<li>${w}</li>`).join('')}</ul>
             </div>`;
         return;
@@ -551,6 +648,7 @@ async function calculateResults() {
         maxBlocks: LIMITS.maxBlocks,
         maxCombos: LIMITS.maxCombos,
         workerUsed: false,
+        workerCount: 0,
         calculationTimeMs: null
     };
 
@@ -568,19 +666,25 @@ async function calculateResults() {
     calcStats.maxBlocks = effectiveLimits.maxBlocks;
     calcStats.maxCombos = effectiveLimits.maxCombos;
 
-    const useCache = resultsCache.cacheKey === cacheKey && Array.isArray(resultsCache.allResults);
+    const cachedEntry = resultsCache.get(cacheKey);
+    const useCache = cachedEntry && Array.isArray(cachedEntry.allResults);
     if (useCache) {
-        results = resultsCache.allResults.slice();
-        calcStats.workerUsed = resultsCache.workerUsed;
+        results = cachedEntry.allResults.slice();
+        calcStats.workerUsed = cachedEntry.workerUsed;
+        calcStats.workerCount = cachedEntry.workerCount ?? (cachedEntry.workerUsed ? 1 : 0);
     } else {
         showLoadingSpinner();
         await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    if (!useCache && useWorkerForInput(filteredResistors.length)) {
+    const workerCount = getWorkerCount(filteredResistors.length);
+    if (!useCache && workerCount > 0) {
         calcStats.workerUsed = true;
+        calcStats.workerCount = workerCount;
         try {
-            const workerResult = await runWorkerCalculation(filteredResistors, targetValue, sortBy, effectiveLimits);
+            const workerResult = workerCount > 1
+                ? await runWorkerCalculationParallel(filteredResistors, targetValue, sortBy, effectiveLimits, workerCount)
+                : await runWorkerCalculation(filteredResistors, targetValue, sortBy, effectiveLimits);
             results = workerResult.results;
             if (workerResult.stats) {
                 calcStats.blockCount = workerResult.stats.blockCount ?? null;
@@ -630,11 +734,11 @@ async function calculateResults() {
     const activeKeys = activeResistors.map(resistor => resistor.key).filter(Boolean);
     results = filterResultsByActiveKeys(results, activeKeys);
 
-    resultsCache = {
-        cacheKey,
+    resultsCache.set(cacheKey, {
         allResults: fullResults,
-        workerUsed: calcStats.workerUsed
-    };
+        workerUsed: calcStats.workerUsed,
+        workerCount: calcStats.workerCount
+    });
 
     const topResults = results.slice(0, 5).map(result => {
         if (!result.combo) return result;
@@ -644,6 +748,9 @@ async function calculateResults() {
         };
     });
     calcStats.calculationTimeMs = Math.round(performance.now() - calculationStart);
+    const workerLabel = calcStats.workerUsed
+        ? `Yes${calcStats.workerCount > 1 ? ` (${calcStats.workerCount} workers)` : ''}`
+        : 'No';
 
     let output = '';
     if (warnings.length > 0) {
@@ -697,6 +804,26 @@ async function calculateResults() {
         });
     }
 
+    // Add snap to E-series toggle
+    const snapChecked = document.getElementById('snapToSeries')?.checked ? 'checked' : '';
+    output += `
+        <div class="snap-toggle-section">
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="snapToSeries">
+                    <input type="checkbox" id="snapToSeries" ${snapChecked} onchange="calculateResults()" />
+                    <div class="slider round"></div>
+                </label>
+                <span class="theme-label">Snap to E-series values</span>
+                <div class="help-tooltip">
+                    ?
+                    <span class="tooltip-text">
+                        When enabled, parsed values are snapped to the nearest E-series value. If a tolerance is specified,
+                        the closest matching E-series is used. When disabled, inputs are used as-is, including non-standard values.
+                    </span>
+                </div>
+            </div>
+        </div>`;
+
     output += `
         <div class="results-section">
             <h3>Closest Matches</h3>
@@ -712,23 +839,23 @@ async function calculateResults() {
                             <table class="result-table">
                                 <tbody>
                                     <tr>
-                                        <td><strong>Combination:</strong></td>
+                                        <td><strong>Combination</strong></td>
                                         <td>${comboText}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Total Resistance:</strong></td>
+                                        <td><strong>Total Resistance</strong></td>
                                         <td>${ResistorUtils.formatResistorValue(result.totalResistance)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Error (abs):</strong></td>
+                                        <td><strong>Error (abs)</strong></td>
                                         <td class="${errorClass}">${ResistorUtils.formatResistorValue(Math.abs(result.error))} (${errorPercentAbs.toFixed(2)}%)</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Real World Resistance Range:</strong></td>
+                                        <td><strong>Real World Resistance Range</strong></td>
                                         <td>${result.resistanceRange ? `${ResistorUtils.formatResistorValue(result.resistanceRange.lower)} to ${ResistorUtils.formatResistorValue(result.resistanceRange.upper)}` : '—'}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Components:</strong></td>
+                                        <td><strong>Components</strong></td>
                                         <td>${result.componentCount}</td>
                                     </tr>
                                 </tbody>
@@ -754,7 +881,7 @@ async function calculateResults() {
                     <p>Filtered inputs used: ${calcStats.filteredCount}${calcStats.filteredByHeuristic ? ` (reduced by ${calcStats.removedByHeuristic}, cap ${LIMITS.maxInputResistors})` : ''}</p>
                     <p>Parallel limit: ${calcStats.maxParallel}, Series blocks: ${calcStats.maxSeriesBlocks}, Parallel blocks: ${calcStats.maxBlocks}</p>
                     <p>Max combos: ${calcStats.maxCombos.toLocaleString()}, Combos generated: ${calcStats.comboCount != null ? calcStats.comboCount.toLocaleString() : 'n/a'}</p>
-                    <p>Worker used: ${calcStats.workerUsed ? 'Yes' : 'No'}, Block count: ${calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
+                    <p>Worker used: ${workerLabel}, Block count: ${calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
                     <p>Pruned blocks: ${calcStats.prunedBlocks.toLocaleString()}, Pruned combos: ${calcStats.prunedCombos.toLocaleString()}</p>
                     <p>20% cutoff fallback: ${calcStats.errorFilterFallback ? 'Yes (showing nearest matches)' : 'No'}</p>
                     <p>Calculation time: ${calcStats.calculationTimeMs != null ? `${calcStats.calculationTimeMs}ms` : 'n/a'}</p>
@@ -894,8 +1021,6 @@ document.getElementById('autofillJlcBtn').addEventListener('click', () => {
     calculateResults();
 });
 
-document.getElementById('snapToSeries').addEventListener('change', calculateResults);
-
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
 const appVersionEl = document.getElementById('appVersion');
@@ -941,3 +1066,70 @@ if (toggleSwitch) {
         setTheme(e.target.checked ? 'dark' : 'light');
     });
 }
+
+// Tooltip positioning
+function positionTooltip(tooltip) {
+    const tooltipText = tooltip.querySelector('.tooltip-text');
+    if (!tooltipText) return;
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const tooltipTextRect = tooltipText.getBoundingClientRect();
+    
+    // Reset any previous positioning
+    tooltipText.style.bottom = '';
+    tooltipText.style.top = '';
+    tooltipText.style.left = '';
+    tooltipText.style.right = '';
+    tooltipText.style.transform = '';
+    
+    // Check if tooltip would go off the top of the screen
+    if (tooltipRect.top - tooltipTextRect.height < 0) {
+        tooltipText.style.top = '125%';
+        tooltipText.style.bottom = 'auto';
+        // Adjust arrow position
+        tooltipText.style.setProperty('--arrow-top', 'auto');
+        tooltipText.style.setProperty('--arrow-bottom', '100%');
+        tooltipText.style.setProperty('--arrow-border-color', 'transparent transparent var(--input-border) transparent');
+    } else {
+        tooltipText.style.bottom = '125%';
+        tooltipText.style.top = 'auto';
+        // Adjust arrow position
+        tooltipText.style.setProperty('--arrow-top', '100%');
+        tooltipText.style.setProperty('--arrow-bottom', 'auto');
+        tooltipText.style.setProperty('--arrow-border-color', 'var(--input-border) transparent transparent transparent');
+    }
+    
+    // Check if tooltip would go off the left of the screen
+    if (tooltipRect.left + (tooltipTextRect.width / 2) < 0) {
+        tooltipText.style.left = '0';
+        tooltipText.style.transform = 'none';
+    }
+    // Check if tooltip would go off the right of the screen
+    else if (tooltipRect.right + (tooltipTextRect.width / 2) > window.innerWidth) {
+        tooltipText.style.right = '0';
+        tooltipText.style.left = 'auto';
+        tooltipText.style.transform = 'none';
+    }
+    else {
+        tooltipText.style.left = '50%';
+        tooltipText.style.transform = 'translateX(-50%)';
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', () => {
+    const tooltips = document.querySelectorAll('.help-tooltip');
+    
+    tooltips.forEach(tooltip => {
+        // Position on load
+        positionTooltip(tooltip);
+        
+        // Position on hover/touch
+        tooltip.addEventListener('mouseenter', () => positionTooltip(tooltip));
+        tooltip.addEventListener('touchstart', () => positionTooltip(tooltip));
+    });
+    
+    // Reposition on window resize
+    window.addEventListener('resize', () => {
+        tooltips.forEach(tooltip => positionTooltip(tooltip));
+    });
+});

@@ -777,6 +777,7 @@ async function calculateAndDisplayResults() {
     const calculator = new ResistorCalculator();
     const errors = [];
     const warnings = [];
+    const snapToSeries = document.getElementById('snapToSeries')?.checked;
     
     // Parse and validate resistor values
     const resistorInputsRaw = resistorValuesInput.value.split(',').map(v => v.trim());
@@ -800,6 +801,7 @@ async function calculateAndDisplayResults() {
     const domActiveMap = getActiveKeyMap();
     const activeStateMap = domActiveMap.size > 0 ? domActiveMap : activeStateCache;
     const occurrenceMap = new Map();
+    const dedupeKeys = snapToSeries ? new Set() : null;
     
     resistorInputs.forEach((value, index) => {
         if (!value) return; // Skip empty values
@@ -814,6 +816,15 @@ async function calculateAndDisplayResults() {
                 ? ResistorUtils.getSeriesForTolerance(parsed.tolerance)
                 : null;
             const seriesName = toleranceSeries || parsed.series || ResistorUtils.findResistorSeries(parsed.value);
+            const dedupeKey = dedupeKeys
+                ? `${parsed.value}|${parsed.tolerance ?? ''}|${parsed.powerRating ?? ''}|${parsed.powerCode ?? ''}|${seriesName ?? ''}`
+                : null;
+            if (dedupeKey && dedupeKeys.has(dedupeKey)) {
+                return;
+            }
+            if (dedupeKey) {
+                dedupeKeys.add(dedupeKey);
+            }
             const resistorEntry = {
                 id: index,
                 key,

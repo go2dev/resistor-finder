@@ -74,6 +74,14 @@ function overlapsSingle(bounds, singleBounds) {
     return singleBounds.some(single => bounds.lower <= single.upper && bounds.upper >= single.lower);
 }
 
+function getChunkRange(total, chunkIndex, chunkCount) {
+    if (chunkCount <= 1 || total <= 0) return [0, total];
+    const size = Math.ceil(total / chunkCount);
+    const start = chunkIndex * size;
+    const end = Math.min(start + size, total);
+    return [start, end];
+}
+
 
 function generateCombinations(resistors, options = {}) {
     const maxParallel = options.maxParallel ?? 5;
@@ -81,6 +89,8 @@ function generateCombinations(resistors, options = {}) {
     const maxBlocks = options.maxBlocks ?? 250;
     const maxCombos = options.maxCombos ?? 20000;
     const targetValue = options.targetValue ?? null;
+    const chunkIndex = options.chunkIndex ?? 0;
+    const chunkCount = options.chunkCount ?? 1;
     const blocks = [];
     const singleBounds = buildSingleBounds(resistors);
     let prunedBlocks = 0;
@@ -137,11 +147,19 @@ function generateCombinations(resistors, options = {}) {
     const combinations = [];
     let comboCount = 0;
 
-    filteredBlocks.forEach(block => {
-        if (comboCount >= maxCombos) return;
-        if (Array.isArray(block)) return;
+    const singleIndices = [];
+    filteredBlocks.forEach((block, index) => {
+        if (!Array.isArray(block)) {
+            singleIndices.push(index);
+        }
+    });
+    const [singleStart, singleEnd] = getChunkRange(singleIndices.length, chunkIndex, chunkCount);
+    for (let idx = singleStart; idx < singleEnd; idx++) {
+        if (comboCount >= maxCombos) break;
+        const block = filteredBlocks[singleIndices[idx]];
+        if (Array.isArray(block)) continue;
         for (let size = 2; size <= maxSeriesBlocks; size++) {
-            if (comboCount >= maxCombos) return;
+            if (comboCount >= maxCombos) break;
             const series = Array.from({ length: size }, () => block);
             series.type = 'series';
             const bounds = calculateSectionBounds(series);
@@ -152,29 +170,34 @@ function generateCombinations(resistors, options = {}) {
             combinations.push(series);
             comboCount += 1;
         }
-    });
+    }
 
+    const comboBlockCount = Math.min(filteredBlocks.length, resistors.length);
+    const [comboStart, comboEnd] = getChunkRange(comboBlockCount, chunkIndex, chunkCount);
     for (let size = 1; size <= maxSeriesBlocks; size++) {
-        const combos = [];
-        buildIndexCombos(0, 0, size, [], combos);
-        combos.forEach(indices => {
-            if (comboCount >= maxCombos) return;
-            if (size === 1) {
-                combinations.push(filteredBlocks[indices[0]]);
-                comboCount += 1;
-                return;
-            }
-            const series = indices.map(idx => filteredBlocks[idx]);
-            series.type = 'series';
-            const bounds = calculateSectionBounds(series);
-            if (overlapsSingle(bounds, singleBounds)) {
-                prunedCombos += 1;
-                return;
-            }
-            combinations.push(series);
-            comboCount += 1;
-        });
         if (comboCount >= maxCombos) break;
+        for (let firstIndex = comboStart; firstIndex < comboEnd; firstIndex++) {
+            if (comboCount >= maxCombos) break;
+            if (size === 1) {
+                combinations.push(filteredBlocks[firstIndex]);
+                comboCount += 1;
+                continue;
+            }
+            const combos = [];
+            buildIndexCombos(firstIndex, 1, size, [firstIndex], combos);
+            combos.forEach(indices => {
+                if (comboCount >= maxCombos) return;
+                const series = indices.map(idx => filteredBlocks[idx]);
+                series.type = 'series';
+                const bounds = calculateSectionBounds(series);
+                if (overlapsSingle(bounds, singleBounds)) {
+                    prunedCombos += 1;
+                    return;
+                }
+                combinations.push(series);
+                comboCount += 1;
+            });
+        }
     }
 
     return {
@@ -194,13 +217,15 @@ function generateCombinations(resistors, options = {}) {
 
 self.addEventListener('message', (event) => {
     const { type, data } = event.data || {};
-    if (type !== 'calculate') return;
+    if (type !== 'calculate' && type !== 'calculateChunk') return;
 
     try {
-        const { resistors, targetValue, options, sortBy } = data;
+        const { resistors, targetValue, options, sortBy, chunkIndex, chunkCount } = data;
         const { combinations, stats } = generateCombinations(resistors, {
             ...options,
-            targetValue
+            targetValue,
+            chunkIndex: chunkIndex ?? 0,
+            chunkCount: chunkCount ?? 1
         });
         const results = combinations.map(combo => {
             const totalResistance = resistanceOf(combo);
