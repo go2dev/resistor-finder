@@ -98,6 +98,49 @@ function wrapText(text, maxLength = 32) {
     return lines;
 }
 
+function getResistorSignature(resistor) {
+    if (resistor == null) return 'R:';
+    const value = resistor.value ?? resistor;
+    const tolerance = resistor.tolerance ?? '';
+    const series = resistor.series ?? '';
+    const powerRating = resistor.powerRating ?? '';
+    const powerCode = resistor.powerCode ?? '';
+    return `R:${value}|${tolerance}|${series}|${powerRating}|${powerCode}`;
+}
+
+function collectFlattenedChildren(section, type, bucket) {
+    section.forEach(child => {
+        if (Array.isArray(child) && (child.type || 'series') === type) {
+            collectFlattenedChildren(child, type, bucket);
+        } else {
+            bucket.push(child);
+        }
+    });
+}
+
+function getComboSignature(section) {
+    if (!Array.isArray(section)) {
+        return getResistorSignature(section);
+    }
+    const type = section.type || 'series';
+    const flattened = [];
+    collectFlattenedChildren(section, type, flattened);
+    const signatures = flattened.map(getComboSignature).sort();
+    return `${type}(${signatures.join(',')})`;
+}
+
+function dedupeResults(results) {
+    const seen = new Set();
+    const deduped = [];
+    results.forEach(result => {
+        const signature = result?.combo ? getComboSignature(result.combo) : `${result?.comboLabel ?? ''}|${result?.totalResistance ?? ''}`;
+        if (seen.has(signature)) return;
+        seen.add(signature);
+        deduped.push(result);
+    });
+    return deduped;
+}
+
 function generateCombinations(resistors, options = {}) {
     const maxParallel = options.maxParallel ?? 5;
     const maxSeriesBlocks = options.maxSeriesBlocks ?? 5;
@@ -830,6 +873,7 @@ async function calculateResults(options = {}) {
         }
     }
 
+    results = dedupeResults(results);
     const sortBy = sortBySelect?.value || sortByInitial;
     results = sortResults(results, sortBy);
     const filtered = applyErrorFilter(results, 20);
