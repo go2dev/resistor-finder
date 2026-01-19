@@ -1,6 +1,7 @@
 importScripts('resistor-utils.js');
 
 function formatCombination(combo) {
+    const orderedCombo = orderCombination(combo);
     const formatSection = (section) => {
         if (!Array.isArray(section)) {
             return ResistorUtils.formatResistorValue(section.value ?? section);
@@ -10,7 +11,33 @@ function formatCombination(combo) {
         const joined = values.join(type === 'parallel' ? ' || ' : ' + ');
         return type === 'parallel' ? `(${joined})` : joined;
     };
-    return formatSection(combo);
+    return formatSection(orderedCombo);
+}
+
+function getSectionType(section) {
+    if (!Array.isArray(section)) return 'resistor';
+    return section.type || 'series';
+}
+
+function getSectionSortValue(section) {
+    const value = resistanceOf(section);
+    return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+}
+
+function orderCombination(section) {
+    if (!Array.isArray(section)) return section;
+    const type = section.type || 'series';
+    const orderedChildren = section.map(child => orderCombination(child));
+    const sorted = orderedChildren.slice().sort((a, b) => {
+        const aType = getSectionType(a);
+        const bType = getSectionType(b);
+        const aPriority = aType === 'parallel' ? 1 : 0;
+        const bPriority = bType === 'parallel' ? 1 : 0;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return getSectionSortValue(a) - getSectionSortValue(b);
+    });
+    sorted.type = type;
+    return sorted;
 }
 
 function resistanceOf(section) {
@@ -50,7 +77,10 @@ function calculateSectionBounds(section) {
     }
 
     const type = section.type || 'series';
-    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+    const bounds = section.map(child => calculateSectionBounds(child));
+    if (bounds.some(bound => !bound || !Number.isFinite(bound.lower) || !Number.isFinite(bound.upper))) {
+        return { lower: NaN, upper: NaN };
+    }
 
     if (type === 'parallel') {
         const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
@@ -104,17 +134,19 @@ function generateCombinations(resistors, options = {}) {
     const chunkCount = options.chunkCount ?? 1;
     const blocks = [];
     const singleBounds = buildSingleBounds(resistors);
+    const shouldPruneSingles = Number.isFinite(targetValue)
+        && singleBounds.some(single => targetValue >= single.lower && targetValue <= single.upper);
     let prunedBlocks = 0;
     let prunedCombos = 0;
 
-    const buildIndexCombos = (startIdx, depth, targetDepth, current, result) => {
+    const buildIndexCombos = (startIdx, depth, targetDepth, current, result, valueCount = resistors.length) => {
         if (depth === targetDepth) {
             result.push([...current]);
             return;
         }
-        for (let i = startIdx; i < resistors.length; i++) {
+        for (let i = startIdx; i < valueCount; i++) {
             current.push(i);
-            buildIndexCombos(i, depth + 1, targetDepth, current, result);
+            buildIndexCombos(i, depth + 1, targetDepth, current, result, valueCount);
             current.pop();
         }
     };
@@ -131,7 +163,7 @@ function generateCombinations(resistors, options = {}) {
             const parallel = indices.map(idx => resistors[idx]);
             parallel.type = 'parallel';
             const bounds = calculateSectionBounds(parallel);
-            if (overlapsSingle(bounds, singleBounds)) {
+            if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                 prunedBlocks += 1;
                 return;
             }
@@ -169,7 +201,7 @@ function generateCombinations(resistors, options = {}) {
     });
     const [singleStart, singleEnd] = getChunkRange(singleIndices.length, chunkIndex, chunkCount);
 
-    const comboBlockCount = Math.min(filteredBlocks.length, resistors.length);
+    const comboBlockCount = filteredBlocks.length;
     const [comboStart, comboEnd] = getChunkRange(comboBlockCount, chunkIndex, chunkCount);
     const singleWorkTotal = Math.max(0, singleEnd - singleStart);
     const comboWorkTotal = Math.max(0, comboEnd - comboStart) * maxSeriesBlocks;
@@ -177,17 +209,23 @@ function generateCombinations(resistors, options = {}) {
     const progressEvery = Math.max(1, Math.floor(progressTotal / 100));
     let progressProcessed = 0;
     let lastReported = 0;
+    let lastReportedTime = 0;
     const reportProgress = (force = false) => {
         if (!progressTotal) return;
-        if (force || progressProcessed - lastReported >= progressEvery) {
-            lastReported = progressProcessed;
-            self.postMessage({
-                type: 'progress',
-                processed: progressProcessed,
-                total: progressTotal,
-                chunkIndex
-            });
-        }
+        const now = Date.now();
+        const shouldReport = force
+            || progressProcessed - lastReported >= progressEvery
+            || (progressProcessed > 0 && now - lastReportedTime >= 250);
+        if (!shouldReport) return;
+        lastReported = progressProcessed;
+        lastReportedTime = now;
+        const processedValue = force ? progressTotal : progressProcessed;
+        self.postMessage({
+            type: 'progress',
+            processed: processedValue,
+            total: progressTotal,
+            chunkIndex
+        });
     };
 
     for (let idx = singleStart; idx < singleEnd; idx++) {
@@ -199,7 +237,7 @@ function generateCombinations(resistors, options = {}) {
             const series = Array.from({ length: size }, () => block);
             series.type = 'series';
             const bounds = calculateSectionBounds(series);
-            if (overlapsSingle(bounds, singleBounds)) {
+            if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                 prunedCombos += 1;
                 continue;
             }
@@ -211,7 +249,7 @@ function generateCombinations(resistors, options = {}) {
     }
 
     for (let size = 1; size <= maxSeriesBlocks; size++) {
-        if (estimateComboCount(resistors.length, size, maxCombos) > maxCombos) {
+        if (estimateComboCount(comboBlockCount, size, maxCombos) > maxCombos) {
             break;
         }
         if (comboCount >= maxCombos) break;
@@ -225,13 +263,13 @@ function generateCombinations(resistors, options = {}) {
                 continue;
             }
             const combos = [];
-            buildIndexCombos(firstIndex, 1, size, [firstIndex], combos);
+            buildIndexCombos(firstIndex, 1, size, [firstIndex], combos, comboBlockCount);
             combos.forEach(indices => {
                 if (comboCount >= maxCombos) return;
                 const series = indices.map(idx => filteredBlocks[idx]);
                 series.type = 'series';
                 const bounds = calculateSectionBounds(series);
-                if (overlapsSingle(bounds, singleBounds)) {
+                if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                     prunedCombos += 1;
                     return;
                 }

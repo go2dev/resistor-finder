@@ -22,6 +22,32 @@ function normalizeResistorInput(value) {
     return value.trim().toLowerCase();
 }
 
+function getSectionType(section) {
+    if (!Array.isArray(section)) return 'resistor';
+    return section.type || 'series';
+}
+
+function getSectionSortValue(section) {
+    const value = resistanceOf(section);
+    return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
+}
+
+function orderCombination(section) {
+    if (!Array.isArray(section)) return section;
+    const type = section.type || 'series';
+    const orderedChildren = section.map(child => orderCombination(child));
+    const sorted = orderedChildren.slice().sort((a, b) => {
+        const aType = getSectionType(a);
+        const bType = getSectionType(b);
+        const aPriority = aType === 'parallel' ? 1 : 0;
+        const bPriority = bType === 'parallel' ? 1 : 0;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return getSectionSortValue(a) - getSectionSortValue(b);
+    });
+    sorted.type = type;
+    return sorted;
+}
+
 function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries) {
     return JSON.stringify({
         resistors: resistorInputs.map(input => normalizeResistorInput(input)),
@@ -68,6 +94,7 @@ function filterResultsByActiveKeys(allResults, activeKeys) {
 }
 
 function formatCombination(combo) {
+    const orderedCombo = orderCombination(combo);
     const formatSection = (section) => {
         if (!Array.isArray(section)) {
             return ResistorUtils.formatResistorValue(section.value ?? section);
@@ -77,7 +104,7 @@ function formatCombination(combo) {
         const joined = values.join(type === 'parallel' ? ' || ' : ' + ');
         return type === 'parallel' ? `(${joined})` : joined;
     };
-    return formatSection(combo);
+    return formatSection(orderedCombo);
 }
 
 function wrapText(text, maxLength = 32) {
@@ -160,17 +187,19 @@ function generateCombinations(resistors, options = {}) {
     const targetValue = options.targetValue ?? null;
     const blocks = [];
     const singleBounds = buildSingleBounds(resistors);
+    const shouldPruneSingles = Number.isFinite(targetValue)
+        && singleBounds.some(single => targetValue >= single.lower && targetValue <= single.upper);
     let prunedBlocks = 0;
     let prunedCombos = 0;
 
-    const buildIndexCombos = (startIdx, depth, targetDepth, current, result) => {
+    const buildIndexCombos = (startIdx, depth, targetDepth, current, result, valueCount = resistors.length) => {
         if (depth === targetDepth) {
             result.push([...current]);
             return;
         }
-        for (let i = startIdx; i < resistors.length; i++) {
+        for (let i = startIdx; i < valueCount; i++) {
             current.push(i);
-            buildIndexCombos(i, depth + 1, targetDepth, current, result);
+            buildIndexCombos(i, depth + 1, targetDepth, current, result, valueCount);
             current.pop();
         }
     };
@@ -189,7 +218,7 @@ function generateCombinations(resistors, options = {}) {
             const parallel = indices.map(idx => resistors[idx]);
             parallel.type = 'parallel';
             const bounds = calculateSectionBounds(parallel);
-            if (overlapsSingle(bounds, singleBounds)) {
+            if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                 prunedBlocks += 1;
                 return;
             }
@@ -228,7 +257,7 @@ function generateCombinations(resistors, options = {}) {
             const series = Array.from({ length: size }, () => block);
             series.type = 'series';
             const bounds = calculateSectionBounds(series);
-            if (overlapsSingle(bounds, singleBounds)) {
+            if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                 prunedCombos += 1;
                 continue;
             }
@@ -237,12 +266,13 @@ function generateCombinations(resistors, options = {}) {
         }
     });
 
+    const seriesBlockCount = filteredBlocks.length;
     for (let size = 1; size <= maxSeriesBlocks; size++) {
-        if (estimateComboCount(resistors.length, size, maxCombos) > maxCombos) {
+        if (estimateComboCount(seriesBlockCount, size, maxCombos) > maxCombos) {
             break;
         }
         const combos = [];
-        buildIndexCombos(0, 0, size, [], combos);
+        buildIndexCombos(0, 0, size, [], combos, seriesBlockCount);
         combos.forEach(indices => {
             if (comboCount >= maxCombos) return;
             if (size === 1) {
@@ -253,7 +283,7 @@ function generateCombinations(resistors, options = {}) {
             const series = indices.map(idx => filteredBlocks[idx]);
             series.type = 'series';
             const bounds = calculateSectionBounds(series);
-            if (overlapsSingle(bounds, singleBounds)) {
+            if (shouldPruneSingles && overlapsSingle(bounds, singleBounds)) {
                 prunedCombos += 1;
                 return;
             }
@@ -421,7 +451,10 @@ function calculateSectionBounds(section) {
     }
 
     const type = section.type || 'series';
-    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+    const bounds = section.map(child => calculateSectionBounds(child));
+    if (bounds.some(bound => !bound || !Number.isFinite(bound.lower) || !Number.isFinite(bound.upper))) {
+        return { lower: NaN, upper: NaN };
+    }
 
     if (type === 'parallel') {
         const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
@@ -1090,7 +1123,8 @@ function initializeTargetDiagrams(results) {
         if (result.combo && typeof diagram.renderNetwork === 'function') {
             try {
                 const totalLabel = ResistorUtils.formatResistorValue(result.totalResistance);
-                diagram.renderNetwork(result.combo, {
+                const orderedCombo = orderCombination(result.combo);
+                diagram.renderNetwork(orderedCombo, {
                     minWidth: diagramWidth,
                     minHeight: diagramHeight,
                     measurementLabel: totalLabel
@@ -1119,12 +1153,8 @@ function downloadTargetDiagram(index) {
     const formattedTotal = ResistorUtils.formatResistorValue(totalValue).replace(/[^\w]/g, '');
     const sanitizedCombo = comboLabel.replace(/[^\w]+/g, '-').slice(0, 40);
     const filename = `target-${targetValue}-${formattedTotal}-${sanitizedCombo}.png`;
-    const annotationLines = [];
-    if (Number.isFinite(totalValue)) {
-        annotationLines.push(`Total: ${ResistorUtils.formatResistorValue(totalValue)}`);
-    }
 
-    convertSVGtoPNG(svgElement, filename, 2, annotationLines);
+    convertSVGtoPNG(svgElement, filename, 2, []);
 }
 
 function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
@@ -1201,7 +1231,7 @@ async function toggleResistorValue(element) {
 calculateBtn.addEventListener('click', calculateResults);
 if (sortBySelect) {
     sortBySelect.addEventListener('change', () => {
-        calculateResults({ resetSort: false, allowRecalc: false });
+        calculateResults({ resetSort: false, allowRecalc: true });
     });
 }
 

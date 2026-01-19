@@ -395,12 +395,44 @@ class Diagram {
         let currY = topY;
         let startPoint = null;
         let endPoint = null;
+        const isOddParallel = (node) => node?.kind === 'parallel' && (node.children?.length ?? 0) % 2 === 1;
+        const getJunctionOffset = (nodeA, nodeB) => {
+            if (!isOddParallel(nodeA) && !isOddParallel(nodeB)) return 0;
+            let offsetLimit = Infinity;
+            if (isOddParallel(nodeA) && Number.isFinite(nodeA.width)) {
+                offsetLimit = Math.min(offsetLimit, Math.max(0, nodeA.width / 2 - 4));
+            }
+            if (isOddParallel(nodeB) && Number.isFinite(nodeB.width)) {
+                offsetLimit = Math.min(offsetLimit, Math.max(0, nodeB.width / 2 - 4));
+            }
+            return Math.max(0, Math.min(config.seriesJunctionOffset, offsetLimit));
+        };
+        const getDrawX = (node, prev, next) => {
+            if (node?.kind === 'parallel') return centerX;
+            const offsetToNext = next ? getJunctionOffset(node, next) : 0;
+            const offsetFromPrev = prev ? getJunctionOffset(prev, node) : 0;
+            const offset = offsetToNext || offsetFromPrev;
+            return centerX + offset;
+        };
         layout.children.forEach((child, index) => {
-            const childResult = this.drawNetworkLayout(child, centerX, currY, config);
+            const prevChild = index > 0 ? layout.children[index - 1] : null;
+            const nextChild = index < layout.children.length - 1 ? layout.children[index + 1] : null;
+            const childDrawX = getDrawX(child, prevChild, nextChild);
+            const childResult = this.drawNetworkLayout(child, childDrawX, currY, config);
             if (!startPoint) startPoint = childResult.start;
             if (index < layout.children.length - 1) {
-                this.svg.appendChild(this.schematic.drawWire(centerX, childResult.end[1], centerX, childResult.end[1] + config.seriesGap));
-                currY = childResult.end[1] + config.seriesGap;
+                const junctionOffset = getJunctionOffset(child, nextChild);
+                const junctionX = centerX + junctionOffset;
+                const endY = childResult.end?.[1] ?? currY;
+                const endX = child?.kind === 'parallel' ? junctionX : childDrawX;
+                const nextNextChild = index + 2 < layout.children.length ? layout.children[index + 2] : null;
+                const nextDrawX = getDrawX(nextChild, child, nextNextChild);
+                const nextConnX = nextChild?.kind === 'parallel' ? junctionX : nextDrawX;
+                this.svg.appendChild(this.schematic.drawWire(endX, endY, endX, endY + config.seriesGap));
+                if (endX !== nextConnX) {
+                    this.svg.appendChild(this.schematic.drawWire(endX, endY + config.seriesGap, nextConnX, endY + config.seriesGap));
+                }
+                currY = endY + config.seriesGap;
             } else {
                 endPoint = childResult.end;
             }
@@ -420,11 +452,23 @@ class Diagram {
             return;
         }
 
+        const resolveColorValue = (value) => {
+            if (!value || typeof value !== 'string') return value;
+            if (!value.startsWith('var(')) return value;
+            if (typeof document === 'undefined' || !document.documentElement) return value;
+            const match = value.match(/var\(([^)]+)\)/);
+            if (!match) return value;
+            const variableName = match[1].trim();
+            const computed = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+            return computed || value;
+        };
+
         const config = {
             padding: 18,
             seriesGap: 18,
             parallelGap: 24,
             busGap: 12,
+            seriesJunctionOffset: 10,
             resistorHeight: 35,
             resistorBodyWidth: 16,
             resistorMinWidth: 28,
@@ -432,7 +476,7 @@ class Diagram {
             labelCharWidth: 6,
             minWidth: 280,
             minHeight: 180,
-            measurementGap: 12,
+            measurementGap: 18,
             measurementTickLength: 12,
             measurementLabel: '',
             measurementLabelPadding: 6,
@@ -441,6 +485,7 @@ class Diagram {
             showMeasurement: true,
             ...options
         };
+        config.measurementColor = resolveColorValue(config.measurementColor) || this.schematic.styles.stroke;
 
         const layout = this.layoutNetwork(section, config);
         const measurementLabel = config.measurementLabel ? String(config.measurementLabel) : '';

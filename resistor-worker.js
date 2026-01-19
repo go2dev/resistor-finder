@@ -1,8 +1,9 @@
 // Web Worker for parallel resistor combination calculations
 
 // Receive calculation utilities from main thread
-let ResistorUtils = null;
-let resistorTolerances = null;
+const globalResistorUtils = typeof ResistorUtils !== 'undefined' ? ResistorUtils : null;
+let workerResistorUtils = globalResistorUtils;
+let resistorTolerances = globalResistorUtils?.resistorTolerances ?? null;
 
 // Calculate total resistance based on connection type
 function calculateTotalResistance(resistors) {
@@ -23,7 +24,7 @@ function calculateOutputVoltage(r1, r2, supplyVoltage) {
 
 // Find which standard series a value belongs to
 function findResistorSeries(value) {
-    if (!ResistorUtils || !ResistorUtils.series) return null;
+    if (!workerResistorUtils || !workerResistorUtils.series) return null;
     
     // Normalize value to be between 1 and 10
     let normalized = value;
@@ -40,7 +41,7 @@ function findResistorSeries(value) {
     
     for (const seriesName of seriesOrder) {
         // Use tolerance-based comparison instead of exact match
-        const found = ResistorUtils.series[seriesName].some(seriesValue => 
+        const found = workerResistorUtils.series[seriesName].some(seriesValue => 
             Math.abs(normalized - seriesValue) < tolerance
         );
         if (found) {
@@ -261,7 +262,7 @@ self.addEventListener('message', function(e) {
     switch (type) {
         case 'init':
             // Initialize utilities from main thread
-            ResistorUtils = data.ResistorUtils;
+            workerResistorUtils = data.ResistorUtils;
             resistorTolerances = data.resistorTolerances;
             self.postMessage({ type: 'initialized' });
             break;
