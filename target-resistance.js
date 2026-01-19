@@ -7,6 +7,7 @@ const resultsContainer = document.getElementById('results');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resistorTolerances = ResistorUtils.resistorTolerances;
 const resultsCache = new Map();
+const inflightCalculations = new Map();
 
 const LIMITS = {
     maxParallel: 10,
@@ -20,12 +21,13 @@ function normalizeResistorInput(value) {
     return value.trim().toLowerCase();
 }
 
-function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries) {
+function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries, activeKeys = []) {
     return JSON.stringify({
         resistors: resistorInputs.map(input => normalizeResistorInput(input)),
         target: normalizeResistorInput(targetValue),
         snapToSeries,
-        snapSeries
+        snapSeries,
+        activeKeys: activeKeys.slice().sort()
     });
 }
 
@@ -373,13 +375,30 @@ function calculateSectionBounds(section) {
 function showLoadingSpinner() {
     if (loadingSpinner) {
         loadingSpinner.style.display = 'block';
+        updateLoadingProgress(0, 100);
     }
 }
 
 function hideLoadingSpinner() {
     if (loadingSpinner) {
         loadingSpinner.style.display = 'none';
+        const progressText = loadingSpinner.querySelector('.progress-text');
+        if (progressText) {
+            progressText.textContent = '';
+        }
     }
+}
+
+function updateLoadingProgress(processed, total) {
+    if (!loadingSpinner) return;
+    const progressText = loadingSpinner.querySelector('.progress-text');
+    if (!progressText) return;
+    if (total === 100) {
+        progressText.textContent = `${processed}% complete`;
+        return;
+    }
+    const percentage = total ? ((processed / total) * 100).toFixed(1) : '0.0';
+    progressText.textContent = `${processed.toLocaleString()} / ${total.toLocaleString()} (${percentage}%)`;
 }
 
 function useWorkerForInput(resistorCount) {
@@ -396,6 +415,7 @@ function getWorkerCount(resistorCount) {
 function runWorkerCalculation(resistors, targetValue, sortBy, options) {
     return new Promise((resolve, reject) => {
         const worker = new Worker('target-resistance-worker.js');
+        let hasProgress = false;
         const payload = {
             resistors,
             targetValue,
@@ -411,8 +431,18 @@ function runWorkerCalculation(resistors, targetValue, sortBy, options) {
         const cleanup = () => worker.terminate();
 
         worker.addEventListener('message', (event) => {
-            const { type, results, error, stats } = event.data || {};
+            const { type, results, error, stats, processed, total } = event.data || {};
+            if (type === 'progress') {
+                if (Number.isFinite(processed) && Number.isFinite(total) && total > 0) {
+                    hasProgress = true;
+                    updateLoadingProgress(processed, total);
+                }
+                return;
+            }
             if (type === 'result') {
+                if (!hasProgress) {
+                    updateLoadingProgress(100, 100);
+                }
                 cleanup();
                 resolve({ results: results || [], stats: stats || null });
             } else if (type === 'error') {
@@ -443,6 +473,21 @@ function runWorkerCalculationParallel(resistors, targetValue, sortBy, options, w
         const perWorkerMaxCombos = Math.ceil(options.maxCombos / workerCount);
         let completed = 0;
         let settled = false;
+        let hasProgressTotals = false;
+        const progressByWorker = new Map();
+
+        const updateAggregatedProgress = () => {
+            let processedSum = 0;
+            let totalSum = 0;
+            progressByWorker.forEach(progress => {
+                processedSum += progress.processed || 0;
+                totalSum += progress.total || 0;
+            });
+            if (totalSum > 0) {
+                hasProgressTotals = true;
+                updateLoadingProgress(processedSum, totalSum);
+            }
+        };
 
         const cleanup = () => workers.forEach(worker => worker.terminate());
 
@@ -463,9 +508,18 @@ function runWorkerCalculationParallel(resistors, targetValue, sortBy, options, w
         for (let i = 0; i < workerCount; i++) {
             const worker = new Worker('target-resistance-worker.js');
             workers.push(worker);
+            const workerIndex = i;
 
             worker.addEventListener('message', (event) => {
-                const { type, results, error, stats } = event.data || {};
+                const { type, results, error, stats, processed, total, chunkIndex } = event.data || {};
+                const progressKey = Number.isFinite(chunkIndex) ? chunkIndex : workerIndex;
+                if (type === 'progress') {
+                    if (Number.isFinite(processed) && Number.isFinite(total) && total > 0) {
+                        progressByWorker.set(progressKey, { processed, total });
+                        updateAggregatedProgress();
+                    }
+                    return;
+                }
                 if (type === 'result') {
                     if (Array.isArray(results) && results.length) {
                         aggregatedResults.push(...results);
@@ -477,9 +531,21 @@ function runWorkerCalculationParallel(resistors, targetValue, sortBy, options, w
                             aggregatedStats.prunedBlocks = stats.prunedBlocks ?? 0;
                         }
                     }
+                    if (progressByWorker.has(progressKey)) {
+                        const entry = progressByWorker.get(progressKey);
+                        if (entry && entry.total) {
+                            progressByWorker.set(progressKey, { processed: entry.total, total: entry.total });
+                            updateAggregatedProgress();
+                        }
+                    }
                     completed += 1;
                     worker.terminate();
                     if (completed === workerCount) {
+                        if (!hasProgressTotals) {
+                            updateLoadingProgress(workerCount, workerCount);
+                        } else {
+                            updateAggregatedProgress();
+                        }
                         finalizeSuccess();
                     }
                 } else if (type === 'error') {
@@ -583,11 +649,24 @@ function parseResistorList(values, options) {
 async function calculateResults() {
     const warnings = [];
     const calculationStart = performance.now();
-    const resistorInputs = resistorValuesInput.value.split(',').map(v => v.trim());
+    const resistorInputsRaw = resistorValuesInput.value.split(',').map(v => v.trim());
+    const uniqueInputMap = new Map();
+    const resistorInputs = [];
+    resistorInputsRaw.forEach(input => {
+        if (!input) return;
+        const normalized = normalizeResistorInput(input);
+        if (uniqueInputMap.has(normalized)) {
+            return;
+        }
+        uniqueInputMap.set(normalized, true);
+        resistorInputs.push(input);
+    });
+    if (resistorInputs.length !== resistorInputsRaw.filter(Boolean).length) {
+        resistorValuesInput.value = resistorInputs.join(', ');
+    }
     const snapToSeries = document.getElementById('snapToSeries')?.checked;
     const snapSeries = document.getElementById('autofillSeries')?.value || 'E24';
     const activeStateMap = getActiveKeyMap();
-    const cacheKey = buildCacheKey(resistorInputs, targetResistanceInput.value, snapToSeries, snapSeries);
 
     const { resistors, warnings: parseWarnings, conversions } = parseResistorList(resistorInputs, {
         snapToSeries,
@@ -597,6 +676,8 @@ async function calculateResults() {
     warnings.push(...parseWarnings);
 
     const activeResistors = resistors.filter(resistor => resistor.active !== false);
+    const activeKeysForCache = activeResistors.map(resistor => resistor.key).filter(Boolean);
+    const cacheKey = buildCacheKey(resistorInputs, targetResistanceInput.value, snapToSeries, snapSeries, activeKeysForCache);
 
     if (!activeResistors.length) {
         warnings.push('At least one valid resistor value is required');
@@ -630,7 +711,7 @@ async function calculateResults() {
         return;
     }
 
-    const sortBy = sortBySelect?.value || 'error';
+    const sortByInitial = sortBySelect?.value || 'error';
     let results = [];
     let calcStats = {
         inputCount: resistors.length,
@@ -666,8 +747,18 @@ async function calculateResults() {
     calcStats.maxBlocks = effectiveLimits.maxBlocks;
     calcStats.maxCombos = effectiveLimits.maxCombos;
 
-    const cachedEntry = resultsCache.get(cacheKey);
-    const useCache = cachedEntry && Array.isArray(cachedEntry.allResults);
+    let cachedEntry = resultsCache.get(cacheKey);
+    let useCache = cachedEntry && Array.isArray(cachedEntry.allResults);
+    if (!useCache && inflightCalculations.has(cacheKey)) {
+        try {
+            await inflightCalculations.get(cacheKey);
+        } catch (error) {
+            warnings.push(`Calculation failed: ${error.message}`);
+        }
+        cachedEntry = resultsCache.get(cacheKey);
+        useCache = cachedEntry && Array.isArray(cachedEntry.allResults);
+    }
+
     if (useCache) {
         results = cachedEntry.allResults.slice();
         calcStats.workerUsed = cachedEntry.workerUsed;
@@ -675,57 +766,64 @@ async function calculateResults() {
     } else {
         showLoadingSpinner();
         await new Promise(resolve => setTimeout(resolve, 0));
-    }
-
-    const workerCount = getWorkerCount(filteredResistors.length);
-    if (!useCache && workerCount > 0) {
-        calcStats.workerUsed = true;
-        calcStats.workerCount = workerCount;
-        try {
-            const workerResult = workerCount > 1
-                ? await runWorkerCalculationParallel(filteredResistors, targetValue, sortBy, effectiveLimits, workerCount)
-                : await runWorkerCalculation(filteredResistors, targetValue, sortBy, effectiveLimits);
-            results = workerResult.results;
-            if (workerResult.stats) {
-                calcStats.blockCount = workerResult.stats.blockCount ?? null;
-                calcStats.comboCount = workerResult.stats.comboCount ?? null;
-                calcStats.prunedBlocks = workerResult.stats.prunedBlocks ?? 0;
-                calcStats.prunedCombos = workerResult.stats.prunedCombos ?? 0;
+        const inflightPromise = (async () => {
+            const workerCount = getWorkerCount(filteredResistors.length);
+            if (workerCount > 0) {
+                calcStats.workerUsed = true;
+                calcStats.workerCount = workerCount;
+                try {
+                    const workerResult = workerCount > 1
+                        ? await runWorkerCalculationParallel(filteredResistors, targetValue, sortByInitial, effectiveLimits, workerCount)
+                        : await runWorkerCalculation(filteredResistors, targetValue, sortByInitial, effectiveLimits);
+                    results = workerResult.results;
+                    if (workerResult.stats) {
+                        calcStats.blockCount = workerResult.stats.blockCount ?? null;
+                        calcStats.comboCount = workerResult.stats.comboCount ?? null;
+                        calcStats.prunedBlocks = workerResult.stats.prunedBlocks ?? 0;
+                        calcStats.prunedCombos = workerResult.stats.prunedCombos ?? 0;
+                    }
+                } catch (error) {
+                    warnings.push(`Worker failed: ${error.message}. Falling back to local calculation.`);
+                } finally {
+                    hideLoadingSpinner();
+                }
             }
-        } catch (error) {
-            warnings.push(`Worker failed: ${error.message}. Falling back to local calculation.`);
+            if (results.length === 0) {
+                const { combinations, stats } = generateCombinations(filteredResistors, {
+                    maxParallel: effectiveLimits.maxParallel,
+                    maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
+                    maxBlocks: effectiveLimits.maxBlocks,
+                    maxCombos: effectiveLimits.maxCombos,
+                    targetValue
+                });
+                calcStats.blockCount = stats.blockCount;
+                calcStats.comboCount = stats.comboCount;
+                calcStats.prunedBlocks = stats.prunedBlocks ?? 0;
+                calcStats.prunedCombos = stats.prunedCombos ?? 0;
+                results = combinations.map(combo => {
+                    const totalResistance = resistanceOf(combo);
+                    const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
+                    return {
+                        combo,
+                        comboLabel: formatCombination(combo),
+                        totalResistance,
+                        error: totalResistance - targetValue,
+                        errorPercent,
+                        componentCount: countComponents(combo)
+                    };
+                });
+                hideLoadingSpinner();
+            }
+        })();
+        inflightCalculations.set(cacheKey, inflightPromise);
+        try {
+            await inflightPromise;
         } finally {
-            hideLoadingSpinner();
+            inflightCalculations.delete(cacheKey);
         }
     }
 
-    if (results.length === 0) {
-        const { combinations, stats } = generateCombinations(filteredResistors, {
-            maxParallel: effectiveLimits.maxParallel,
-            maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
-            maxBlocks: effectiveLimits.maxBlocks,
-            maxCombos: effectiveLimits.maxCombos,
-            targetValue
-        });
-        calcStats.blockCount = stats.blockCount;
-        calcStats.comboCount = stats.comboCount;
-        calcStats.prunedBlocks = stats.prunedBlocks ?? 0;
-        calcStats.prunedCombos = stats.prunedCombos ?? 0;
-        results = combinations.map(combo => {
-            const totalResistance = resistanceOf(combo);
-            const errorPercent = ((totalResistance - targetValue) / targetValue) * 100;
-            return {
-                combo,
-                comboLabel: formatCombination(combo),
-                totalResistance,
-                error: totalResistance - targetValue,
-                errorPercent,
-                componentCount: countComponents(combo)
-            };
-        });
-        hideLoadingSpinner();
-    }
-
+    const sortBy = sortBySelect?.value || sortByInitial;
     results = sortResults(results, sortBy);
     const filtered = applyErrorFilter(results, 20);
     results = filtered.results;
@@ -750,6 +848,16 @@ async function calculateResults() {
     calcStats.calculationTimeMs = Math.round(performance.now() - calculationStart);
     const workerLabel = calcStats.workerUsed
         ? `Yes${calcStats.workerCount > 1 ? ` (${calcStats.workerCount} workers)` : ''}`
+        : 'No';
+    const cutoffLabel = calcStats.errorFilterFallback
+        ? `Yes (showing nearest matches)
+            <span class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    The search is limited to ${calcStats.maxSeriesBlocks} series blocks and ${calcStats.maxParallel} parallel entries
+                    (max ${calcStats.maxCombos.toLocaleString()} combinations). A closer match might require more resistors than this limit allows.
+                </span>
+            </span>`
         : 'No';
 
     let output = '';
@@ -883,7 +991,7 @@ async function calculateResults() {
                     <p>Max combos: ${calcStats.maxCombos.toLocaleString()}, Combos generated: ${calcStats.comboCount != null ? calcStats.comboCount.toLocaleString() : 'n/a'}</p>
                     <p>Worker used: ${workerLabel}, Block count: ${calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
                     <p>Pruned blocks: ${calcStats.prunedBlocks.toLocaleString()}, Pruned combos: ${calcStats.prunedCombos.toLocaleString()}</p>
-                    <p>20% cutoff fallback: ${calcStats.errorFilterFallback ? 'Yes (showing nearest matches)' : 'No'}</p>
+                    <p>20% cutoff fallback: ${cutoffLabel}</p>
                     <p>Calculation time: ${calcStats.calculationTimeMs != null ? `${calcStats.calculationTimeMs}ms` : 'n/a'}</p>
                 </div>
             </div>

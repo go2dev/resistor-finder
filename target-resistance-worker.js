@@ -154,6 +154,28 @@ function generateCombinations(resistors, options = {}) {
         }
     });
     const [singleStart, singleEnd] = getChunkRange(singleIndices.length, chunkIndex, chunkCount);
+
+    const comboBlockCount = Math.min(filteredBlocks.length, resistors.length);
+    const [comboStart, comboEnd] = getChunkRange(comboBlockCount, chunkIndex, chunkCount);
+    const singleWorkTotal = Math.max(0, singleEnd - singleStart);
+    const comboWorkTotal = Math.max(0, comboEnd - comboStart) * maxSeriesBlocks;
+    const progressTotal = singleWorkTotal + comboWorkTotal;
+    const progressEvery = Math.max(1, Math.floor(progressTotal / 100));
+    let progressProcessed = 0;
+    let lastReported = 0;
+    const reportProgress = (force = false) => {
+        if (!progressTotal) return;
+        if (force || progressProcessed - lastReported >= progressEvery) {
+            lastReported = progressProcessed;
+            self.postMessage({
+                type: 'progress',
+                processed: progressProcessed,
+                total: progressTotal,
+                chunkIndex
+            });
+        }
+    };
+
     for (let idx = singleStart; idx < singleEnd; idx++) {
         if (comboCount >= maxCombos) break;
         const block = filteredBlocks[singleIndices[idx]];
@@ -170,14 +192,16 @@ function generateCombinations(resistors, options = {}) {
             combinations.push(series);
             comboCount += 1;
         }
+        progressProcessed += 1;
+        reportProgress();
     }
 
-    const comboBlockCount = Math.min(filteredBlocks.length, resistors.length);
-    const [comboStart, comboEnd] = getChunkRange(comboBlockCount, chunkIndex, chunkCount);
     for (let size = 1; size <= maxSeriesBlocks; size++) {
         if (comboCount >= maxCombos) break;
         for (let firstIndex = comboStart; firstIndex < comboEnd; firstIndex++) {
             if (comboCount >= maxCombos) break;
+            progressProcessed += 1;
+            reportProgress();
             if (size === 1) {
                 combinations.push(filteredBlocks[firstIndex]);
                 comboCount += 1;
@@ -199,6 +223,7 @@ function generateCombinations(resistors, options = {}) {
             });
         }
     }
+    reportProgress(true);
 
     return {
         combinations,
@@ -259,9 +284,10 @@ self.addEventListener('message', (event) => {
         self.postMessage({
             type: 'result',
             results,
-            stats
+            stats,
+            chunkIndex: chunkIndex ?? 0
         });
     } catch (error) {
-        self.postMessage({ type: 'error', error: error.message });
+        self.postMessage({ type: 'error', error: error.message, chunkIndex: chunkIndex ?? 0 });
     }
 });
