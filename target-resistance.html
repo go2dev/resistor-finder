@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Resistance Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+  rel="icon"
+  href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
+/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body data-page="target-resistance">
+    <div class="theme-toggle-fixed">
+        <label class="theme-switch theme-switch-dark" for="checkbox">
+            <input type="checkbox" id="checkbox" />
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
+    <div class="container">
+        <h1>Target Resistance Calculator
+            <div class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    Find the closest series and parallel combinations to a target resistance using a fixed list of available values.
+                    Enter your available resistor values and target resistance to see the best matches.
+                    <br><br>
+                    Works best on desktop.
+                    <br><br>
+                    <a href="readme.html" target="_blank" style="color: var(--accent-color); text-decoration: underline;">View documentation →</a>
+                </span>
+            </div>
+        </h1>
+
+        <div id="topNav"></div>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <div id="resistorInputSection"></div>
+                
+                <div class="input-group">
+                    <label for="targetResistance">Target Resistance (Ω):
+                        <div class="help-tooltip">
+                            ?
+                            <span class="tooltip-text">
+                                You can add tolerance in brackets for the target in this mode (e.g. 33k(1%) or 33k(A)).
+                                Target tolerance is not supported in the voltage divider tool.
+                            </span>
+                        </div>
+                    </label>
+                    <input type="text" id="targetResistance" placeholder="e.g. 50k(2%)">
+                </div>
+                
+                <button id="calculateBtn">Find Closest Matches</button>
+            </div>
+
+            <div class="options-section">
+                <label>Options:</label>
+                <div class="options-box">
+                    <div class="option-group">
+                        <div class="sort-options">
+                            <span class="theme-label">Sort Results By:</span>
+                            <select name="sortBy" id="sortBy" class="sort-select">
+                                <option value="error" selected>Lowest Error (Ω / %)</option>
+                                <option value="components">Lowest Component Count</option>
+                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
+                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="results-container"></div>
+        
+        <!-- Loading spinner -->
+        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+            <div class="spinner"></div>
+            <p>Calculating combinations...</p>
+            <p class="progress-text"></p>
+        </div>
+    </div>
+    <footer id="pageFooter"></footer>
+    <script src="resistor-utils.js"></script>
+    <script src="common-ui.js"></script>
+    <script src="schematic.js"></script>
+    <script src="target-resistance.js"></script>
+</body>
+</html>

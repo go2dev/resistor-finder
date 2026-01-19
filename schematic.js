@@ -272,6 +272,272 @@ class Diagram {
         return { values, type };
     }
 
+    renderTextDiagram(lines, title = 'Network') {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const width = 300;
+        const lineHeight = 18;
+        const padding = 16;
+        const hasTitle = Boolean(title);
+        const totalLines = (hasTitle ? 1 : 0) + lines.length;
+        const height = Math.max(140, padding * 2 + totalLines * lineHeight);
+
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', height);
+
+        if (hasTitle) {
+            const titleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            titleText.setAttribute('x', padding);
+            titleText.setAttribute('y', padding + lineHeight);
+            titleText.setAttribute('font-size', '13px');
+            titleText.setAttribute('font-weight', '600');
+            titleText.textContent = title;
+            this.svg.appendChild(titleText);
+        }
+
+        lines.forEach((line, index) => {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', padding);
+            text.setAttribute('y', padding + lineHeight * (index + (hasTitle ? 2 : 1)));
+            text.setAttribute('font-size', '12px');
+            text.textContent = line;
+            this.svg.appendChild(text);
+        });
+    }
+
+    getResistorValue(section) {
+        if (section == null) return null;
+        return section?.value ?? section;
+    }
+
+    getResistorLabel(section) {
+        const value = this.getResistorValue(section);
+        if (value == null) return '—';
+        return ResistorUtils.formatResistorValue(value);
+    }
+
+    layoutNetwork(section, config) {
+        if (!Array.isArray(section)) {
+            const label = this.getResistorLabel(section);
+            const labelWidth = Math.max(label.length, 1) * config.labelCharWidth;
+            const width = Math.max(
+                config.resistorMinWidth,
+                config.resistorBodyWidth + config.labelPadding + labelWidth
+            );
+            return {
+                kind: 'resistor',
+                width,
+                height: config.resistorHeight,
+                value: section
+            };
+        }
+
+        const type = section.type || 'series';
+        const children = section.map(child => this.layoutNetwork(child, config));
+        if (!children.length) {
+            return {
+                kind: 'resistor',
+                width: config.resistorMinWidth,
+                height: config.resistorHeight,
+                value: 0
+            };
+        }
+
+        if (type === 'parallel') {
+            const width = children.reduce((sum, child, index) => {
+                return sum + child.width + (index ? config.parallelGap : 0);
+            }, 0);
+            const height = Math.max(...children.map(child => child.height)) + config.busGap * 2;
+            return { kind: 'parallel', width, height, children };
+        }
+
+        const width = Math.max(...children.map(child => child.width));
+        const height = children.reduce((sum, child, index) => {
+            return sum + child.height + (index ? config.seriesGap : 0);
+        }, 0);
+        return { kind: 'series', width, height, children };
+    }
+
+    drawNetworkLayout(layout, centerX, topY, config) {
+        if (!layout) {
+            return { start: [centerX, topY], end: [centerX, topY] };
+        }
+
+        if (layout.kind === 'resistor') {
+            const value = this.getResistorValue(layout.value);
+            const safeValue = value ?? '?';
+            this.svg.appendChild(this.schematic.drawResistorValue(centerX, topY, safeValue, 'vertical'));
+            return { start: [centerX, topY], end: [centerX, topY + config.resistorHeight] };
+        }
+
+        if (layout.kind === 'parallel') {
+            const leftX = centerX - layout.width / 2;
+            const rightX = centerX + layout.width / 2;
+            const topBusY = topY;
+            const bottomBusY = topY + layout.height;
+            this.svg.appendChild(this.schematic.drawWire(leftX, topBusY, rightX, topBusY));
+            this.svg.appendChild(this.schematic.drawWire(leftX, bottomBusY, rightX, bottomBusY));
+
+            let cursorX = leftX;
+            layout.children.forEach(child => {
+                const childCenterX = cursorX + child.width / 2;
+                const childTopY = topY + config.busGap;
+                const childResult = this.drawNetworkLayout(child, childCenterX, childTopY, config);
+                this.svg.appendChild(this.schematic.drawWire(childCenterX, topBusY, childCenterX, childResult.start[1]));
+                this.svg.appendChild(this.schematic.drawWire(childCenterX, childResult.end[1], childCenterX, bottomBusY));
+                cursorX += child.width + config.parallelGap;
+            });
+
+            return { start: [centerX, topBusY], end: [centerX, bottomBusY] };
+        }
+
+        let currY = topY;
+        let startPoint = null;
+        let endPoint = null;
+        const isOddParallel = (node) => node?.kind === 'parallel' && (node.children?.length ?? 0) % 2 === 1;
+        const getJunctionOffset = (nodeA, nodeB) => {
+            if (!isOddParallel(nodeA) && !isOddParallel(nodeB)) return 0;
+            let offsetLimit = Infinity;
+            if (isOddParallel(nodeA) && Number.isFinite(nodeA.width)) {
+                offsetLimit = Math.min(offsetLimit, Math.max(0, nodeA.width / 2 - 4));
+            }
+            if (isOddParallel(nodeB) && Number.isFinite(nodeB.width)) {
+                offsetLimit = Math.min(offsetLimit, Math.max(0, nodeB.width / 2 - 4));
+            }
+            return Math.max(0, Math.min(config.seriesJunctionOffset, offsetLimit));
+        };
+        const getDrawX = (node, prev, next) => {
+            if (node?.kind === 'parallel') return centerX;
+            const offsetToNext = next ? getJunctionOffset(node, next) : 0;
+            const offsetFromPrev = prev ? getJunctionOffset(prev, node) : 0;
+            const offset = offsetToNext || offsetFromPrev;
+            return centerX + offset;
+        };
+        layout.children.forEach((child, index) => {
+            const prevChild = index > 0 ? layout.children[index - 1] : null;
+            const nextChild = index < layout.children.length - 1 ? layout.children[index + 1] : null;
+            const childDrawX = getDrawX(child, prevChild, nextChild);
+            const childResult = this.drawNetworkLayout(child, childDrawX, currY, config);
+            if (!startPoint) startPoint = childResult.start;
+            if (index < layout.children.length - 1) {
+                const junctionOffset = getJunctionOffset(child, nextChild);
+                const junctionX = centerX + junctionOffset;
+                const endY = childResult.end?.[1] ?? currY;
+                const endX = child?.kind === 'parallel' ? junctionX : childDrawX;
+                const nextNextChild = index + 2 < layout.children.length ? layout.children[index + 2] : null;
+                const nextDrawX = getDrawX(nextChild, child, nextNextChild);
+                const nextConnX = nextChild?.kind === 'parallel' ? junctionX : nextDrawX;
+                this.svg.appendChild(this.schematic.drawWire(endX, endY, endX, endY + config.seriesGap));
+                if (endX !== nextConnX) {
+                    this.svg.appendChild(this.schematic.drawWire(endX, endY + config.seriesGap, nextConnX, endY + config.seriesGap));
+                }
+                currY = endY + config.seriesGap;
+            } else {
+                endPoint = childResult.end;
+            }
+        });
+
+        return {
+            start: startPoint || [centerX, topY],
+            end: endPoint || [centerX, topY]
+        };
+    }
+
+    renderNetwork(section, options = {}) {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        if (!section) {
+            this.renderTextDiagram(['No network to render'], '');
+            return;
+        }
+
+        const resolveColorValue = (value) => {
+            if (!value || typeof value !== 'string') return value;
+            if (!value.startsWith('var(')) return value;
+            if (typeof document === 'undefined' || !document.documentElement) return value;
+            const match = value.match(/var\(([^)]+)\)/);
+            if (!match) return value;
+            const variableName = match[1].trim();
+            const computed = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+            return computed || value;
+        };
+
+        const config = {
+            padding: 18,
+            seriesGap: 18,
+            parallelGap: 24,
+            busGap: 12,
+            seriesJunctionOffset: 10,
+            resistorHeight: 35,
+            resistorBodyWidth: 16,
+            resistorMinWidth: 28,
+            labelPadding: 8,
+            labelCharWidth: 6,
+            minWidth: 280,
+            minHeight: 180,
+            measurementGap: 18,
+            measurementTickLength: 12,
+            measurementLabel: '',
+            measurementLabelPadding: 6,
+            measurementLabelCharWidth: 6,
+            measurementColor: 'var(--accent-color)',
+            showMeasurement: true,
+            ...options
+        };
+        config.measurementColor = resolveColorValue(config.measurementColor) || this.schematic.styles.stroke;
+
+        const layout = this.layoutNetwork(section, config);
+        const measurementLabel = config.measurementLabel ? String(config.measurementLabel) : '';
+        const measurementLabelWidth = measurementLabel
+            ? measurementLabel.length * config.measurementLabelCharWidth
+            : 0;
+        const measurementSpace = config.showMeasurement
+            ? config.measurementGap
+                + config.measurementLabelPadding
+                + measurementLabelWidth
+                + config.measurementTickLength
+            : 0;
+        const width = Math.max(config.minWidth, layout.width + config.padding * 2 + measurementSpace);
+        const height = Math.max(config.minHeight, layout.height + config.padding * 2);
+        const centerX = (width - measurementSpace) / 2;
+        const availableHeight = height - config.padding * 2;
+        const topY = config.padding + Math.max(0, (availableHeight - layout.height) / 2);
+
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', height);
+
+        const networkSpan = this.drawNetworkLayout(layout, centerX, topY, config);
+        if (config.showMeasurement && networkSpan?.start && networkSpan?.end) {
+            const gap = Math.max(6, config.measurementGap);
+            const tickLength = Math.max(6, config.measurementTickLength);
+            const bracketX = centerX + layout.width / 2 + gap;
+            const topMeasureY = networkSpan.start[1];
+            const bottomMeasureY = networkSpan.end[1];
+            const bracketColor = config.measurementColor || this.schematic.styles.stroke;
+            const bracketLine = this.schematic.drawWire(bracketX, topMeasureY, bracketX, bottomMeasureY);
+            const topTick = this.schematic.drawWire(bracketX, topMeasureY, bracketX - tickLength, topMeasureY);
+            const bottomTick = this.schematic.drawWire(bracketX, bottomMeasureY, bracketX - tickLength, bottomMeasureY);
+            [bracketLine, topTick, bottomTick].forEach(line => line.setAttribute('stroke', bracketColor));
+            this.svg.appendChild(bracketLine);
+            this.svg.appendChild(topTick);
+            this.svg.appendChild(bottomTick);
+
+            if (measurementLabel) {
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', bracketX + config.measurementLabelPadding);
+                label.setAttribute('y', (topMeasureY + bottomMeasureY) / 2);
+                label.setAttribute('font-size', '12px');
+                label.setAttribute('dominant-baseline', 'middle');
+                label.setAttribute('text-anchor', 'start');
+                label.setAttribute('fill', bracketColor);
+                label.textContent = measurementLabel;
+                this.svg.appendChild(label);
+            }
+        }
+    }
+
     // Render a section (series or parallel)
     renderSection(section, x, y, isTop) {
         const spacing = 50;
@@ -346,11 +612,6 @@ class Diagram {
         // Set width and height to establish intrinsic aspect ratio
         this.svg.setAttribute('width', width);
         this.svg.setAttribute('height', totalHeight);
-        // Remove any inline styles that might interfere
-        this.svg.style.width = '';
-        this.svg.style.height = '';
-        this.svg.style.display = '';
-        this.svg.style.maxWidth = '';
         
         const centerX = width / 2;
         let currY = 30;

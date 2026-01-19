@@ -6,18 +6,26 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 - Calculate voltage divider combinations using available resistor values
 - Support for resistors in series and parallel combinations
-- Standard electronics notation for resistor values (e.g. 200R, 1K, 5K1, 1M)
+- RKM / R notation input support (IEC 60062) and EIA-96 marking codes
+- Tolerance parsing from brackets (numeric or letter codes)
+- JLCPCB Basic values autofill
+- Per-solution supply voltage slider (updates Vout range only)
+- Power dissipation breakdown and package recommendation per solution
+- Target resistance mode (series/parallel match finder)
+- PNG export includes key result text
 - Shows top 5 best matches sorted by error
 
 ## Usage
+
+### Voltage Divider
 
 1. Enter your available resistor values as comma-separated numbers (e.g., `10,220,470,1000,2k2,1M`)
 2. Enter your supply voltage (V)
 3. Enter your target output voltage (V)
 4. Click "Calculate Combinations"
+5. Use the per-solution slider to adjust supply voltage for that solution only (error remains based on the original inputs)
 
 The calculator will show you the best combinations of resistors that will give you the closest voltage to your target.
-
 
 ### Example
 
@@ -48,18 +56,39 @@ The options panel allows for precise filtering and sorting of the results. As th
 - The total resistance slider can be moved from either end to only show results within a certain range, which is useful if you are looking for a target total resistance to match the impedance of a DAC or have overall power draw requirements in a battery-powered application. 
   - Grab the handles to adjust the range and drag the body to the slider to shift the range
 
-## Resistor Value Notation
+## Target Resistance Mode
+
+Use the Target Resistance page to find the closest single/series/parallel combinations to a desired resistance value.
+
+1. Enter your available resistor values as comma-separated numbers
+2. Enter your target resistance (tolerance in brackets is supported here)
+3. Click "Find Closest Matches"
+4. Review error shown as absolute Ω and percentage
+
+Target resistance tolerances are supported only in this mode; the voltage divider target voltage does not accept tolerance.
+
+## Snap to E-series Values
+
+Enable the Snap to E-series toggle to coerce parsed values to the nearest E-series value. If a tolerance is specified, the closest matching E-series is chosen. Otherwise the selected series is used. When disabled, values are used exactly as entered (including non-standard values), and no snapping is applied.
+
+## JLC PCB Basics Autofill
+
+Use the "Autofill JLC PCB Basics Values" button to populate the input with JLCPCB Basic resistor values. At the time of writing, JLCPCB does not charge a loading fee for basic parts, so using these values can be more cost-effective for assembly.
+
+## Resistor Value Notation (RKM / R notation, IEC 60062)
 
 The calculator can use a variety of notation styles when entering resistor values:
 - Plain numbers for ohms:
     - 10 → 10 Ohm
     - 1000 → 1 kilo Ohm
-- Electronics notation:
+- RKM / R notation (IEC 60062):
     - 100m → 100 milli Ohm
     - 10R → 10 Ohm
     - 1k → 1 kilo Ohm → 1000 Ohm
     - 43k2 → 42.3 kilo Ohm → 42300 Ohm
     - 10M → 10 mega Ohm → 10000000 Ohm
+- EIA-96 code notation:
+    - 96C → 97k6
 - Mixed electronic and decimal notation:
     - 71.5k → 71k5 → 71.5 kilo Ohm → 71500 Ohm
 - Scientific notation:
@@ -67,6 +96,86 @@ The calculator can use a variety of notation styles when entering resistor value
 
 
 It is possible to use these styles in combination when inputting values e.g. `10, 330R, 4k7, 5.1e3, 10e6`
+
+See [RKM code](https://en.wikipedia.org/wiki/RKM_code) for more details. E-series preferred numbers are defined by IEC 60063: [E series of preferred numbers](https://en.wikipedia.org/wiki/E_series_of_preferred_numbers).
+
+## Tolerance Input
+
+You can add tolerance in brackets after the value. If omitted, the E-series tolerance is used for any value that matches a standard series.
+Target resistance tolerances are supported in Target Resistance mode only.
+
+Examples:
+- `10k(1%)`
+- `33k(0.5%)`
+- `4k99(A)`
+
+Tolerance letter codes (from RKM code):
+
+| Code letter | Tolerance |
+|-------------|-----------|
+| A           | ±0.05%    |
+| B           | ±0.1%     |
+| C           | ±0.25%    |
+| D           | ±0.5%     |
+| E           | ±0.5%     |
+| F           | ±1.0%     |
+| G           | ±2.0%     |
+| H           | ±3.0%     |
+| J           | ±5.0%     |
+| K           | ±10%      |
+| L           | ±0.01%    |
+| M           | ±20%      |
+| N           | ±30%      |
+| P           | ±0.02%    |
+| W           | ±0.05%    |
+
+Source: [RKM code](https://en.wikipedia.org/wiki/RKM_code)
+
+## Full Marking Codes (Power + Value + Tolerance)
+
+This tool also supports full marking codes such as `EB1041` or `CB3932`.
+
+Format:
+- First two letters: power dissipation code
+- Next three digits: resistance value (first two are significant, third is multiplier)
+- Final digit: tolerance (interpreted as 10% × digit, matching the examples below)
+
+Examples:
+- `EB1041` → 10 × 10^4 Ω, ±10% (power code EB)
+- `CB3932` → 39 × 10^3 Ω, ±20% (power code CB)
+
+Power code table (from the resistor marking reference on Wikipedia):
+
+| Code  | Power rating (W) |
+|-------|-------------------|
+| BB    | 1/8               |
+| CB    | 1/4               |
+| EB    | 1/2               |
+| GB    | 1                 |
+| HB    | 2                 |
+| GM    | 3                 |
+| HM    | 4                 |
+
+Source: [Resistor](https://en.wikipedia.org/wiki/Resistor)
+
+If a power code is supplied and a solution exceeds it, a warning is shown.
+
+## Power Dissipation & Package Recommendation
+
+Each solution includes power dissipation per leg and a minimum recommended package size. This table is based on a very general 'rule of thumb' - please do your own due diligence and consult the datasheets for your components!
+
+| Package Code (Imperial) | Package Code (Metric) | Power Rating (W) |
+|-------------------------|-----------------------|------------------|
+| 01005                   | 0402                  | 0.031            |
+| 0201                    | 0603                  | 0.05             |
+| 0402                    | 1005                  | 0.062            |
+| 0603                    | 1608                  | 0.10             |
+| 0805                    | 2012                  | 0.125            |
+| 1206                    | 3216                  | 0.25             |
+| 1210                    | 3225                  | 0.33             |
+| 2010                    | 5025                  | 0.5              |
+| 1812                    | 4532                  | 0.75             |
+| 2512                    | 6332                  | 1.0              |
 
 ## How It Works
 The calculator:
@@ -102,5 +211,7 @@ npx http-server -p 8000
 ## License
 
 This project is licensed under the MIT License.
+
+Warranty: none provided. Use at your own risk; results are not validated.
 
 

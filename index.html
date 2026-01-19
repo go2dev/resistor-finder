@@ -12,7 +12,7 @@
 />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body>
+<body data-page="voltage-divider">
     <div class="theme-toggle-fixed">
         <label class="theme-switch theme-switch-dark" for="checkbox">
             <input type="checkbox" id="checkbox" />
@@ -36,44 +36,23 @@
                 </span>
             </div>
         </h1>
+
+        <div id="topNav"></div>
         
         <div class="main-content">
             <div class="input-section">
-                <div class="input-group">
-                    <label for="resistorValues">Resistor Values (Ω):</label>
-                    <input type="text" id="resistorValues" placeholder="Enter values separated by commas (e.g. 100,220,4K7,100M)">
-                    <div class="autofill-controls">
-                        <button id="autofillBtn" class="autofill-btn">Autofill common values</button>
-                        <span class="autofill-label">Decade:</span>
-                        <select id="autofillRange" class="autofill-range-select">
-                            <option value="1">Ω</option>
-                            <option value="10">10Ω</option>
-                            <option value="100" selected>100Ω</option>
-                            <option value="1000">KΩ</option>
-                            <option value="10000">10KΩ</option>
-                            <option value="100000">100KΩ</option>
-                            <option value="1000000">MΩ</option>
-                            <option value="10000000">10MΩ</option>
-                            <option value="100000000">100MΩ</option>
-                        </select>
-                        <span class="autofill-label" style="margin-left: 0.5rem;">Series:</span>
-                        <select id="autofillSeries" class="autofill-series-select">
-                            <option value="E24" selected>E24</option>
-                            <option value="E48">E48</option>
-                            <option value="E96">E96</option>
-                            <option value="E192">E192</option>
-                        </select>
+                <div id="resistorInputSection"></div>
+                
+                <div class="voltage-inputs">
+                    <div class="input-group">
+                        <label for="supplyVoltage">Supply Voltage (V<sub>supply</sub>):</label>
+                        <input type="number" id="supplyVoltage" value="5" step="0.1">
                     </div>
-                </div>
-                
-                <div class="input-group">
-                    <label for="supplyVoltage">Supply Voltage (V<sub>supply</sub>):</label>
-                    <input type="number" id="supplyVoltage" value="5" step="0.1">
-                </div>
-                
-                <div class="input-group">
-                    <label for="targetVoltage">Target Voltage (V<sub>out</sub>):</label>
-                    <input type="number" id="targetVoltage" value="3.3">
+                    
+                    <div class="input-group">
+                        <label for="targetVoltage">Target Voltage (V<sub>out</sub>):</label>
+                        <input type="number" id="targetVoltage" value="3.3">
+                    </div>
                 </div>
                 
                 <button id="calculateBtn">Calculate Combinations</button>
@@ -102,10 +81,10 @@
                         <div class="sort-options">
                             <span class="theme-label">Sort Results By:</span>
                             <select name="sortBy" id="sortBy" class="sort-select">
-                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
-                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
                                 <option value="error" selected>Lowest Error</option>
                                 <option value="components">Lowest Component Count</option>
+                                <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
+                                <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
                             </select>
                             <div class="resistance-filter-section" style="display: none;">
                                 <span class="theme-label">Filter Total Resistance [Min: <span id="resistance-min">0</span> - Max: <span id="resistance-max">0</span>]
@@ -135,14 +114,9 @@
             <p class="progress-text"></p>
         </div>
     </div>
-    <footer>
-        <span class="disclaimer">Disclaimer: results are provided without warranty or verification. Use at your own risk!</span>
-        <br>
-        Made by <a href="https://mynameis.dev" target="_blank">Dev</a> © <a href="https://whatevertogether.net/" target="_blank">Whatever Together</a> 2025
-        <br>
-        <span class="disclaimer">Source on <a href="https://github.com/go2dev/resistor-finder" target="_blank">GitHub</a></span>
-       
-    </footer>
+    <footer id="pageFooter"></footer>
+    <script src="resistor-utils.js"></script>
+    <script src="common-ui.js"></script>
     <script src="script.js"></script>
     <script src="schematic.js"></script>
     <script src="nuis/nouislider.js"></script>

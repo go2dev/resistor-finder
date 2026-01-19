@@ -1,19 +1,20 @@
 // Web Worker for parallel resistor combination calculations
 
 // Receive calculation utilities from main thread
-let ResistorUtils = null;
-let resistorTolerances = null;
+const globalResistorUtils = typeof ResistorUtils !== 'undefined' ? ResistorUtils : null;
+let workerResistorUtils = globalResistorUtils;
+let resistorTolerances = globalResistorUtils?.resistorTolerances ?? null;
 
 // Calculate total resistance based on connection type
 function calculateTotalResistance(resistors) {
-    if (!Array.isArray(resistors)) return resistors;
+    if (!Array.isArray(resistors)) return resistors.value ?? resistors;
     if (resistors.type === 'parallel') {
         // Calculate parallel resistance
-        const reciprocalSum = resistors.reduce((sum, r) => sum + 1/r, 0);
+        const reciprocalSum = resistors.reduce((sum, r) => sum + 1 / (r.value ?? r), 0);
         return 1 / reciprocalSum;
     }
     // Series resistance
-    return resistors.reduce((sum, r) => sum + r, 0);
+    return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);
 }
 
 // Calculate output voltage for a voltage divider
@@ -23,7 +24,7 @@ function calculateOutputVoltage(r1, r2, supplyVoltage) {
 
 // Find which standard series a value belongs to
 function findResistorSeries(value) {
-    if (!ResistorUtils || !ResistorUtils.series) return null;
+    if (!workerResistorUtils || !workerResistorUtils.series) return null;
     
     // Normalize value to be between 1 and 10
     let normalized = value;
@@ -40,7 +41,7 @@ function findResistorSeries(value) {
     
     for (const seriesName of seriesOrder) {
         // Use tolerance-based comparison instead of exact match
-        const found = ResistorUtils.series[seriesName].some(seriesValue => 
+        const found = workerResistorUtils.series[seriesName].some(seriesValue => 
             Math.abs(normalized - seriesValue) < tolerance
         );
         if (found) {
@@ -51,8 +52,13 @@ function findResistorSeries(value) {
 }
 
 // Calculate bounds for a resistor value based on its series
-function calculateResistorBounds(value, series) {
-    const tolerance = series && resistorTolerances ? resistorTolerances[series] : 0;
+function calculateResistorBounds(resistor) {
+    const value = resistor.value ?? resistor;
+    let tolerance = resistor.tolerance;
+    if (tolerance == null) {
+        const seriesName = resistor.series || findResistorSeries(value);
+        tolerance = seriesName && resistorTolerances ? resistorTolerances[seriesName] : 0;
+    }
     const multiplier = tolerance / 100;
     return {
         lower: value * (1 - multiplier),
@@ -60,15 +66,29 @@ function calculateResistorBounds(value, series) {
     };
 }
 
+function calculateSectionBounds(section) {
+    if (!Array.isArray(section)) {
+        return calculateResistorBounds(section);
+    }
+
+    const type = section.type || 'series';
+    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+
+    if (type === 'parallel') {
+        const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
+        const max = 1 / bounds.reduce((sum, b) => sum + (1 / b.upper), 0);
+        return { lower: min, upper: max };
+    }
+
+    const lower = bounds.reduce((sum, b) => sum + b.lower, 0);
+    const upper = bounds.reduce((sum, b) => sum + b.upper, 0);
+    return { lower, upper };
+}
+
 // Calculate voltage range for a voltage divider considering tolerances
 function calculateVoltageRange(r1, r2, supplyVoltage) {
-    // Get series for each resistor
-    const r1Series = findResistorSeries(r1);
-    const r2Series = findResistorSeries(r2);
-
-    // Calculate bounds for each resistor
-    const r1Bounds = calculateResistorBounds(r1, r1Series);
-    const r2Bounds = calculateResistorBounds(r2, r2Series);
+    const r1Bounds = calculateSectionBounds(r1);
+    const r2Bounds = calculateSectionBounds(r2);
 
     // Calculate all possible combinations
     const combinations = [
@@ -176,7 +196,11 @@ function processChunk(data) {
             const existingEntry = seenRatios.get(ratioKey);
             if (existingEntry) {
                 const totalR = r1Value + r2Value;
-                if (totalR >= existingEntry.totalR) {
+                const componentCount = getComponentCount(combinations[r1Idx], combinations[r2Idx]);
+                if (
+                    componentCount > existingEntry.componentCount
+                    || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                ) {
                     stats.processed++;
                     stats.skipped++;
                     continue;
@@ -200,7 +224,7 @@ function processChunk(data) {
                 }
                 
                 // Calculate voltage range considering tolerances
-                const voltageRange = calculateVoltageRange(r1Value, r2Value, supplyVoltage);
+                const voltageRange = calculateVoltageRange(combinations[r1Idx], combinations[r2Idx], supplyVoltage);
                 
                 const result = {
                     r1: combinations[r1Idx],
@@ -219,6 +243,7 @@ function processChunk(data) {
                 // Update our tracking map
                 seenRatios.set(ratioKey, {
                     totalR: r1Value + r2Value,
+                    componentCount: result.componentCount,
                     result: result
                 });
             }
@@ -237,7 +262,7 @@ self.addEventListener('message', function(e) {
     switch (type) {
         case 'init':
             // Initialize utilities from main thread
-            ResistorUtils = data.ResistorUtils;
+            workerResistorUtils = data.ResistorUtils;
             resistorTolerances = data.resistorTolerances;
             self.postMessage({ type: 'initialized' });
             break;
