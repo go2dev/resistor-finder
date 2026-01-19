@@ -22,13 +22,12 @@ function normalizeResistorInput(value) {
     return value.trim().toLowerCase();
 }
 
-function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries, activeKeys = []) {
+function buildCacheKey(resistorInputs, targetValue, snapToSeries, snapSeries) {
     return JSON.stringify({
         resistors: resistorInputs.map(input => normalizeResistorInput(input)),
         target: normalizeResistorInput(targetValue),
         snapToSeries,
-        snapSeries,
-        activeKeys: activeKeys.slice().sort()
+        snapSeries
     });
 }
 
@@ -742,8 +741,7 @@ async function calculateResults(options = {}) {
     warnings.push(...parseWarnings);
 
     const activeResistors = resistors.filter(resistor => resistor.active !== false);
-    const activeKeysForCache = activeResistors.map(resistor => resistor.key).filter(Boolean);
-    const cacheKey = buildCacheKey(resistorInputs, targetResistanceInput.value, snapToSeries, snapSeries, activeKeysForCache);
+    const cacheKey = buildCacheKey(resistorInputs, targetResistanceInput.value, snapToSeries, snapSeries);
 
     if (!activeResistors.length) {
         warnings.push('At least one valid resistor value is required');
@@ -803,7 +801,7 @@ async function calculateResults(options = {}) {
     };
 
     const { resistors: filteredResistors, trimmed, removedCount } = applyResistorHeuristic(
-        activeResistors,
+        resistors,
         targetValue,
         LIMITS.maxInputResistors
     );
@@ -1021,7 +1019,7 @@ async function calculateResults(options = {}) {
                                 <tbody>
                                     <tr>
                                         <td><strong>Combination</strong></td>
-                                        <td>${comboText}</td>
+                                        <td class="wrap-text">${comboText}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Total Resistance</strong></td>
@@ -1081,12 +1079,30 @@ function initializeTargetDiagrams(results) {
     results.forEach((result, index) => {
         const diagramContainer = document.getElementById(`diagram-${index}`);
         if (!diagramContainer) return;
-        const comboText = formatCombination(result.combo);
+        const comboText = result.comboLabel || formatCombination(result.combo);
         const lines = wrapText(comboText).concat(
             [`Total: ${ResistorUtils.formatResistorValue(result.totalResistance)}`]
         );
-        const diagram = new Diagram(diagramContainer.id, 300, 160);
-        diagram.renderTextDiagram(lines, '');
+        const diagramWidth = 360;
+        const diagramHeight = 240;
+        const diagram = new Diagram(diagramContainer.id, diagramWidth, diagramHeight);
+        let renderedNetwork = false;
+        if (result.combo && typeof diagram.renderNetwork === 'function') {
+            try {
+                const totalLabel = ResistorUtils.formatResistorValue(result.totalResistance);
+                diagram.renderNetwork(result.combo, {
+                    minWidth: diagramWidth,
+                    minHeight: diagramHeight,
+                    measurementLabel: totalLabel
+                });
+                renderedNetwork = diagram.svg?.childNodes?.length > 0;
+            } catch (error) {
+                renderedNetwork = false;
+            }
+        }
+        if (!renderedNetwork) {
+            diagram.renderTextDiagram(lines, '');
+        }
     });
 }
 
@@ -1103,11 +1119,12 @@ function downloadTargetDiagram(index) {
     const formattedTotal = ResistorUtils.formatResistorValue(totalValue).replace(/[^\w]/g, '');
     const sanitizedCombo = comboLabel.replace(/[^\w]+/g, '-').slice(0, 40);
     const filename = `target-${targetValue}-${formattedTotal}-${sanitizedCombo}.png`;
-    const targetLine = Number.isFinite(targetNumeric)
-        ? [`Target: ${ResistorUtils.formatResistorValue(targetNumeric)}`]
-        : [];
+    const annotationLines = [];
+    if (Number.isFinite(totalValue)) {
+        annotationLines.push(`Total: ${ResistorUtils.formatResistorValue(totalValue)}`);
+    }
 
-    convertSVGtoPNG(svgElement, filename, 2, targetLine);
+    convertSVGtoPNG(svgElement, filename, 2, annotationLines);
 }
 
 function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
@@ -1116,7 +1133,10 @@ function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
     const originalHeight = svgElement.viewBox?.baseVal?.height || 160;
     const lineHeight = 16;
     const padding = 16;
-    const extraHeight = extraLines.length ? padding + lineHeight * extraLines.length : 0;
+    const extraBottomPadding = extraLines.length ? 8 : 0;
+    const extraHeight = extraLines.length
+        ? padding + lineHeight * extraLines.length + extraBottomPadding
+        : 0;
     const updatedHeight = originalHeight + extraHeight;
     const scaledWidth = originalWidth * scale;
     const scaledHeight = updatedHeight * scale;
@@ -1175,7 +1195,7 @@ async function toggleResistorValue(element) {
     if (!element) return;
     element.classList.toggle('disabled');
     element.classList.toggle('active');
-    await calculateResults();
+    await calculateResults({ resetSort: false, allowRecalc: false });
 }
 
 calculateBtn.addEventListener('click', calculateResults);

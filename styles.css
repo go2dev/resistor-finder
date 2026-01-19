@@ -533,6 +533,11 @@ button:hover {
     justify-content: center;
 }
 
+body[data-page="target-resistance"] .result-diagram {
+    width: 360px;
+    min-height: 240px;
+}
+
 .result-diagram svg {
     width: 100%;
     height: 100%;
@@ -1137,6 +1142,12 @@ ul ul, ol ol, ul ol, ol ul {
     vertical-align: top;
     border-bottom: 1px solid var(--input-border);
     white-space: nowrap;
+}
+
+.result-table td.wrap-text {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .result-table td:first-child {
