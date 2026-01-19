@@ -82,12 +82,23 @@ function getChunkRange(total, chunkIndex, chunkCount) {
     return [start, end];
 }
 
+function estimateComboCount(valueCount, comboSize, cap = Number.MAX_SAFE_INTEGER) {
+    if (comboSize <= 1) return valueCount;
+    let total = 1;
+    for (let i = 1; i <= comboSize; i++) {
+        total = (total * (valueCount + i - 1)) / i;
+        if (total > cap) return cap + 1;
+    }
+    return total;
+}
+
 
 function generateCombinations(resistors, options = {}) {
     const maxParallel = options.maxParallel ?? 5;
     const maxSeriesBlocks = options.maxSeriesBlocks ?? 5;
     const maxBlocks = options.maxBlocks ?? 250;
     const maxCombos = options.maxCombos ?? 20000;
+    const maxParallelCombos = options.maxParallelCombos ?? 1000000;
     const targetValue = options.targetValue ?? null;
     const chunkIndex = options.chunkIndex ?? 0;
     const chunkCount = options.chunkCount ?? 1;
@@ -111,6 +122,9 @@ function generateCombinations(resistors, options = {}) {
     resistors.forEach(resistor => blocks.push(resistor));
 
     for (let size = 2; size <= maxParallel; size++) {
+        if (estimateComboCount(resistors.length, size, maxParallelCombos) > maxParallelCombos) {
+            break;
+        }
         const combos = [];
         buildIndexCombos(0, 0, size, [], combos);
         combos.forEach(indices => {
@@ -197,6 +211,9 @@ function generateCombinations(resistors, options = {}) {
     }
 
     for (let size = 1; size <= maxSeriesBlocks; size++) {
+        if (estimateComboCount(resistors.length, size, maxCombos) > maxCombos) {
+            break;
+        }
         if (comboCount >= maxCombos) break;
         for (let firstIndex = comboStart; firstIndex < comboEnd; firstIndex++) {
             if (comboCount >= maxCombos) break;

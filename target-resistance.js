@@ -14,6 +14,7 @@ const LIMITS = {
     maxSeriesBlocks: 10,
     maxBlocks: 2048,
     maxCombos: 200000,
+    maxParallelCombos: 1000000,
     maxInputResistors: 60
 };
 
@@ -98,6 +99,16 @@ function wrapText(text, maxLength = 32) {
     return lines;
 }
 
+function estimateComboCount(valueCount, comboSize, cap = Number.MAX_SAFE_INTEGER) {
+    if (comboSize <= 1) return valueCount;
+    let total = 1;
+    for (let i = 1; i <= comboSize; i++) {
+        total = (total * (valueCount + i - 1)) / i;
+        if (total > cap) return cap + 1;
+    }
+    return total;
+}
+
 function getResistorSignature(resistor) {
     if (resistor == null) return 'R:';
     const value = resistor.value ?? resistor;
@@ -146,6 +157,7 @@ function generateCombinations(resistors, options = {}) {
     const maxSeriesBlocks = options.maxSeriesBlocks ?? 5;
     const maxBlocks = options.maxBlocks ?? 250;
     const maxCombos = options.maxCombos ?? 20000;
+    const maxParallelCombos = options.maxParallelCombos ?? 1000000;
     const targetValue = options.targetValue ?? null;
     const blocks = [];
     const singleBounds = buildSingleBounds(resistors);
@@ -169,6 +181,9 @@ function generateCombinations(resistors, options = {}) {
 
     // Parallel blocks up to maxParallel
     for (let size = 2; size <= maxParallel; size++) {
+        if (estimateComboCount(resistors.length, size, maxParallelCombos) > maxParallelCombos) {
+            break;
+        }
         const combos = [];
         buildIndexCombos(0, 0, size, [], combos);
         combos.forEach(indices => {
@@ -224,6 +239,9 @@ function generateCombinations(resistors, options = {}) {
     });
 
     for (let size = 1; size <= maxSeriesBlocks; size++) {
+        if (estimateComboCount(resistors.length, size, maxCombos) > maxCombos) {
+            break;
+        }
         const combos = [];
         buildIndexCombos(0, 0, size, [], combos);
         combos.forEach(indices => {
@@ -324,9 +342,11 @@ function applyResistorHeuristic(resistors, targetValue, limit) {
 
 function getEffectiveLimits(resistorCount) {
     let maxParallel = LIMITS.maxParallel;
-    if (resistorCount > 40) maxParallel = Math.min(maxParallel, 6);
-    if (resistorCount > 55) maxParallel = Math.min(maxParallel, 5);
-    if (resistorCount > 70) maxParallel = Math.min(maxParallel, 4);
+    if (resistorCount > 20) maxParallel = Math.min(maxParallel, 7);
+    if (resistorCount > 30) maxParallel = Math.min(maxParallel, 6);
+    if (resistorCount > 40) maxParallel = Math.min(maxParallel, 5);
+    if (resistorCount > 55) maxParallel = Math.min(maxParallel, 4);
+    if (resistorCount > 70) maxParallel = Math.min(maxParallel, 3);
     return {
         ...LIMITS,
         maxParallel
@@ -467,7 +487,8 @@ function runWorkerCalculation(resistors, targetValue, sortBy, options) {
                 maxParallel: options.maxParallel,
                 maxSeriesBlocks: options.maxSeriesBlocks,
                 maxBlocks: options.maxBlocks,
-                maxCombos: options.maxCombos
+                maxCombos: options.maxCombos,
+                maxParallelCombos: options.maxParallelCombos
             }
         };
 
@@ -608,7 +629,8 @@ function runWorkerCalculationParallel(resistors, targetValue, sortBy, options, w
                         maxParallel: options.maxParallel,
                         maxSeriesBlocks: options.maxSeriesBlocks,
                         maxBlocks: options.maxBlocks,
-                        maxCombos: perWorkerMaxCombos
+                        maxCombos: perWorkerMaxCombos,
+                        maxParallelCombos: options.maxParallelCombos
                     },
                     chunkIndex: i,
                     chunkCount: workerCount
