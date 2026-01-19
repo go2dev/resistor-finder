@@ -646,7 +646,8 @@ function parseResistorList(values, options) {
     return { resistors, warnings, conversions };
 }
 
-async function calculateResults() {
+async function calculateResults(options = {}) {
+    const { resetSort = true, allowRecalc = true } = options;
     const warnings = [];
     const calculationStart = performance.now();
     const resistorInputsRaw = resistorValuesInput.value.split(',').map(v => v.trim());
@@ -711,6 +712,9 @@ async function calculateResults() {
         return;
     }
 
+    if (resetSort && sortBySelect) {
+        sortBySelect.value = 'error';
+    }
     const sortByInitial = sortBySelect?.value || 'error';
     let results = [];
     let calcStats = {
@@ -757,6 +761,9 @@ async function calculateResults() {
         }
         cachedEntry = resultsCache.get(cacheKey);
         useCache = cachedEntry && Array.isArray(cachedEntry.allResults);
+    }
+    if (!useCache && !allowRecalc) {
+        return;
     }
 
     if (useCache) {
@@ -849,16 +856,7 @@ async function calculateResults() {
     const workerLabel = calcStats.workerUsed
         ? `Yes${calcStats.workerCount > 1 ? ` (${calcStats.workerCount} workers)` : ''}`
         : 'No';
-    const cutoffLabel = calcStats.errorFilterFallback
-        ? `Yes (showing nearest matches)
-            <span class="help-tooltip">
-                ?
-                <span class="tooltip-text">
-                    The search is limited to ${calcStats.maxSeriesBlocks} series blocks and ${calcStats.maxParallel} parallel entries
-                    (max ${calcStats.maxCombos.toLocaleString()} combinations). A closer match might require more resistors than this limit allows.
-                </span>
-            </span>`
-        : 'No';
+    const cutoffLabel = calcStats.errorFilterFallback ? 'Yes' : 'No';
 
     let output = '';
     if (warnings.length > 0) {
@@ -931,6 +929,15 @@ async function calculateResults() {
                 </div>
             </div>
         </div>`;
+
+    if (calcStats.errorFilterFallback) {
+        output += `
+            <div class="warning">
+                <strong>No matches within 20%.</strong> Showing the closest results based on the current limits
+                (${calcStats.maxSeriesBlocks} series blocks, ${calcStats.maxParallel} parallel entries, max ${calcStats.maxCombos.toLocaleString()} combinations).
+                A closer match may require more resistors than this limit allows.
+            </div>`;
+    }
 
     output += `
         <div class="results-section">
@@ -1107,7 +1114,9 @@ async function toggleResistorValue(element) {
 
 calculateBtn.addEventListener('click', calculateResults);
 if (sortBySelect) {
-    sortBySelect.addEventListener('change', calculateResults);
+    sortBySelect.addEventListener('change', () => {
+        calculateResults({ resetSort: false, allowRecalc: false });
+    });
 }
 
 document.getElementById('autofillBtn').addEventListener('click', () => {
