@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-This is a static client-side web application (Voltage Divider Resistor Calculator) with no build step, no `package.json`, and no npm dependencies. All libraries are vendored.
+This is a static client-side web application (Voltage Divider Resistor Calculator) with no build step, no `package.json`, and no npm dependencies. All libraries are vendored (including SheetJS `vendor/xlsx.full.min.js` for local BOM spreadsheet parsing).
 
 ### Running the application
 
