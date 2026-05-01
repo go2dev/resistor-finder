@@ -1343,4 +1343,173 @@ body.calculating::before {
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 999;
+}
+
+/* Interactive voltage divider tab */
+.interactive-divider-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+    margin-top: 1rem;
+}
+
+.interactive-diagram-wrap {
+    flex: 1 1 320px;
+    min-width: 280px;
+    overflow: auto;
+    padding: 0.5rem;
+    border-radius: var(--squircle-radius-sm);
+    background: var(--bg-secondary);
+}
+
+.interactive-diagram-wrap svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+}
+
+.interactive-divider-side {
+    flex: 1 1 280px;
+    min-width: 260px;
+}
+
+.interactive-results .interactive-results-table {
+    width: 100%;
+}
+
+.interactive-parse-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.divider-hit-series {
+    cursor: row-resize;
+}
+
+.divider-hit-bus {
+    cursor: help;
+}
+
+.divider-hit[data-hit="resistor"] {
+    cursor: pointer;
+}
+
+.interactive-svg-tooltip {
+    position: fixed;
+    z-index: 2000;
+    max-width: 280px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px var(--shadow-color);
+    color: var(--text-color);
+    background: var(--container-bg);
+    pointer-events: none;
+}
+
+.interactive-svg-tooltip.series-e192 {
+    background-color: #ffe2ff;
+}
+
+.interactive-svg-tooltip.series-e96 {
+    background-color: #e2e2ff;
+}
+
+.interactive-svg-tooltip.series-e48 {
+    background-color: #e2ffff;
+}
+
+.interactive-svg-tooltip.series-e24 {
+    background-color: #e2ffe2;
+}
+
+[data-theme="dark"] .interactive-svg-tooltip.series-e192 {
+    background-color: #4a2a4a;
+}
+
+[data-theme="dark"] .interactive-svg-tooltip.series-e96 {
+    background-color: #2a2a4a;
+}
+
+[data-theme="dark"] .interactive-svg-tooltip.series-e48 {
+    background-color: #2a3a4a;
+}
+
+[data-theme="dark"] .interactive-svg-tooltip.series-e24 {
+    background-color: #2a4a3a;
+}
+
+.interactive-touch-hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.75rem;
+}
+
+.interactive-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.interactive-dialog[hidden] {
+    display: none;
+}
+
+.interactive-dialog-inner {
+    background: var(--container-bg);
+    color: var(--text-color);
+    padding: 1.25rem;
+    border-radius: var(--squircle-radius);
+    min-width: min(92vw, 380px);
+    box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.interactive-dialog-inner h3 {
+    margin-top: 0;
+}
+
+.interactive-dialog-input {
+    width: 100%;
+    margin: 0.5rem 0 1rem;
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: var(--squircle-radius-sm);
+    background: var(--input-bg);
+    color: var(--text-color);
+}
+
+.interactive-dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.interactive-dialog-actions button {
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--squircle-radius-sm);
+    border: none;
+    cursor: pointer;
+    background: var(--button-bg);
+    color: #fff;
+}
+
+.interactive-dialog-actions button:hover {
+    background: var(--button-hover);
+}
+
+.interactive-dialog-actions button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 } 

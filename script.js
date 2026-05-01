@@ -586,14 +586,14 @@ class ResistorCalculator {
         };
     }
 
-    // Calculate bounds for a series/parallel section
+    // Calculate bounds for a series/parallel section (nested legs supported)
     calculateSectionBounds(section) {
         if (!Array.isArray(section)) {
             return this.calculateResistorBounds(section);
         }
 
         const type = section.type || 'series';
-        const bounds = section.map(resistor => this.calculateResistorBounds(resistor));
+        const bounds = section.map(resistor => this.calculateSectionBounds(resistor));
 
         if (type === 'parallel') {
             const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
@@ -729,10 +729,12 @@ const overshootSwitch = document.getElementById('overshoot');
 // Legacy functions removed - now using nogui slider
 
 // Event Listeners for supply voltage
-supplyVoltageInput.addEventListener('input', (e) => {
-    invalidateCache(); // Cache is invalid when supply voltage changes
-    calculateAndDisplayResults();
-});
+if (supplyVoltageInput) {
+    supplyVoltageInput.addEventListener('input', (e) => {
+        invalidateCache(); // Cache is invalid when supply voltage changes
+        calculateAndDisplayResults();
+    });
+}
 
 // Loading spinner helper functions
 function showLoadingSpinner() {
@@ -774,6 +776,7 @@ function updateLoadingProgress(processed, total) {
 
 // Function to perform calculation and update results
 async function calculateAndDisplayResults() {
+    if (!resistorValuesInput || !resultsContainer) return;
     const calculator = new ResistorCalculator();
     const errors = [];
     const warnings = [];
@@ -1128,9 +1131,16 @@ async function calculateAndDisplayResults() {
 }
 
 // Event Listeners
-calculateBtn.addEventListener('click', calculateAndDisplayResults);
-overshootSwitch.addEventListener('change', calculateAndDisplayResults);
-document.getElementById('sortBy').addEventListener('change', calculateAndDisplayResults);
+if (calculateBtn) {
+    calculateBtn.addEventListener('click', calculateAndDisplayResults);
+}
+if (overshootSwitch) {
+    overshootSwitch.addEventListener('change', calculateAndDisplayResults);
+}
+const sortByEl = document.getElementById('sortBy');
+if (sortByEl) {
+    sortByEl.addEventListener('change', calculateAndDisplayResults);
+}
 
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
@@ -1204,7 +1214,9 @@ function switchTheme(e) {
     }    
 }
 
-toggleSwitch.addEventListener('change', switchTheme, false);
+if (toggleSwitch) {
+    toggleSwitch.addEventListener('change', switchTheme, false);
+}
 
 // Tooltip positioning
 function positionTooltip(tooltip) {
@@ -2018,26 +2030,34 @@ function convertSVGtoPNG(svgElement, filename, scale = 2, annotations = []) {
     img.src = svgUrl;
 }
 
-// Add event listener for the autofill button
-document.getElementById('autofillBtn').addEventListener('click', () => {
-    // Get the multiplier from the dropdown
-    const multiplier = parseFloat(document.getElementById('autofillRange').value);
-    // Get the selected series from the dropdown
-    const seriesSelect = document.getElementById('autofillSeries');
-    const selectedSeries = seriesSelect ? seriesSelect.value : 'E24';
-    // Get the values for the selected series, fallback to E24 if not found
-    const seriesValues = ResistorUtils.series[selectedSeries] || ResistorUtils.series.E24;
-    const formattedValues = seriesValues.map(value => {
-        const scaledValue = value * multiplier;
-        // Use custom formatter for autofill that uses "R" instead of "Ω"
-        const formatted = ResistorUtils.formatResistorValue(scaledValue);
-        return formatted.replace('Ω', 'R');
+const autofillBtn = document.getElementById('autofillBtn');
+if (autofillBtn && resistorValuesInput) {
+    autofillBtn.addEventListener('click', () => {
+        // Get the multiplier from the dropdown
+        const multiplier = parseFloat(document.getElementById('autofillRange').value);
+        // Get the selected series from the dropdown
+        const seriesSelect = document.getElementById('autofillSeries');
+        const selectedSeries = seriesSelect ? seriesSelect.value : 'E24';
+        // Get the values for the selected series, fallback to E24 if not found
+        const seriesValues = ResistorUtils.series[selectedSeries] || ResistorUtils.series.E24;
+        const formattedValues = seriesValues.map(value => {
+            const scaledValue = value * multiplier;
+            // Use custom formatter for autofill that uses "R" instead of "Ω"
+            const formatted = ResistorUtils.formatResistorValue(scaledValue);
+            return formatted.replace('Ω', 'R');
+        });
+        resistorValuesInput.value = formattedValues.join(', ');
+        calculateAndDisplayResults();
     });
-    resistorValuesInput.value = formattedValues.join(', ');
-    calculateAndDisplayResults();
-});
+}
 
-document.getElementById('autofillJlcBtn').addEventListener('click', () => {
-    resistorValuesInput.value = ResistorUtils.luts.JLC_BASIC.join(', ');
-    calculateAndDisplayResults();
-});
+const autofillJlcBtn = document.getElementById('autofillJlcBtn');
+if (autofillJlcBtn && resistorValuesInput) {
+    autofillJlcBtn.addEventListener('click', () => {
+        resistorValuesInput.value = ResistorUtils.luts.JLC_BASIC.join(', ');
+        calculateAndDisplayResults();
+    });
+}
+
+globalThis.ResistorCalculator = ResistorCalculator;
+globalThis.getNumericInputValue = getNumericInputValue;
