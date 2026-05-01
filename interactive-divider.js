@@ -184,6 +184,27 @@
         const bTop = calc.calculateSectionBounds(rTopTree);
         const bBot = calc.calculateSectionBounds(rBotTree);
 
+        const powerStats = typeof getPowerStatsForDividerTrees === 'function'
+            ? getPowerStatsForDividerTrees(rTopTree, rBotTree, supply)
+            : null;
+        const packageRec = powerStats && typeof getPackageRecommendation === 'function'
+            ? getPackageRecommendation(powerStats.maxComponentPower)
+            : null;
+        const warnings = powerStats && typeof getPowerWarnings === 'function'
+            ? getPowerWarnings(powerStats, calc)
+            : [];
+        const warningHtml = warnings.length
+            ? `<div class="result-warning">Power warning: ${warnings.join(', ')}</div>`
+            : '';
+
+        const fmtW = typeof formatWatts === 'function' ? formatWatts : (w) => `${(w * 1000).toFixed(1)} mW`;
+        const powerRow = powerStats
+            ? `<tr><td><strong>Power dissipation</strong></td><td class="power-values">R<sub>TOP</sub>: ${fmtW(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${fmtW(powerStats.r2Stats.total)}, Total: ${fmtW(powerStats.totalPower)}</td></tr>`
+            : '';
+        const pkgRow = packageRec
+            ? `<tr><td><strong>Min package size recommendation</strong></td><td class="package-recommendation">${packageRec.imperial}/${packageRec.metric} (min ${fmtW(packageRec.rating)})</td></tr>`
+            : '';
+
         resultsEl.innerHTML = `
             <table class="result-table interactive-results-table">
                 <tbody>
@@ -192,11 +213,14 @@
                     <tr><td><strong>R<sub>BOT</sub> (nominal)</strong></td><td>${calc.formatResistorValue(rBot)}</td></tr>
                     <tr><td><strong>R<sub>BOT</sub> (range)</strong></td><td>${formatBounds(bBot)}</td></tr>
                     <tr><td><strong>Total resistance</strong></td><td>${calc.formatResistorValue(totalR)}</td></tr>
-                    <tr><td><strong>Supply current</strong></td><td>${current.toExponential(4)} A (${(current * 1000).toFixed(3)} mA)</td></tr>
+                    <tr><td><strong>Total current at V<sub>supply</sub></strong></td><td>${current.toExponential(4)} A (${(current * 1000).toFixed(3)} mA)</td></tr>
+                    ${powerRow}
+                    ${pkgRow}
                     <tr><td><strong>Nominal V<sub>out</sub></strong></td><td>${vOut.toFixed(3)} V</td></tr>
                     <tr><td><strong>Real world range for V<sub>out</sub></strong></td><td><span class="voltage-range">${vRange.min.toFixed(2)} V to ${vRange.max.toFixed(2)} V</span></td></tr>
                 </tbody>
             </table>
+            ${warningHtml}
             <p class="interactive-touch-hint">Touch: tap a resistor for value / add parallel / remove; tap thin strips above or below a resistor to insert another in series; tap a horizontal parallel bus for that group’s equivalent resistance.</p>
         `;
     }

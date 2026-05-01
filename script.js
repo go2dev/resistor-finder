@@ -1681,10 +1681,31 @@ function formatRatio(r1Value, r2Value) {
     const exact = Number.isInteger(r1Value) && Number.isInteger(r2Value);
     return `${exact ? '' : '≈'}${left}:${right}`;
 }
-function getSectionPowerStats(section, current, voltageDrop) {
+function getParallelLegPowerStats(leg, voltageAcrossLeg) {
+    if (!Array.isArray(leg)) {
+        const value = leg.value ?? leg;
+        const power = (voltageAcrossLeg * voltageAcrossLeg) / value;
+        return {
+            total: power,
+            components: [{ resistor: leg, power }],
+            maxComponentPower: power
+        };
+    }
+
+    const type = leg.type || 'series';
+    if (type === 'parallel') {
+        return getSectionPowerStats(leg, null, voltageAcrossLeg);
+    }
+
+    const rTotal = ResistorUtils.calculateTotalResistance(leg);
+    const legCurrent = voltageAcrossLeg / rTotal;
+    return getSectionPowerStats(leg, legCurrent, voltageAcrossLeg);
+}
+
+function getSectionPowerStats(section, seriesCurrent, voltageDrop) {
     if (!Array.isArray(section)) {
         const value = section.value ?? section;
-        const power = current * current * value;
+        const power = seriesCurrent * seriesCurrent * value;
         return {
             total: power,
             components: [{ resistor: section, power }],
@@ -1693,23 +1714,30 @@ function getSectionPowerStats(section, current, voltageDrop) {
     }
 
     const type = section.type || 'series';
-    let components = [];
     if (type === 'parallel') {
-        components = section.map(resistor => {
-            const value = resistor.value ?? resistor;
-            const power = (voltageDrop * voltageDrop) / value;
-            return { resistor, power };
+        let components = [];
+        let total = 0;
+        let maxComponentPower = 0;
+        section.forEach(leg => {
+            const legStats = getParallelLegPowerStats(leg, voltageDrop);
+            components = components.concat(legStats.components);
+            total += legStats.total;
+            maxComponentPower = Math.max(maxComponentPower, legStats.maxComponentPower);
         });
-    } else {
-        components = section.map(resistor => {
-            const value = resistor.value ?? resistor;
-            const power = current * current * value;
-            return { resistor, power };
-        });
+        return { total, components, maxComponentPower };
     }
 
-    const total = components.reduce((sum, entry) => sum + entry.power, 0);
-    const maxComponentPower = Math.max(...components.map(entry => entry.power));
+    let components = [];
+    let total = 0;
+    let maxComponentPower = 0;
+    section.forEach(child => {
+        const rEq = ResistorUtils.calculateTotalResistance(child);
+        const vChild = seriesCurrent * rEq;
+        const childStats = getSectionPowerStats(child, seriesCurrent, vChild);
+        components = components.concat(childStats.components);
+        total += childStats.total;
+        maxComponentPower = Math.max(maxComponentPower, childStats.maxComponentPower);
+    });
     return { total, components, maxComponentPower };
 }
 
@@ -1720,6 +1748,28 @@ function getPowerStatsForResult(result, supplyVoltage) {
     const vDropR2 = current * result.r2Value;
     const r1Stats = getSectionPowerStats(result.r1, current, vDropR1);
     const r2Stats = getSectionPowerStats(result.r2, current, vDropR2);
+    const totalPower = r1Stats.total + r2Stats.total;
+    const maxComponentPower = Math.max(r1Stats.maxComponentPower, r2Stats.maxComponentPower);
+
+    return {
+        current,
+        totalPower,
+        maxComponentPower,
+        r1Stats,
+        r2Stats
+    };
+}
+
+/** Same physics as getPowerStatsForResult but accepts arbitrary nested R trees (Ω). */
+function getPowerStatsForDividerTrees(r1Tree, r2Tree, supplyVoltage) {
+    const r1Value = ResistorUtils.calculateTotalResistance(r1Tree);
+    const r2Value = ResistorUtils.calculateTotalResistance(r2Tree);
+    const totalResistance = r1Value + r2Value;
+    const current = supplyVoltage / totalResistance;
+    const vDropR1 = current * r1Value;
+    const vDropR2 = current * r2Value;
+    const r1Stats = getSectionPowerStats(r1Tree, current, vDropR1);
+    const r2Stats = getSectionPowerStats(r2Tree, current, vDropR2);
     const totalPower = r1Stats.total + r2Stats.total;
     const maxComponentPower = Math.max(r1Stats.maxComponentPower, r2Stats.maxComponentPower);
 
@@ -2061,3 +2111,7 @@ if (autofillJlcBtn && resistorValuesInput) {
 
 globalThis.ResistorCalculator = ResistorCalculator;
 globalThis.getNumericInputValue = getNumericInputValue;
+globalThis.getPowerStatsForDividerTrees = getPowerStatsForDividerTrees;
+globalThis.getPackageRecommendation = getPackageRecommendation;
+globalThis.formatWatts = formatWatts;
+globalThis.getPowerWarnings = getPowerWarnings;
