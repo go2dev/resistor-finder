@@ -837,6 +837,7 @@ async function calculateAndDisplayResults() {
                 formatted: calculator.formatResistorValue(parsed.value),
                 input: value,
                 source: parsed.source,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
                 active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             };
             validResistors.push(resistorEntry);
@@ -854,6 +855,7 @@ async function calculateAndDisplayResults() {
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 debug: parsed.debug,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
                 active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             });
         } else {
