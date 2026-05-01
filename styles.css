@@ -429,6 +429,18 @@ label {
     font-weight: normal;
 }
 
+.field-hint {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.35rem;
+    line-height: 1.35;
+}
+
+.upad-inputs .input-group {
+    margin-bottom: 0.75rem;
+}
+
 .inline-option {
     margin-top: 0.5rem;
 }

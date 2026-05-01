@@ -47,16 +47,36 @@
             <div class="input-section">
                 <div id="resistorInputSection"></div>
 
-                <div class="voltage-inputs">
+                <div class="voltage-inputs upad-inputs">
                     <div class="input-group">
-                        <label for="supplyVoltage">Supply Voltage (V<sub>in</sub>):</label>
+                        <label for="supplyVoltage">Source voltage V<sub>in</sub> (for loaded analysis &amp; slider):</label>
                         <input type="number" id="supplyVoltage" value="5" step="0.1">
                     </div>
-
                     <div class="input-group">
-                        <label for="targetVoltage">Target Voltage (V<sub>out</sub>):</label>
-                        <input type="number" id="targetVoltage" value="3.3">
+                        <label for="upadAttenuationDb">Target attenuation (insertion loss, dB):</label>
+                        <input type="number" id="upadAttenuationDb" value="3.604" step="0.01" min="0" max="120">
+                        <span class="field-hint">Positive dB = loss. V<sub>out</sub>/V<sub>in</sub> = 10<sup>−dB/20</sup> at the tap with Z<sub>load</sub> applied.</span>
                     </div>
+                    <div class="input-group">
+                        <label for="upadZLoad">Output load Z<sub>load</sub> (Ω, to ground from tap):</label>
+                        <input type="number" id="upadZLoad" value="50000" step="1" min="0.001">
+                        <span class="field-hint">Finite load changes tap voltage, currents, and Z<sub>in</sub> vs. the open-circuit divider.</span>
+                    </div>
+                    <div class="input-group">
+                        <label for="upadZInTarget">Target Z<sub>in</sub> loaded (Ω, optional):</label>
+                        <input type="number" id="upadZInTarget" value="" step="1" min="0" placeholder="e.g. 50">
+                    </div>
+                    <div class="input-group">
+                        <label for="upadZOutTarget">Target Z<sub>out</sub> at tap, V<sub>in</sub>=0 (Ω, optional):</label>
+                        <input type="number" id="upadZOutTarget" value="" step="1" min="0" placeholder="e.g. 50">
+                        <span class="field-hint">Computed as R<sub>TOP</sub> ∥ (R<sub>MID</sub>+R<sub>BOT</sub>); independent of Z<sub>load</sub>.</span>
+                    </div>
+                    <div class="input-group">
+                        <label for="upadMinPowerW">Minimum power for package sizing (W, optional):</label>
+                        <input type="number" id="upadMinPowerW" value="" step="0.01" min="0" placeholder="e.g. 0.125">
+                        <span class="field-hint">Package recommendation uses the greater of this floor and dissipated power in each resistor.</span>
+                    </div>
+                    <input type="hidden" id="targetVoltage" value="">
                 </div>
 
                 <button id="calculateBtn">Calculate Combinations</button>
@@ -85,7 +105,8 @@
                         <div class="sort-options">
                             <span class="theme-label">Sort Results By:</span>
                             <select name="sortBy" id="sortBy" class="sort-select">
-                                <option value="error" selected>Lowest Error</option>
+                                <option value="error" selected>Lowest attenuation error</option>
+                                <option value="upadImpedanceMatch">Best Z<sub>in</sub>/Z<sub>out</sub> match (when targets set)</option>
                                 <option value="components">Lowest Component Count</option>
                                 <option value="totalResistanceAsc">Total Resistance ↑ (Ascending)</option>
                                 <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>

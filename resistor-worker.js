@@ -118,6 +118,44 @@ function calculateUpadVoltageRange(rLegTop, rMid, rLegBot, supplyVoltage) {
     return { min: vmin, max: vmax };
 }
 
+function upadLoadedTapRatioWorker(rLeg, rMid, zLoad) {
+    if (!Number.isFinite(rLeg) || !Number.isFinite(rMid) || rLeg <= 0 || rMid <= 0) return 0;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        const denom = 2 * rLeg + rMid;
+        return denom > 0 ? (rMid + rLeg) / denom : 0;
+    }
+    const sumMidBot = rMid + rLeg;
+    const req = (sumMidBot * zLoad) / (sumMidBot + zLoad);
+    const den = rLeg + req;
+    return den > 0 ? req / den : 0;
+}
+
+function idealUpadLegForMid(rMid, targetRatio, zLoad) {
+    if (!Number.isFinite(rMid) || rMid <= 0 || !Number.isFinite(targetRatio) || targetRatio <= 0 || targetRatio >= 1) {
+        return NaN;
+    }
+    const t = targetRatio;
+    const M = rMid;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        return (M / 2) * (1 / t - 1);
+    }
+    const Z = zLoad;
+    const a = t;
+    const b = t * M + 2 * t * Z - Z;
+    const c = -Z * M * (1 - t);
+    if (Math.abs(a) < 1e-30) return NaN;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return NaN;
+    const sqrtD = Math.sqrt(disc);
+    const r1 = (-b + sqrtD) / (2 * a);
+    const r2 = (-b - sqrtD) / (2 * a);
+    const pick = (x) => (Number.isFinite(x) && x > 0 ? x : NaN);
+    const x1 = pick(r1);
+    const x2 = pick(r2);
+    if (Number.isFinite(x1) && Number.isFinite(x2)) return Math.min(x1, x2);
+    return Number.isFinite(x1) ? x1 : x2;
+}
+
 // Get component count
 function getComponentCount(r1, r2) {
     const r1Count = Array.isArray(r1) ? r1.length : 1;
@@ -279,12 +317,14 @@ function processUpadChunk(data) {
         supplyVoltage,
         targetVoltage,
         allowOvershoot,
-        targetRatio
+        targetRatio,
+        upadZLoad
     } = data;
 
     const resistanceCache = new Map(resistanceCacheArray);
     const results = [];
     const seenRatios = new Map();
+    const zLoad = Number.isFinite(upadZLoad) && upadZLoad > 0 ? upadZLoad : 0;
     const stats = {
         processed: 0,
         skipped: 0,
@@ -301,7 +341,9 @@ function processUpadChunk(data) {
         const rMidValue = resistanceCache.get(rMidIdx);
         if (!rMidValue || rMidValue === 0) continue;
 
-        const idealLeg = rMidValue * (1 / targetRatio - 1) / 2;
+        const idealLeg = idealUpadLegForMid(rMidValue, targetRatio, zLoad);
+        if (!Number.isFinite(idealLeg) || idealLeg <= 0) continue;
+
         let left = 0;
         let right = sortedIndices.length - 1;
         let closestIdx = 0;
@@ -330,8 +372,7 @@ function processUpadChunk(data) {
             const rLegValue = resistanceCache.get(rLegIdx);
             if (!rLegValue || rLegValue === 0) continue;
 
-            const denom = 2 * rLegValue + rMidValue;
-            const ratio = (rMidValue + rLegValue) / denom;
+            const ratio = upadLoadedTapRatioWorker(rLegValue, rMidValue, zLoad);
             const ratioKey = ratio.toFixed(10);
             const existingEntry = seenRatios.get(ratioKey);
             if (existingEntry) {
