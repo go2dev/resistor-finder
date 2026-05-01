@@ -12,7 +12,7 @@
 />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body data-page="voltage-divider" data-divider-mode="divider">
+<body data-page="voltage-divider">
     <div class="theme-toggle-fixed">
         <label class="theme-switch theme-switch-dark" for="checkbox">
             <input type="checkbox" id="checkbox" />
@@ -38,10 +38,6 @@
         </h1>
 
         <div id="topNav"></div>
-        <div class="mode-tabs" id="dividerModeTabs" role="tablist" aria-label="Calculator mode">
-            <a href="index.html" class="mode-tab active" data-mode="divider">Voltage divider</a>
-            <a href="upad-attenuator.html" class="mode-tab" data-mode="upad">U-pad attenuator</a>
-        </div>
         
         <div class="main-content">
             <div class="input-section">
@@ -120,6 +116,7 @@
     </div>
     <footer id="pageFooter"></footer>
     <script src="resistor-utils.js"></script>
+    <script src="attenuator-engine.js"></script>
     <script src="common-ui.js"></script>
     <script src="script.js"></script>
     <script src="schematic.js"></script>

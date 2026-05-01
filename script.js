@@ -18,9 +18,20 @@ function checkWebWorkerSupport() {
 // Global flag for Web Worker support
 const webWorkerSupported = checkWebWorkerSupport();
 
+function isBalancedAttenuatorPage() {
+    return document.body?.dataset?.page === 'balanced-attenuator';
+}
+
+function getAttenuatorKind() {
+    if (!isBalancedAttenuatorPage()) return null;
+    if (typeof AttenuatorEngine !== 'undefined' && AttenuatorEngine.getKindFromDom) {
+        return AttenuatorEngine.getKindFromDom();
+    }
+    const el = document.getElementById('attenuatorType');
+    return (el?.value || 'u').toLowerCase();
+}
+
 function getDividerMode() {
-    const fromBody = document.body?.dataset?.dividerMode;
-    if (fromBody === 'upad') return 'upad';
     return 'divider';
 }
 
@@ -247,6 +258,97 @@ function enrichUpadResults(results, ctx) {
     });
 }
 
+function enrichLpadResults(results, ctx) {
+    if (!Array.isArray(results) || !ctx || typeof AttenuatorEngine === 'undefined') return results;
+    const {
+        calculator,
+        zLoad,
+        targetZIn,
+        targetZOut,
+        targetAttenuationDb,
+        minPowerFloorW
+    } = ctx;
+    const vin = calculator.supplyVoltage;
+    const hasZIn = Number.isFinite(targetZIn) && targetZIn > 0;
+    const hasZOut = Number.isFinite(targetZOut) && targetZOut > 0;
+    const hasTargetDb = Number.isFinite(targetAttenuationDb);
+
+    return results.map(result => {
+        if (result.attenuatorKind !== 'l') return result;
+        const la = AttenuatorEngine.computeLpadAnalysis(result.r1Value, result.r2Value, vin, zLoad);
+        const errZIn = hasZIn ? Math.log(la.zInLoaded / targetZIn) : 0;
+        const errZOut = hasZOut ? Math.log(la.zOutThevenin / targetZOut) : 0;
+        const impedanceMatchScore = (hasZIn ? errZIn * errZIn : 0) + (hasZOut ? errZOut * errZOut : 0);
+        const errDb = hasTargetDb ? (la.insertionLossDb - targetAttenuationDb) : 0;
+        const errDbHz = hasTargetDb ? (errDb * Math.LN10 / 20) : 0;
+        const errZInPct = hasZIn ? (100 * (Math.exp(errZIn) - 1)) : 0;
+        const errZOutPct = hasZOut ? (100 * (Math.exp(errZOut) - 1)) : 0;
+
+        const r1Stats = {
+            total: la.pSeries,
+            components: [{ resistor: result.r1, power: la.pSeries }],
+            maxComponentPower: la.pSeries
+        };
+        const r2Stats = {
+            total: la.pShunt,
+            components: [{ resistor: result.r2, power: la.pShunt }],
+            maxComponentPower: la.pShunt
+        };
+        const loadDissipation = (!Number.isFinite(zLoad) || zLoad <= 0) ? 0 : la.pLoad;
+        const totalDissipatedInNetwork = la.pSeries + la.pShunt;
+        const maxResistorPower = Math.max(la.pSeries, la.pShunt);
+        const maxComponentPowerSizing = Math.max(
+            maxResistorPower,
+            Number.isFinite(minPowerFloorW) && minPowerFloorW > 0 ? minPowerFloorW : 0
+        );
+
+        return {
+            ...result,
+            targetTapVoltage: calculator.targetVoltage,
+            lpad: la,
+            upad: {
+                zInOpen: la.zInOpen,
+                zInLoaded: la.zInLoaded,
+                zOutThevenin: la.zOutThevenin,
+                vTap: la.vTap,
+                vMidNode: la.vTap,
+                iTop: la.iSeries,
+                iMid: la.iShunt,
+                iBot: 0,
+                iLoad: la.iLoad,
+                pTop: la.pSeries,
+                pMid: la.pShunt,
+                pBot: 0,
+                pLoad: la.pLoad,
+                insertionLossDb: la.insertionLossDb
+            },
+            insertionLossDb: la.insertionLossDb,
+            impedanceMatchScore,
+            errDb,
+            errDbHz,
+            errZIn,
+            errZOut,
+            errZInPct,
+            errZOutPct,
+            upadPowerStats: {
+                r1Stats,
+                r2Stats,
+                r3Stats: { total: 0, components: [], maxComponentPower: 0 },
+                loadDissipation,
+                totalDissipatedInNetwork,
+                maxResistorPower,
+                maxComponentPowerSizing
+            }
+        };
+    });
+}
+
+function enrichAttenuatorResults(results, ctx) {
+    const kind = getAttenuatorKind();
+    if (kind === 'l') return enrichLpadResults(results, ctx);
+    return enrichUpadResults(results, ctx);
+}
+
 // Utility object for resistor calculations and formatting is loaded from resistor-utils.js
 const resistorTolerances = ResistorUtils.resistorTolerances;
 
@@ -277,7 +379,9 @@ function generateStateKey(calculator, resistorValues, supplyVoltage, targetVolta
         targetVoltage,
         allowOvershoot
     };
-    if (mode === 'upad') {
+    if (isBalancedAttenuatorPage()) {
+        base.page = 'balanced-attenuator';
+        base.attenuatorKind = getAttenuatorKind();
         const zLoadEl = document.getElementById('upadZLoad');
         const dbEl = document.getElementById('upadAttenuationDb');
         const zInEl = document.getElementById('upadZInTarget');
@@ -319,7 +423,8 @@ function sectionToStringForDiagram(section) {
 
 function renderResultDiagram(diagramContainer, result, supplyVoltage, targetVoltage) {
     const diagram = new Diagram(diagramContainer.id, 300, 220);
-    if (result.r3 != null) {
+    const kind = result.attenuatorKind || (result.r3 != null ? 'u' : null);
+    if (kind === 'u' && result.r3 != null) {
         diagram.renderUpad(
             sectionToStringForDiagram(result.r1),
             sectionToStringForDiagram(result.r2),
@@ -382,6 +487,9 @@ function resultUsesResistorKey(result, resistorKey) {
 
     if (result.r3 != null) {
         return sectionHasResistor(result.r1) || sectionHasResistor(result.r2) || sectionHasResistor(result.r3);
+    }
+    if (result.attenuatorKind === 'l') {
+        return sectionHasResistor(result.r1) || sectionHasResistor(result.r2);
     }
     return sectionHasResistor(result.r1) || sectionHasResistor(result.r2);
 }
@@ -944,6 +1052,7 @@ class ResistorCalculator {
                         this.supplyVoltage
                     );
                     const result = {
+                        attenuatorKind: 'u',
                         r1: rLegCombo,
                         r2: combinations[rMidIdx],
                         r3: rLegCombo,
@@ -1123,6 +1232,7 @@ class ResistorCalculator {
                     }
                     const voltageRange = this.calculateUpadVoltageRange(rLeg, rMid, rLeg, this.supplyVoltage);
                     results.push({
+                        attenuatorKind: 'u',
                         r1: rLeg,
                         r2: rMid,
                         r3: rLeg,
@@ -1134,6 +1244,288 @@ class ResistorCalculator {
                         componentCount: this.getComponentCount({ r1: rLeg, r2: rMid, r3: rLeg }),
                         voltageRange,
                         totalResistance: 2 * rLegValue + rMidValue
+                    });
+                }
+            }
+        }
+        return results;
+    }
+
+    async findLpadCombinationsAsync(progressCallback) {
+        const AE = typeof AttenuatorEngine !== 'undefined' ? AttenuatorEngine : null;
+        if (!AE) return [];
+        const combinations = this.generateCombinations(this.resistorValues);
+        const results = [];
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            resistanceCache.set(i, this.calculateTotalResistance(combinations[i]));
+        }
+        const sortedIndices = Array.from({ length: combinations.length }, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        const seenRatios = new Map();
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        const zLoad = this.upadZLoad ?? 0;
+        const startTime = Date.now();
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+
+        for (let j = 0; j < sortedIndices.length; j++) {
+            const rShuntIdx = sortedIndices[j];
+            const rShuntValue = resistanceCache.get(rShuntIdx);
+            if (!rShuntValue || rShuntValue === 0) continue;
+
+            const idealSeries = AE.idealLpadSeriesForShunt(rShuntValue, zLoad, targetRatio);
+            if (!Number.isFinite(idealSeries) || idealSeries <= 0) continue;
+
+            let left = 0;
+            let right = sortedIndices.length - 1;
+            let closestIdx = 0;
+            let minDiff = Infinity;
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
+                const midValue = resistanceCache.get(sortedIndices[mid]);
+                const diff = Math.abs(midValue - idealSeries);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = mid;
+                }
+                if (midValue < idealSeries) {
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
+                }
+            }
+
+            const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
+            const startIdx = Math.max(0, closestIdx - testRange);
+            const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
+
+            for (let k = startIdx; k <= endIdx; k++) {
+                const rSeriesIdx = sortedIndices[k];
+                const rSeriesValue = resistanceCache.get(rSeriesIdx);
+                if (!rSeriesValue || rSeriesValue === 0) continue;
+
+                const ratio = AE.lpadLoadedTapRatio(rSeriesValue, rShuntValue, zLoad);
+                const ratioKey = ratio.toFixed(10);
+                const existingEntry = seenRatios.get(ratioKey);
+                if (existingEntry) {
+                    const totalR = rSeriesValue + rShuntValue;
+                    const componentCount = this.getComponentCount({ r1: combinations[rSeriesIdx], r2: combinations[rShuntIdx] });
+                    if (
+                        componentCount > existingEntry.componentCount
+                        || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                    ) {
+                        continue;
+                    }
+                }
+
+                const outputVoltage = ratio * this.supplyVoltage;
+                const error = outputVoltage - this.targetVoltage;
+                if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    const voltageRange = this.calculateVoltageRange(
+                        combinations[rSeriesIdx],
+                        combinations[rShuntIdx],
+                        this.supplyVoltage
+                    );
+                    const result = {
+                        attenuatorKind: 'l',
+                        r1: combinations[rSeriesIdx],
+                        r2: combinations[rShuntIdx],
+                        r1Value: rSeriesValue,
+                        r2Value: rShuntValue,
+                        outputVoltage,
+                        error,
+                        componentCount: this.getComponentCount({ r1: combinations[rSeriesIdx], r2: combinations[rShuntIdx] }),
+                        voltageRange,
+                        totalResistance: rSeriesValue + rShuntValue
+                    };
+                    results.push(result);
+                    seenRatios.set(ratioKey, {
+                        totalR: result.totalResistance,
+                        componentCount: result.componentCount,
+                        result
+                    });
+                }
+            }
+
+            if (j % 10 === 0 && progressCallback) {
+                progressCallback(Math.floor((j / sortedIndices.length) * 100), 100);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        const elapsed = (Date.now() - startTime) / 1000;
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: 1,
+            processingMode: 'single-threaded'
+        };
+        if (progressCallback) {
+            progressCallback(100, 100);
+        }
+        return results;
+    }
+
+    async findLpadCombinationsParallel(progressCallback) {
+        const AE = typeof AttenuatorEngine !== 'undefined' ? AttenuatorEngine : null;
+        if (!AE) return [];
+        const combinations = this.generateCombinations(this.resistorValues);
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            resistanceCache.set(i, this.calculateTotalResistance(combinations[i]));
+        }
+        const sortedIndices = Array.from({ length: combinations.length }, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        const zLoad = this.upadZLoad ?? 0;
+        const numWorkers = navigator.hardwareConcurrency || 4;
+        const chunkSize = Math.ceil(sortedIndices.length / numWorkers);
+        const chunks = [];
+        for (let i = 0; i < numWorkers; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, sortedIndices.length);
+            if (start < end) {
+                chunks.push(Array.from({ length: end - start }, (_, j) => start + j));
+            }
+        }
+        const resistanceCacheArray = Array.from(resistanceCache.entries());
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+        const startTime = Date.now();
+        const workers = [];
+        const workerPromises = [];
+        let allResults = [];
+        let processedChunks = 0;
+
+        for (let i = 0; i < chunks.length; i++) {
+            const worker = new Worker('resistor-worker.js');
+            workers.push(worker);
+            const promise = new Promise((resolve, reject) => {
+                worker.onmessage = (e) => {
+                    const { type } = e.data;
+                    if (type === 'initialized') {
+                        worker.postMessage({
+                            type: 'processLpadChunk',
+                            data: {
+                                rShuntIndices: chunks[i],
+                                combinations,
+                                resistanceCacheArray,
+                                sortedIndices,
+                                supplyVoltage: this.supplyVoltage,
+                                targetVoltage: this.targetVoltage,
+                                allowOvershoot: this.allowOvershoot,
+                                targetRatio,
+                                lpadZLoad: zLoad
+                            }
+                        });
+                    } else if (type === 'lpadChunkComplete') {
+                        const { results, stats } = e.data;
+                        if (results && results.length > 0) {
+                            allResults = allResults.concat(results);
+                        }
+                        this.calculationStats.validCombinations += stats.validCombinations;
+                        this.calculationStats.voltageStats.above += stats.voltageStats.above;
+                        this.calculationStats.voltageStats.below += stats.voltageStats.below;
+                        this.calculationStats.voltageStats.exact += stats.voltageStats.exact;
+                        processedChunks++;
+                        if (progressCallback) {
+                            progressCallback(Math.floor((processedChunks / chunks.length) * 100), 100);
+                        }
+                        worker.terminate();
+                        resolve();
+                    } else if (type === 'error') {
+                        worker.terminate();
+                        reject(new Error(e.data.error));
+                    }
+                };
+                worker.onerror = (error) => {
+                    worker.terminate();
+                    reject(error);
+                };
+                worker.postMessage({
+                    type: 'init',
+                    data: {
+                        ResistorUtils: { series: ResistorUtils.series },
+                        resistorTolerances
+                    }
+                });
+            });
+            workerPromises.push(promise);
+        }
+
+        try {
+            await Promise.all(workerPromises);
+        } catch (error) {
+            console.error('Worker error:', error);
+            workers.forEach(w => w.terminate());
+            throw error;
+        }
+
+        const elapsed = (Date.now() - startTime) / 1000;
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: numWorkers,
+            processingMode: 'multi-core parallel'
+        };
+        if (progressCallback) {
+            progressCallback(100, 100);
+        }
+        return allResults;
+    }
+
+    findLpadCombinations() {
+        const AE = typeof AttenuatorEngine !== 'undefined' ? AttenuatorEngine : null;
+        if (!AE) return [];
+        const combinations = this.generateCombinations(this.resistorValues);
+        const results = [];
+        this.calculationStats.totalCombinations = combinations.length * combinations.length;
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+        const zLoad = this.upadZLoad ?? 0;
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+
+        for (let i = 0; i < combinations.length; i++) {
+            const rSeries = combinations[i];
+            const rSeriesValue = this.calculateTotalResistance(rSeries);
+            if (!rSeriesValue || rSeriesValue === 0) continue;
+            for (let j = 0; j < combinations.length; j++) {
+                const rShunt = combinations[j];
+                const rShuntValue = this.calculateTotalResistance(rShunt);
+                if (!rShuntValue || rShuntValue === 0) continue;
+                const ratio = AE.lpadLoadedTapRatio(rSeriesValue, rShuntValue, zLoad);
+                const outputVoltage = ratio * this.supplyVoltage;
+                const error = outputVoltage - this.targetVoltage;
+                if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    const voltageRange = this.calculateVoltageRange(rSeries, rShunt, this.supplyVoltage);
+                    results.push({
+                        attenuatorKind: 'l',
+                        r1: rSeries,
+                        r2: rShunt,
+                        r1Value: rSeriesValue,
+                        r2Value: rShuntValue,
+                        outputVoltage,
+                        error,
+                        componentCount: this.getComponentCount({ r1: rSeries, r2: rShunt }),
+                        voltageRange,
+                        totalResistance: rSeriesValue + rShuntValue
                     });
                 }
             }
@@ -1319,19 +1711,36 @@ if (supplyVoltageInput) {
     });
 }
 
-function wireUpadInputListeners() {
-    if (getDividerMode() !== 'upad') return;
-    ['upadAttenuationDb', 'upadZLoad', 'upadZInTarget', 'upadZOutTarget', 'upadMinPowerW'].forEach(id => {
+function wireBalancedAttenuatorListeners() {
+    if (!isBalancedAttenuatorPage()) return;
+    ['attenuatorType', 'upadAttenuationDb', 'upadZLoad', 'upadZInTarget', 'upadZOutTarget', 'upadMinPowerW'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('input', () => {
+            el.addEventListener('change', () => {
+                if (id === 'attenuatorType') updateAttenuatorTypeHint();
                 invalidateCache();
                 calculateAndDisplayResults();
             });
+            if (id !== 'attenuatorType') {
+                el.addEventListener('input', () => {
+                    invalidateCache();
+                    calculateAndDisplayResults();
+                });
+            }
         }
     });
+    updateAttenuatorTypeHint();
 }
-wireUpadInputListeners();
+
+function updateAttenuatorTypeHint() {
+    const hint = document.getElementById('attenuatorTypeHint');
+    if (!hint || typeof AttenuatorEngine === 'undefined') return;
+    const k = getAttenuatorKind();
+    const meta = AttenuatorEngine.KINDS[k];
+    hint.textContent = meta?.description || '';
+}
+
+wireBalancedAttenuatorListeners();
 
 // Loading spinner helper functions
 function showLoadingSpinner() {
@@ -1377,7 +1786,8 @@ async function calculateAndDisplayResults() {
     const errors = [];
     const warnings = [];
     const snapToSeries = document.getElementById('snapToSeries')?.checked;
-    const dividerMode = getDividerMode();
+    const isBalanced = isBalancedAttenuatorPage();
+    const attenuatorKind = isBalanced ? getAttenuatorKind() : null;
     let upadZLoad = 0;
     let upadTargetDb = NaN;
     let upadTargetZIn = NaN;
@@ -1474,7 +1884,10 @@ async function calculateAndDisplayResults() {
         calculator.supplyVoltage = supplyResult.value;
     }
 
-    if (dividerMode === 'upad') {
+    if (isBalanced) {
+        if (typeof AttenuatorEngine !== 'undefined' && !AttenuatorEngine.isImplemented(attenuatorKind)) {
+            errors.push(`The ${(AttenuatorEngine.KINDS[attenuatorKind] || {}).label || attenuatorKind} calculator is not available yet.`);
+        }
         const dbEl = document.getElementById('upadAttenuationDb');
         const zLoadEl = document.getElementById('upadZLoad');
         const zInEl = document.getElementById('upadZInTarget');
@@ -1597,14 +2010,24 @@ async function calculateAndDisplayResults() {
                 try {
             // Use parallel processing if supported and we have a large dataset
             const useParallel = webWorkerSupported && validResistors.length > 10;
-            
-            if (dividerMode === 'upad') {
+
+            if (isBalanced && attenuatorKind === 'u') {
                 if (useParallel) {
                     allResults = await calculator.findUpadCombinationsParallel((processed, total) => {
                         updateLoadingProgress(processed, total);
                     });
                 } else {
                     allResults = await calculator.findUpadCombinationsAsync((processed, total) => {
+                        updateLoadingProgress(processed, total);
+                    });
+                }
+            } else if (isBalanced && attenuatorKind === 'l') {
+                if (useParallel) {
+                    allResults = await calculator.findLpadCombinationsParallel((processed, total) => {
+                        updateLoadingProgress(processed, total);
+                    });
+                } else {
+                    allResults = await calculator.findLpadCombinationsAsync((processed, total) => {
                         updateLoadingProgress(processed, total);
                     });
                 }
@@ -1629,8 +2052,8 @@ async function calculateAndDisplayResults() {
         }
     }
 
-    if (dividerMode === 'upad' && Array.isArray(allResults) && allResults.length) {
-        allResults = enrichUpadResults(allResults, {
+    if (isBalanced && Array.isArray(allResults) && allResults.length && typeof AttenuatorEngine !== 'undefined' && AttenuatorEngine.isImplemented(attenuatorKind)) {
+        allResults = enrichAttenuatorResults(allResults, {
             calculator,
             zLoad: upadZLoad,
             targetZIn: upadTargetZIn,
@@ -1971,7 +2394,7 @@ function updateResultsDisplay(displayResults) {
     const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
     calculator.supplyVoltage = supplyResult.valid ? supplyResult.value : 0;
 
-    if (getDividerMode() === 'upad') {
+    if (isBalancedAttenuatorPage()) {
         const dbEl = document.getElementById('upadAttenuationDb');
         const dbRaw = dbEl ? (dbEl.value !== '' ? dbEl.value : dbEl.defaultValue) : '';
         const dbParsed = parseFloat(dbRaw);
@@ -2264,7 +2687,9 @@ function filterAndSortResults(allResults, minResistance, maxResistance) {
 
     const sortBy = document.getElementById('sortBy').value;
     const sortedResults = [...filteredResults];
-    const isUpad = getDividerMode() === 'upad';
+    const isBalancedAtt = isBalancedAttenuatorPage();
+    const attKind = isBalancedAtt ? getAttenuatorKind() : null;
+    const useAttenSort = isBalancedAtt && (attKind === 'u' || attKind === 'l');
 
     if (sortBy === 'components') {
         sortedResults.sort((a, b) => {
@@ -2277,7 +2702,7 @@ function filterAndSortResults(allResults, minResistance, maxResistance) {
         sortedResults.sort((a, b) => a.totalResistance - b.totalResistance);
     } else if (sortBy === 'totalResistanceDesc') {
         sortedResults.sort((a, b) => b.totalResistance - a.totalResistance);
-    } else if (sortBy === 'upadImpedanceMatch' && isUpad) {
+    } else if ((sortBy === 'upadImpedanceMatch' || sortBy === 'attenImpedanceMatch') && useAttenSort) {
         sortedResults.sort((a, b) => {
             const sa = a.impedanceMatchScore ?? 0;
             const sb = b.impedanceMatchScore ?? 0;
@@ -2286,7 +2711,7 @@ function filterAndSortResults(allResults, minResistance, maxResistance) {
         });
     } else {
         sortedResults.sort((a, b) => {
-            if (isUpad) {
+            if (useAttenSort) {
                 const da = Math.abs(a.errDb ?? 0);
                 const db = Math.abs(b.errDb ?? 0);
                 if (da !== db) return da - db;
@@ -2380,7 +2805,7 @@ function getSectionPowerStats(section, current, voltageDrop) {
 }
 
 function getPowerStatsForResult(result, supplyVoltage) {
-    if (result.r3 != null && result.upadPowerStats) {
+    if (result.upadPowerStats && (result.attenuatorKind === 'l' || result.r3 != null)) {
         const u = result.upadPowerStats;
         return {
             current: result.upad?.iTop ?? 0,
@@ -2434,7 +2859,7 @@ function getPowerWarnings(powerStats, calculator) {
     };
     pushWarnings(powerStats.r1Stats.components);
     pushWarnings(powerStats.r2Stats.components);
-    if (powerStats.r3Stats) {
+    if (powerStats.r3Stats && powerStats.r3Stats.components?.length) {
         pushWarnings(powerStats.r3Stats.components);
     }
     return warnings;
@@ -2442,7 +2867,12 @@ function getPowerWarnings(powerStats, calculator) {
 
 // Function to render the results display
 function renderResults(displayResults, calculator) {
-    const isUpad = getDividerMode() === 'upad';
+    const isBalanced = isBalancedAttenuatorPage();
+    const attKind = isBalanced ? getAttenuatorKind() : null;
+    const isUpad = isBalanced && attKind === 'u';
+    const isLpad = isBalanced && attKind === 'l';
+    const isAtten = isUpad || isLpad;
+
     if (displayResults.length === 0) {
         return `
             <div class="results-section">
@@ -2453,15 +2883,16 @@ function renderResults(displayResults, calculator) {
                 </div>
             </div>`;
     }
-    
+
+    const tooltipBody = isAtten
+        ? 'Δ V<sub>tap</sub> is deviation from the tap voltage implied by your dB target. Real world range is the open divider tolerance band (same corner model as the voltage divider tool).'
+        : 'Error indicates how far this solution is away from the target V<sub>out</sub>. Real world range indicates the possible range which V<sub>out</sub> may fall in when accounting for resistor tolerances.';
+
     return `
         <div class="results-section">
             <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
                 ?
-                <span class="tooltip-text">
-                    'Error' indicates how far this solution is away from the target V<sub>out</sub><br><br>
-                    'Real world range' indicates the possible range which V<sub>out</sub> may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exist but they are typically no worse than 5% tolerance as an E24 value
-                </span>
+                <span class="tooltip-text">${tooltipBody}</span>
             </div></h3>
             <div id="resultsList">
                 ${displayResults.map((result, index) => {
@@ -2472,13 +2903,13 @@ function renderResults(displayResults, calculator) {
                     const warningHtml = warnings.length
                         ? `<div class="result-warning">Power warning: ${warnings.join(', ')}</div>`
                         : '';
-                    const ua = isUpad ? result.upad : null;
-                    const zErrStr = isUpad
+                    const ua = isAtten ? result.upad : null;
+                    const zErrStr = isAtten
                         ? (Number.isFinite(result.errZInPct) || Number.isFinite(result.errZOutPct)
                             ? `${Number.isFinite(result.errZInPct) ? `${result.errZInPct >= 0 ? '+' : ''}${result.errZInPct.toFixed(2)}%` : '—'} / ${Number.isFinite(result.errZOutPct) ? `${result.errZOutPct >= 0 ? '+' : ''}${result.errZOutPct.toFixed(2)}%` : '—'}`
                             : '— (no Z targets)')
                         : '';
-                    const upadExtraRows = isUpad && ua ? `
+                    const attenExtraRows = isAtten && ua ? `
                                     <tr>
                                         <td><strong>Z<sub>in</sub> (open)</strong></td>
                                         <td>${formatImpedanceOhms(ua.zInOpen, calculator)}</td>
@@ -2492,17 +2923,18 @@ function renderResults(displayResults, calculator) {
                                         <td class="upad-zout">${formatImpedanceOhms(ua.zOutThevenin, calculator)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>I<sub>TOP</sub> (from source)</strong></td>
+                                        <td><strong>${isLpad ? 'I<sub>SER</sub>' : 'I<sub>TOP</sub>'} (from source)</strong></td>
                                         <td class="upad-i-top">${formatUpadCurrent(ua.iTop)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>I<sub>MID</sub></strong></td>
+                                        <td><strong>${isLpad ? 'I<sub>SHUNT</sub>' : 'I<sub>MID</sub>'}</strong></td>
                                         <td class="upad-i-mid">${formatUpadCurrent(ua.iMid)}</td>
                                     </tr>
+                                    ${isUpad ? `
                                     <tr>
                                         <td><strong>I<sub>BOT</sub></strong></td>
                                         <td class="upad-i-bot">${formatUpadCurrent(ua.iBot)}</td>
-                                    </tr>
+                                    </tr>` : ''}
                                     <tr>
                                         <td><strong>I<sub>LOAD</sub></strong></td>
                                         <td class="upad-i-load">${formatUpadCurrent(ua.iLoad)}</td>
@@ -2523,9 +2955,9 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>Z match error (in / out)</strong></td>
                                         <td class="upad-z-err">${zErrStr}</td>
                                     </tr>` : '';
-                    const rTopRow = `
+                    const rSeriesRow = `
                                     <tr>
-                                        <td><strong>R<sub>TOP</sub></strong></td>
+                                        <td><strong>${isLpad ? 'R<sub>SER</sub>' : 'R<sub>TOP</sub>'}</strong></td>
                                         <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
                                     </tr>`;
                     const rMidRow = isUpad ? `
@@ -2533,38 +2965,49 @@ function renderResults(displayResults, calculator) {
                                         <td><strong>R<sub>MID</sub></strong></td>
                                         <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
                                     </tr>` : '';
-                    const rBotRow = isUpad ? `
+                    const rShuntOrBotRow = isUpad ? `
                                     <tr>
                                         <td><strong>R<sub>BOT</sub></strong></td>
                                         <td>${Array.isArray(result.r3) ? `${calculator.formatResistorArray(result.r3)} = ${calculator.formatResistorValue(result.r3Value)}` : calculator.formatResistorValue(result.r3Value)} <span class="upad-match-note">(nominal match to R<sub>TOP</sub>)</span></td>
+                                    </tr>` : (isLpad ? `
+                                    <tr>
+                                        <td><strong>R<sub>SHUNT</sub></strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
                                     </tr>` : `
                                     <tr>
                                         <td><strong>R<sub>BOT</sub></strong></td>
                                         <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
-                                    </tr>`;
+                                    </tr>`);
                     const ratioLabel = isUpad
                         ? '<strong>R<sub>TOP</sub>:R<sub>MID</sub> ratio</strong>'
-                        : '<strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong>';
-                    const ratioValue = isUpad ? formatRatio(result.r1Value, result.r2Value) : formatRatio(result.r1Value, result.r2Value);
-                    const powerRow = isUpad
-                        ? `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? (powerStats.r1Stats.total + powerStats.r2Stats.total + powerStats.r3Stats.total))}, All sinks: ${formatWatts(powerStats.totalPower)}`
-                        : `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
-                    const errorRowLabel = isUpad ? '<strong>Δ V<sub>tap</sub> vs target</strong>' : '<strong>Error</strong>';
-                    const errorRowValue = isUpad
+                        : (isLpad ? '<strong>R<sub>SER</sub>:R<sub>SHUNT</sub> ratio</strong>' : '<strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong>');
+                    const ratioValue = formatRatio(result.r1Value, result.r2Value);
+                    let powerRow;
+                    if (isUpad) {
+                        powerRow = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
+                    } else if (isLpad) {
+                        powerRow = `R<sub>SER</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>SHUNT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
+                    } else {
+                        powerRow = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
+                    }
+                    const errorRowLabel = isAtten ? '<strong>Δ V<sub>tap</sub> vs target</strong>' : '<strong>Error</strong>';
+                    const errorRowValue = isAtten
                         ? `<span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(3)}</span> V <span class="upad-match-note">(from attenuation target)</span>`
                         : `<span class="error-value">${result.error > 0 ? '+' : ''}${result.error.toFixed(2)}</span> V`;
-                    const vTapDecimals = isUpad ? 3 : 2;
-                    const packageNote = isUpad && Number.isFinite(sizingPower) && sizingPower > (powerStats.maxResistorPower ?? powerStats.maxComponentPower)
+                    const vTapDecimals = isAtten ? 3 : 2;
+                    const vRowLabel = isAtten ? 'Tap voltage (loaded)' : 'Nominal Output Voltage';
+                    const packageNote = isAtten && Number.isFinite(sizingPower) && sizingPower > (powerStats.maxResistorPower ?? powerStats.maxComponentPower)
                         ? ` <span class="upad-match-note">(floor ${formatWatts(sizingPower)})</span>`
                         : '';
+                    const kindArg = JSON.stringify(result.attenuatorKind || null);
                     return `
                     <div class="result-item" data-index="${index}" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
                        <div class="result-content">
                             <table class="result-table">
                                 <tbody>
-                                    ${rTopRow}
-                                    ${isUpad ? rMidRow + rBotRow : rBotRow}
-                                    ${isUpad ? upadExtraRows : ''}
+                                    ${rSeriesRow}
+                                    ${isUpad ? rMidRow + rShuntOrBotRow : rShuntOrBotRow}
+                                    ${isAtten ? attenExtraRows : ''}
                                     <tr>
                                         <td>${ratioLabel}</td>
                                         <td>${ratioValue}</td>
@@ -2574,7 +3017,7 @@ function renderResults(displayResults, calculator) {
                                         <td class="total-resistance">${calculator.formatResistorValue(result.totalResistance)}</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>${isUpad ? 'Tap voltage (loaded)' : 'Nominal Output Voltage'}</strong></td>
+                                        <td><strong>${vRowLabel}</strong></td>
                                         <td><span class="output-voltage">${result.outputVoltage.toFixed(vTapDecimals)}</span> V</td>
                                     </tr>
                                     <tr>
@@ -2606,7 +3049,7 @@ function renderResults(displayResults, calculator) {
                             ${warningHtml}
                         </div>
                         <div class="result-diagram" id="diagram-${index}">
-                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, ${isUpad})" title="Download diagram as PNG">
+                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, ${isAtten}, ${kindArg})" title="Download diagram as PNG">
                                 <i class="fas fa-download"></i>
                             </button>
                         </div>
@@ -2654,8 +3097,59 @@ function applyUpadLoadedAnalysis(result, vin, zLoad, minPowerFloorW) {
     };
 }
 
+function applyLpadLoadedAnalysis(result, vin, zLoad, minPowerFloorW) {
+    if (!result || result.attenuatorKind !== 'l' || typeof AttenuatorEngine === 'undefined') return;
+    const la = AttenuatorEngine.computeLpadAnalysis(result.r1Value, result.r2Value, vin, zLoad);
+    const r1Stats = {
+        total: la.pSeries,
+        components: [{ resistor: result.r1, power: la.pSeries }],
+        maxComponentPower: la.pSeries
+    };
+    const r2Stats = {
+        total: la.pShunt,
+        components: [{ resistor: result.r2, power: la.pShunt }],
+        maxComponentPower: la.pShunt
+    };
+    const loadDissipation = (!Number.isFinite(zLoad) || zLoad <= 0) ? 0 : la.pLoad;
+    const totalDissipatedInNetwork = la.pSeries + la.pShunt;
+    const maxResistorPower = Math.max(la.pSeries, la.pShunt);
+    const floor = Number.isFinite(minPowerFloorW) && minPowerFloorW > 0 ? minPowerFloorW : 0;
+    result.lpad = la;
+    result.upad = {
+        zInOpen: la.zInOpen,
+        zInLoaded: la.zInLoaded,
+        zOutThevenin: la.zOutThevenin,
+        vTap: la.vTap,
+        vMidNode: la.vTap,
+        iTop: la.iSeries,
+        iMid: la.iShunt,
+        iBot: 0,
+        iLoad: la.iLoad,
+        pTop: la.pSeries,
+        pMid: la.pShunt,
+        pBot: 0,
+        pLoad: la.pLoad,
+        insertionLossDb: la.insertionLossDb
+    };
+    result.outputVoltage = la.vTap;
+    result.error = la.vTap - (result.targetTapVoltage ?? la.vTap);
+    result.insertionLossDb = la.insertionLossDb;
+    result.upadPowerStats = {
+        r1Stats,
+        r2Stats,
+        r3Stats: { total: 0, components: [], maxComponentPower: 0 },
+        loadDissipation,
+        totalDissipatedInNetwork,
+        maxResistorPower,
+        maxComponentPowerSizing: Math.max(maxResistorPower, floor)
+    };
+}
+
 function initializeResultCardSliders(displayResults, calculator) {
-    const isUpad = getDividerMode() === 'upad';
+    const isBalanced = isBalancedAttenuatorPage();
+    const attKind = isBalanced ? getAttenuatorKind() : null;
+    const isUpadBalanced = isBalanced && attKind === 'u';
+    const isLpadBalanced = isBalanced && attKind === 'l';
     displayResults.forEach((result, index) => {
         const slider = document.getElementById(`solution-slider-${index}`);
         if (!slider) return;
@@ -2694,7 +3188,7 @@ function initializeResultCardSliders(displayResults, calculator) {
 
             let outputVoltage;
             let range;
-            if (isUpad && result.r3 != null) {
+            if (isUpadBalanced && result.r3 != null) {
                 const zLoadEl = document.getElementById('upadZLoad');
                 const zLoadRes = getNumericInputValue(zLoadEl, 'Z load');
                 const zLoad = zLoadRes.valid ? zLoadRes.value : 0;
@@ -2749,8 +3243,71 @@ function initializeResultCardSliders(displayResults, calculator) {
 
                 const diagramContainer = document.getElementById(`diagram-${index}`);
                 if (diagramContainer) {
+                    const kindArg = JSON.stringify(result.attenuatorKind || null);
                     diagramContainer.innerHTML = `
-                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, true)" title="Download diagram as PNG">
+                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, true, ${kindArg})" title="Download diagram as PNG">
+                                <i class="fas fa-download"></i>
+                            </button>`;
+                    renderResultDiagram(diagramContainer, result, newVoltage, result.outputVoltage);
+                }
+            } else if (isLpadBalanced && result.attenuatorKind === 'l') {
+                const zLoadEl = document.getElementById('upadZLoad');
+                const zLoadRes = getNumericInputValue(zLoadEl, 'Z load');
+                const zLoad = zLoadRes.valid ? zLoadRes.value : 0;
+                const minPowEl = document.getElementById('upadMinPowerW');
+                const minFloor = minPowEl && minPowEl.value.trim() !== '' ? parseFloat(minPowEl.value) : NaN;
+                applyLpadLoadedAnalysis(
+                    result,
+                    newVoltage,
+                    zLoad,
+                    Number.isFinite(minFloor) && minFloor >= 0 ? minFloor : 0
+                );
+                outputVoltage = result.outputVoltage;
+                range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
+
+                const ua = result.upad;
+                const setText = (sel, text) => {
+                    const el = card.querySelector(sel);
+                    if (el) el.textContent = text;
+                };
+                setText('.upad-zin-loaded', formatImpedanceOhms(ua.zInLoaded, calculator));
+                setText('.upad-zout', formatImpedanceOhms(ua.zOutThevenin, calculator));
+                setText('.upad-i-top', formatUpadCurrent(ua.iTop));
+                setText('.upad-i-mid', formatUpadCurrent(ua.iMid));
+                setText('.upad-i-bot', '—');
+                setText('.upad-i-load', formatUpadCurrent(ua.iLoad));
+                setText('.upad-insertion-db', Number.isFinite(result.insertionLossDb) ? `${result.insertionLossDb.toFixed(3)} dB` : '—');
+
+                const dbEl = document.getElementById('upadAttenuationDb');
+                const dbRaw = dbEl ? (dbEl.value !== '' ? dbEl.value : dbEl.defaultValue) : '';
+                const targetDb = parseFloat(dbRaw);
+                const errDb = Number.isFinite(targetDb) ? (result.insertionLossDb - targetDb) : NaN;
+                setText('.upad-err-db', Number.isFinite(errDb) ? `${errDb >= 0 ? '+' : ''}${errDb.toFixed(3)} dB` : '—');
+                const errHz = Number.isFinite(errDb) ? (errDb * Math.LN10 / 20) : NaN;
+                setText('.upad-err-hz', Number.isFinite(errHz) ? `${errHz >= 0 ? '+' : ''}${errHz.toExponential(2)} × f` : '—');
+
+                const zInEl = document.getElementById('upadZInTarget');
+                const zOutEl = document.getElementById('upadZOutTarget');
+                let zStr = '— (no Z targets)';
+                if (zInEl?.value.trim() || zOutEl?.value.trim()) {
+                    const tIn = zInEl?.value.trim() ? parseFloat(zInEl.value) : NaN;
+                    const tOut = zOutEl?.value.trim() ? parseFloat(zOutEl.value) : NaN;
+                    const eIn = Number.isFinite(tIn) && tIn > 0 ? (100 * (ua.zInLoaded / tIn - 1)) : NaN;
+                    const eOut = Number.isFinite(tOut) && tOut > 0 ? (100 * (ua.zOutThevenin / tOut - 1)) : NaN;
+                    zStr = `${Number.isFinite(eIn) ? `${eIn >= 0 ? '+' : ''}${eIn.toFixed(2)}%` : '—'} / ${Number.isFinite(eOut) ? `${eOut >= 0 ? '+' : ''}${eOut.toFixed(2)}%` : '—'}`;
+                }
+                setText('.upad-z-err', zStr);
+
+                const errEl = card.querySelector('.error-value');
+                if (errEl) {
+                    errEl.textContent = `${result.error > 0 ? '+' : ''}${result.error.toFixed(3)}`;
+                }
+
+                const diagramContainer = document.getElementById(`diagram-${index}`);
+                if (diagramContainer) {
+                    const kindArg = JSON.stringify(result.attenuatorKind || null);
+                    diagramContainer.innerHTML = `
+                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, true, ${kindArg})" title="Download diagram as PNG">
                                 <i class="fas fa-download"></i>
                             </button>`;
                     renderResultDiagram(diagramContainer, result, newVoltage, result.outputVoltage);
@@ -2761,7 +3318,7 @@ function initializeResultCardSliders(displayResults, calculator) {
             }
             const outputElement = card.querySelector('.output-voltage');
             if (outputElement) {
-                outputElement.textContent = outputVoltage.toFixed(isUpad && result.r3 != null ? 3 : 2);
+                outputElement.textContent = outputVoltage.toFixed((isUpadBalanced && result.r3 != null) || isLpadBalanced ? 3 : 2);
             }
 
             const rangeElement = card.querySelector('.voltage-range');
@@ -2772,8 +3329,10 @@ function initializeResultCardSliders(displayResults, calculator) {
             const powerStats = getPowerStatsForResult(result, newVoltage);
             const powerElement = card.querySelector('.power-values');
             if (powerElement) {
-                if (isUpad && result.r3 != null) {
+                if (isUpadBalanced && result.r3 != null) {
                     powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
+                } else if (isLpadBalanced) {
+                    powerElement.innerHTML = `R<sub>SER</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>SHUNT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
                 } else {
                     powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
                 }
@@ -2784,7 +3343,7 @@ function initializeResultCardSliders(displayResults, calculator) {
             const packageElement = card.querySelector('.package-recommendation');
             if (packageElement) {
                 const maxR = powerStats.maxResistorPower ?? powerStats.maxComponentPower;
-                const note = isUpad && result.r3 != null && Number.isFinite(sizingPower) && sizingPower > maxR
+                const note = ((isUpadBalanced && result.r3 != null) || isLpadBalanced) && Number.isFinite(sizingPower) && sizingPower > maxR
                     ? ` (floor ${formatWatts(sizingPower)})`
                     : '';
                 packageElement.textContent = `${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})${note}`;
@@ -2807,7 +3366,7 @@ function initializeResultCardSliders(displayResults, calculator) {
 }
 
 // Function to convert SVG to PNG and download
-function downloadDiagram(index, r1Value, r2Value, outputVoltage, isUpad = false) {
+function downloadDiagram(index, r1Value, r2Value, outputVoltage, isAttenuator = false, attenuatorKindArg = null) {
     const diagramElement = document.getElementById(`diagram-${index}`);
     const svgElement = diagramElement.querySelector('svg');
     
@@ -2818,10 +3377,9 @@ function downloadDiagram(index, r1Value, r2Value, outputVoltage, isUpad = false)
     
     const card = diagramElement.closest('.result-item');
 
-    // Get supply voltage and target voltage from inputs
     const supplyVoltage = parseFloat(document.getElementById('supplyVoltage').value);
     let targetVoltage = NaN;
-    if (isUpad) {
+    if (isAttenuator) {
         const dbEl = document.getElementById('upadAttenuationDb');
         const dbRaw = dbEl ? (dbEl.value !== '' ? dbEl.value : dbEl.defaultValue) : '';
         const dbParsed = parseFloat(dbRaw);
@@ -2836,7 +3394,11 @@ function downloadDiagram(index, r1Value, r2Value, outputVoltage, isUpad = false)
     const calculator = new ResistorCalculator();
     const r1Formatted = calculator.formatResistorValue(r1Value).replace(/[^\w]/g, '');
     const r2Formatted = calculator.formatResistorValue(r2Value).replace(/[^\w]/g, '');
-    const prefix = isUpad ? 'upad' : 'voltagedivider';
+    let prefix = 'voltagedivider';
+    if (isAttenuator) {
+        const k = typeof attenuatorKindArg === 'string' ? attenuatorKindArg : null;
+        prefix = k === 'l' ? 'lpad' : 'upad';
+    }
     const filename = `${prefix}-${supplyVoltage}V-${targetVoltage}V-${r1Formatted}-${r2Formatted}.png`;
     
     const annotations = [];

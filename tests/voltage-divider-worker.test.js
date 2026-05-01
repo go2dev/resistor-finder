@@ -24,8 +24,11 @@ this.calculateVoltageRange = calculateVoltageRange;
 this.calculateOutputVoltage = calculateOutputVoltage;
 this.calculateUpadVoltageRange = calculateUpadVoltageRange;
 this.processUpadChunk = processUpadChunk;
+this.processLpadChunk = processLpadChunk;
 this.idealUpadLegForMid = idealUpadLegForMid;
 this.upadLoadedTapRatioWorker = upadLoadedTapRatioWorker;
+this.idealLpadSeriesForShuntWorker = idealLpadSeriesForShuntWorker;
+this.lpadLoadedTapRatioWorker = lpadLoadedTapRatioWorker;
 this.findResistorSeries = findResistorSeries;
 this.calculateSectionBounds = calculateSectionBounds;`,
         context
@@ -82,9 +85,8 @@ module.exports = function runVoltageDividerWorkerTests() {
     }
 
     {
-        const ideal = context.idealUpadLegForMid(1000, 0.6, 50000);
-        assert.ok(Number.isFinite(ideal) && ideal > 0, 'Should find positive ideal leg for loaded U-pad');
-        const r = context.upadLoadedTapRatioWorker(ideal, 1000, 50000);
-        assert.ok(Math.abs(r - 0.6) < 0.0005, 'Loaded tap ratio should match target at ideal leg');
+        const ideal = context.idealLpadSeriesForShuntWorker(1000, 50000, 0.6);
+        const r = context.lpadLoadedTapRatioWorker(ideal, 1000, 50000);
+        assert.ok(Math.abs(r - 0.6) < 0.0005, 'L-pad loaded tap ratio should match target at ideal series');
     }
 };
