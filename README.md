@@ -1,6 +1,12 @@
 # Voltage Divider Resistor Calculator
 
-A tool for finding optimal resistor combinations from a limited set to create a voltage divider. For example, make use of resistor values already present in your design to limit the number unique items in your BOM.
+This is **primarily a BOM optimisation tool**: it finds resistor combinations from a limited set of values so you can hit a target voltage divider ratio (or a target resistance in the separate mode) while leaning on parts you already carry.
+
+For **large-volume manufacturing**, consolidating BOM lines—reusing values already on the board instead of introducing new unique parts—can translate into real savings across sourcing, kitting, and placement.
+
+For **prototypes and small projects**, pulling candidate values from the JLCPCB Basic parts list can help keep assembly costs down when those parts align with your assembler’s “basic” pricing (fees and policies vary; check your CM).
+
+**We are not affiliated with or sponsored by JLCPCB.** The Basic-values autofill is a convenience feature we wanted for our own workflows; use it or skip it depending on your supply chain.
 
 ## Features
 
