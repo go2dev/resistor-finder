@@ -104,11 +104,16 @@
                             : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
                         const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : '';
                         const powerLine = powerLabel ? `<br>${powerLabel}` : '';
+                        const jlcLine = conv.isJlcBasic ? '<br>JLC PCB Basics list' : '';
+                        const jlcBasicClass = conv.isJlcBasic ? ' jlc-basic' : '';
+                        const jlcBasicCaption = conv.isJlcBasic
+                            ? '<span class="jlc-basic-caption">JLC Basics</span>'
+                            : '';
                         const debugInfo = (globalThis?.DEBUG_RESISTOR_FINDER && conv.debug)
                             ? `<br>Input: ${conv.input}<br>Std: ${conv.debug.standardSeries ?? '—'} | Tol: ${conv.debug.toleranceSeries ?? '—'} | Snap: ${conv.debug.snapped ? 'yes' : 'no'}<br>Value: ${conv.debug.parsedValueBeforeSnap ?? '—'} → ${conv.debug.parsedValueAfterSnap ?? '—'}`
                             : '';
                         return `
-                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
+                        <div class="parsed-value-box${jlcBasicClass} ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
                              data-id="${conv.id}"
                              data-value="${conv.value}"
                              data-input="${conv.input}"
@@ -116,8 +121,11 @@
                              data-key="${conv.key || ''}"
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
-                            <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${debugInfo}</span>
+                            <div class="parsed-value-box-content">
+                                <span class="formatted">${conv.formatted}</span>
+                                ${jlcBasicCaption}
+                            </div>
+                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${jlcLine}${debugInfo}</span>
                         </div>
                     `;
                     }).join('')}
