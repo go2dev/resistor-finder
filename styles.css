@@ -1101,17 +1101,195 @@ ul ul, ol ol, ul ol, ol ul {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 0 20px;
+    padding: 0 4px;
+    width: 100%;
+    max-width: 100%;
 }
 
 .resistance-filter-section .theme-label {
     margin-bottom: 0.75rem;
 }
 
-#resistance-slider {
-    margin: 10px 0;
-    width: 99.5%;
-    
+#resistance-zoom-filter {
+    margin: 8px 0 4px;
+    width: 100%;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.zoom-range-filter {
+    width: 100%;
+    max-width: 100%;
+}
+
+.zoom-range-filter-inner {
+    outline: none;
+}
+
+.zoom-range-filter-inner:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent-color, #3498db);
+    border-radius: 6px;
+}
+
+.range-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.range-title {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.range-count {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    opacity: 0.9;
+}
+
+.range-visible-transient {
+    font-size: 0.8rem;
+    color: var(--accent-color, #3498db);
+    min-height: 1.2em;
+    margin-bottom: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.range-visible-transient.is-visible {
+    opacity: 1;
+}
+
+.range-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.zrf-input-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--text-color);
+}
+
+.zrf-input-label input {
+    min-height: 40px;
+    min-width: 7rem;
+    padding: 0 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg, #fff);
+    color: var(--text-color);
+}
+
+.zrf-btn {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 0 0.65rem;
+    border-radius: 4px;
+    border: 1px solid var(--input-border);
+    background: var(--button-bg);
+    color: #fff;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.zrf-btn:hover:not(:disabled) {
+    background: var(--button-hover);
+}
+
+.zrf-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.zrf-fit {
+    min-width: 3rem;
+    font-size: 0.85rem;
+}
+
+.zrf-validation {
+    color: var(--error-border, #c0392b);
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+    min-height: 1em;
+}
+
+.zrf-offscreen {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+.zrf-empty {
+    padding: 0.75rem;
+    text-align: center;
+    color: var(--text-color);
+    opacity: 0.85;
+    border: 1px dashed var(--input-border);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.range-slider-wrap {
+    margin: 6px 0 4px;
+}
+
+.zoom-range-filter .range-slider.zrf-noui {
+    margin: 8px 0;
+    width: 100%;
+}
+
+.zoom-range-filter .range-chart {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 4px;
+}
+
+.zoom-range-filter .zoom-layer {
+    touch-action: none;
+    cursor: grab;
+}
+
+.zoom-range-filter .zoom-layer:active {
+    cursor: grabbing;
+}
+
+.zoom-range-filter .noUi-handle {
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.range-help {
+    font-size: 0.78rem;
+    color: var(--text-color);
+    opacity: 0.75;
+    margin-top: 0.35rem;
 }
 
 /* Hide left handle of supply voltage slider */
