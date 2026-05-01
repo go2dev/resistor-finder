@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zoomable range filter demo</title>
+  <link rel="stylesheet" href="nuis/nouislider.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { padding: 1.5rem; max-width: 720px; margin: 0 auto; font-family: system-ui, sans-serif; }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    p { color: #444; font-size: 0.9rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Zoomable range filter (demo)</h1>
+  <p>
+    Synthetic results from 15 Ω to 50 kΩ. Zoom the chart (scroll), pan (drag), then use the slider to pick a narrow band (e.g. 300–400 Ω).
+  </p>
+  <div id="demo-mount"></div>
+  <script src="resistor-utils.js"></script>
+  <script src="vendor/d3-7.9.0.min.js"></script>
+  <script src="nuis/nouislider.js"></script>
+  <script src="zoomable-range-filter.js"></script>
+  <script>
+    var fullMin = 15;
+    var fullMax = 50000;
+    var results = [];
+    var i;
+    for (i = 0; i < 400; i++) {
+      var t = i / 399;
+      var v = fullMin + t * t * (fullMax - fullMin);
+      results.push({ id: 's' + i, value: Math.round(v) });
+    }
+    for (i = 0; i < 80; i++) {
+      results.push({ id: 'c' + i, value: 300 + Math.round((i / 79) * 100) });
+    }
+    ZoomableRangeFilter.create(document.getElementById('demo-mount'), {
+      results: results,
+      fullMin: fullMin,
+      fullMax: fullMax,
+      formatValue: function (x) { return ResistorUtils.formatResistorValue(x); },
+      showHistogram: true,
+      showRug: true,
+      onFilterChange: function (range, selected) {
+        console.log('filter', range, 'selected count', selected.length);
+      }
+    });
+  </script>
+</body>
+</html>

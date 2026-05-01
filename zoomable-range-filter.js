@@ -21,7 +21,14 @@
 
     function stepForView(viewMin, viewMax, targetSteps) {
         const span = viewMax - viewMin;
-        return Math.max(1, Math.round(niceStep(span, targetSteps)));
+        if (!Number.isFinite(span) || span <= 0) {
+            return 1;
+        }
+        const rounded = Math.round(niceStep(span, targetSteps || 200));
+        if (!Number.isFinite(rounded) || rounded <= 0) {
+            return 1;
+        }
+        return Math.max(1, rounded);
     }
 
     function constrainViewDomain(viewMin, viewMax, fullMin, fullMax, minViewSpan) {
@@ -380,24 +387,29 @@
                 return;
             }
             const step = stepForView(viewMin, viewMax);
-            noUiSlider.create(sliderEl, {
-                start: [clamp(filterMin, viewMin, viewMax), clamp(filterMax, viewMin, viewMax)],
-                behaviour: 'tap-drag',
-                connect: true,
-                range: { min: viewMin, max: viewMax },
-                step,
-                tooltips: false,
-                keyboardSupport: true,
-                format: {
-                    to(v) { return Math.round(Number(v)); },
-                    from(v) { return Number(v); }
-                },
-                pips: {
-                    mode: 'count',
-                    values: 5,
-                    density: 4
-                }
-            });
+            try {
+                noUiSlider.create(sliderEl, {
+                    start: [clamp(filterMin, viewMin, viewMax), clamp(filterMax, viewMin, viewMax)],
+                    behaviour: 'tap-drag',
+                    connect: true,
+                    range: { 'min': viewMin, 'max': viewMax },
+                    step,
+                    tooltips: false,
+                    keyboardSupport: true,
+                    format: {
+                        to(v) { return Math.round(Number(v)); },
+                        from(v) { return Number(v); }
+                    },
+                    pips: {
+                        mode: 'count',
+                        values: 5,
+                        density: 4
+                    }
+                });
+            } catch (e) {
+                validationEl.textContent = e && e.message ? e.message : String(e);
+                return;
+            }
             sliderApi = sliderEl.noUiSlider;
             formatPips();
             sliderApi.on('update', function (values) {
@@ -417,7 +429,7 @@
             suppressSlider = true;
             const step = stepForView(viewMin, viewMax);
             sliderApi.updateOptions({
-                range: { min: viewMin, max: viewMax },
+                range: { 'min': viewMin, 'max': viewMax },
                 step
             }, false);
             formatPips();
@@ -637,7 +649,7 @@
             if (sliderApi) {
                 suppressSlider = true;
                 const step = stepForView(viewMin, viewMax);
-                sliderApi.updateOptions({ range: { min: viewMin, max: viewMax }, step }, false);
+                sliderApi.updateOptions({ range: { 'min': viewMin, 'max': viewMax }, step }, false);
                 formatPips();
                 sliderApi.set([clamp(filterMin, viewMin, viewMax), clamp(filterMax, viewMin, viewMax)]);
                 suppressSlider = false;
