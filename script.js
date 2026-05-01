@@ -18,6 +18,12 @@ function checkWebWorkerSupport() {
 // Global flag for Web Worker support
 const webWorkerSupported = checkWebWorkerSupport();
 
+function getDividerMode() {
+    const fromBody = document.body?.dataset?.dividerMode;
+    if (fromBody === 'upad') return 'upad';
+    return 'divider';
+}
+
 // Utility object for resistor calculations and formatting is loaded from resistor-utils.js
 const resistorTolerances = ResistorUtils.resistorTolerances;
 
@@ -37,11 +43,12 @@ let currentResistanceRange = {
 };
 
 // Function to generate a state key for cache validation
-function generateStateKey(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot) {
+function generateStateKey(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot, mode = getDividerMode()) {
     const resistorKey = resistorValues
         .map(resistor => `${resistor.value}|${resistor.tolerance ?? ''}|${resistor.powerRating ?? ''}|${resistor.powerCode ?? ''}`)
         .sort();
     return JSON.stringify({
+        mode,
         resistorValues: resistorKey,
         supplyVoltage,
         targetVoltage,
@@ -64,6 +71,34 @@ function invalidateCache() {
     resultsCache.isValid = false;
     resultsCache.allResults = null;
     resultsCache.calculatorState = null;
+}
+
+function sectionToStringForDiagram(section) {
+    if (Array.isArray(section)) {
+        const type = section.type || 'series';
+        return section.map(v => v.value ?? v).join(',') + ',' + type;
+    }
+    return (section.value ?? section) + ',series';
+}
+
+function renderResultDiagram(diagramContainer, result, supplyVoltage, targetVoltage) {
+    const diagram = new Diagram(diagramContainer.id, 300, 220);
+    if (result.r3 != null) {
+        diagram.renderUpad(
+            sectionToStringForDiagram(result.r1),
+            sectionToStringForDiagram(result.r2),
+            sectionToStringForDiagram(result.r3),
+            supplyVoltage,
+            targetVoltage
+        );
+    } else {
+        diagram.renderCustom(
+            sectionToStringForDiagram(result.r1),
+            sectionToStringForDiagram(result.r2),
+            supplyVoltage,
+            targetVoltage
+        );
+    }
 }
 
 function logDividerDebug(...args) {
@@ -109,6 +144,9 @@ function resultUsesResistorKey(result, resistorKey) {
         return (section?.key ?? section?.id ?? null) === resistorKey;
     };
 
+    if (result.r3 != null) {
+        return sectionHasResistor(result.r1) || sectionHasResistor(result.r2) || sectionHasResistor(result.r3);
+    }
     return sectionHasResistor(result.r1) || sectionHasResistor(result.r2);
 }
 
@@ -189,6 +227,23 @@ class ResistorCalculator {
     // Calculate output voltage for a voltage divider
     calculateOutputVoltage(r1, r2, supplyVoltage) {
         return (r2 / (r1 + r2)) * supplyVoltage;
+    }
+
+    /** Symmetric U-pad: Vout = Vin * (Rmid + Rleg) / (2*Rleg + Rmid) with equal leg resistances Rtop = Rbot = Rleg. */
+    calculateUpadOutputVoltage(rLeg, rMid, supplyVoltage) {
+        const denom = 2 * rLeg + rMid;
+        if (denom <= 0) return 0;
+        return ((rMid + rLeg) / denom) * supplyVoltage;
+    }
+
+    /** Worst-case Vout over independent leg/mid tolerance boxes (monotone in each leg/mid scalar). */
+    calculateUpadVoltageRange(rLegTop, rMid, rLegBot, supplyVoltage) {
+        const b1 = this.calculateSectionBounds(rLegTop);
+        const b2 = this.calculateSectionBounds(rMid);
+        const b3 = this.calculateSectionBounds(rLegBot);
+        const vmax = supplyVoltage * (b2.upper + b3.upper) / (b1.lower + b2.upper + b3.upper);
+        const vmin = supplyVoltage * (b2.lower + b3.lower) / (b1.upper + b2.lower + b3.lower);
+        return { min: vmin, max: vmax };
     }
 
     // Generate all possible combinations of resistors
@@ -564,8 +619,295 @@ class ResistorCalculator {
         return results;
     }
 
+    async findUpadCombinationsAsync(progressCallback) {
+        const combinations = this.generateCombinations(this.resistorValues);
+        const results = [];
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            resistanceCache.set(i, this.calculateTotalResistance(combinations[i]));
+        }
+        const sortedIndices = Array.from({ length: combinations.length }, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        const seenRatios = new Map();
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        const startTime = Date.now();
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+
+        for (let j = 0; j < sortedIndices.length; j++) {
+            const rMidIdx = sortedIndices[j];
+            const rMidValue = resistanceCache.get(rMidIdx);
+            if (!rMidValue || rMidValue === 0) continue;
+
+            const idealLeg = rMidValue * (1 / targetRatio - 1) / 2;
+            let left = 0;
+            let right = sortedIndices.length - 1;
+            let closestIdx = 0;
+            let minDiff = Infinity;
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
+                const midValue = resistanceCache.get(sortedIndices[mid]);
+                const diff = Math.abs(midValue - idealLeg);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = mid;
+                }
+                if (midValue < idealLeg) {
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
+                }
+            }
+
+            const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
+            const startIdx = Math.max(0, closestIdx - testRange);
+            const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
+
+            for (let k = startIdx; k <= endIdx; k++) {
+                const rLegIdx = sortedIndices[k];
+                const rLegValue = resistanceCache.get(rLegIdx);
+                if (!rLegValue || rLegValue === 0) continue;
+
+                const denom = 2 * rLegValue + rMidValue;
+                const ratio = (rMidValue + rLegValue) / denom;
+                const ratioKey = ratio.toFixed(10);
+                const existingEntry = seenRatios.get(ratioKey);
+                if (existingEntry) {
+                    const totalR = 2 * rLegValue + rMidValue;
+                    const componentCount = this.getComponentCount({
+                        r1: combinations[rLegIdx],
+                        r2: combinations[rMidIdx],
+                        r3: combinations[rLegIdx]
+                    });
+                    if (
+                        componentCount > existingEntry.componentCount
+                        || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                    ) {
+                        continue;
+                    }
+                }
+
+                const outputVoltage = ratio * this.supplyVoltage;
+                const error = outputVoltage - this.targetVoltage;
+                if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    const rLegCombo = combinations[rLegIdx];
+                    const voltageRange = this.calculateUpadVoltageRange(
+                        rLegCombo,
+                        combinations[rMidIdx],
+                        rLegCombo,
+                        this.supplyVoltage
+                    );
+                    const result = {
+                        r1: rLegCombo,
+                        r2: combinations[rMidIdx],
+                        r3: rLegCombo,
+                        r1Value: rLegValue,
+                        r2Value: rMidValue,
+                        r3Value: rLegValue,
+                        outputVoltage,
+                        error,
+                        componentCount: this.getComponentCount({
+                            r1: rLegCombo,
+                            r2: combinations[rMidIdx],
+                            r3: rLegCombo
+                        }),
+                        voltageRange,
+                        totalResistance: 2 * rLegValue + rMidValue
+                    };
+                    results.push(result);
+                    seenRatios.set(ratioKey, {
+                        totalR: result.totalResistance,
+                        componentCount: result.componentCount,
+                        result
+                    });
+                }
+            }
+
+            if (j % 10 === 0 && progressCallback) {
+                progressCallback(Math.floor((j / sortedIndices.length) * 100), 100);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        const elapsed = (Date.now() - startTime) / 1000;
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: 1,
+            processingMode: 'single-threaded'
+        };
+        if (progressCallback) {
+            progressCallback(100, 100);
+        }
+        return results;
+    }
+
+    async findUpadCombinationsParallel(progressCallback) {
+        const combinations = this.generateCombinations(this.resistorValues);
+        const resistanceCache = new Map();
+        for (let i = 0; i < combinations.length; i++) {
+            resistanceCache.set(i, this.calculateTotalResistance(combinations[i]));
+        }
+        const sortedIndices = Array.from({ length: combinations.length }, (_, i) => i)
+            .sort((a, b) => resistanceCache.get(a) - resistanceCache.get(b));
+        const targetRatio = this.targetVoltage / this.supplyVoltage;
+        const numWorkers = navigator.hardwareConcurrency || 4;
+        const chunkSize = Math.ceil(sortedIndices.length / numWorkers);
+        const chunks = [];
+        for (let i = 0; i < numWorkers; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, sortedIndices.length);
+            if (start < end) {
+                chunks.push(Array.from({ length: end - start }, (_, j) => start + j));
+            }
+        }
+        const resistanceCacheArray = Array.from(resistanceCache.entries());
+        this.calculationStats.totalCombinations = combinations.length * Math.min(combinations.length, 100);
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+        const startTime = Date.now();
+        const workers = [];
+        const workerPromises = [];
+        let allResults = [];
+        let processedChunks = 0;
+
+        for (let i = 0; i < chunks.length; i++) {
+            const worker = new Worker('resistor-worker.js');
+            workers.push(worker);
+            const promise = new Promise((resolve, reject) => {
+                worker.onmessage = (e) => {
+                    const { type } = e.data;
+                    if (type === 'initialized') {
+                        worker.postMessage({
+                            type: 'processUpadChunk',
+                            data: {
+                                rMidIndices: chunks[i],
+                                combinations,
+                                resistanceCacheArray,
+                                sortedIndices,
+                                supplyVoltage: this.supplyVoltage,
+                                targetVoltage: this.targetVoltage,
+                                allowOvershoot: this.allowOvershoot,
+                                targetRatio
+                            }
+                        });
+                    } else if (type === 'upadChunkComplete') {
+                        const { results, stats } = e.data;
+                        if (results && results.length > 0) {
+                            allResults = allResults.concat(results);
+                        }
+                        this.calculationStats.validCombinations += stats.validCombinations;
+                        this.calculationStats.voltageStats.above += stats.voltageStats.above;
+                        this.calculationStats.voltageStats.below += stats.voltageStats.below;
+                        this.calculationStats.voltageStats.exact += stats.voltageStats.exact;
+                        processedChunks++;
+                        if (progressCallback) {
+                            progressCallback(Math.floor((processedChunks / chunks.length) * 100), 100);
+                        }
+                        worker.terminate();
+                        resolve();
+                    } else if (type === 'error') {
+                        worker.terminate();
+                        reject(new Error(e.data.error));
+                    }
+                };
+                worker.onerror = (error) => {
+                    worker.terminate();
+                    reject(error);
+                };
+                worker.postMessage({
+                    type: 'init',
+                    data: {
+                        ResistorUtils: { series: ResistorUtils.series },
+                        resistorTolerances
+                    }
+                });
+            });
+            workerPromises.push(promise);
+        }
+
+        try {
+            await Promise.all(workerPromises);
+        } catch (error) {
+            console.error('Worker error:', error);
+            workers.forEach(w => w.terminate());
+            throw error;
+        }
+
+        const elapsed = (Date.now() - startTime) / 1000;
+        this.calculationStats.processingInfo = {
+            calculationTime: elapsed,
+            cpuCoresUsed: numWorkers,
+            processingMode: 'multi-core parallel'
+        };
+        if (progressCallback) {
+            progressCallback(100, 100);
+        }
+        return allResults;
+    }
+
+    findUpadCombinations() {
+        const combinations = this.generateCombinations(this.resistorValues);
+        const results = [];
+        this.calculationStats.totalCombinations = combinations.length * combinations.length;
+        this.calculationStats.validCombinations = 0;
+        this.calculationStats.voltageStats = { above: 0, below: 0, exact: 0 };
+
+        for (let i = 0; i < combinations.length; i++) {
+            const rLeg = combinations[i];
+            const rLegValue = this.calculateTotalResistance(rLeg);
+            if (!rLegValue || rLegValue === 0) continue;
+            for (let j = 0; j < combinations.length; j++) {
+                const rMid = combinations[j];
+                const rMidValue = this.calculateTotalResistance(rMid);
+                if (!rMidValue || rMidValue === 0) continue;
+                const outputVoltage = this.calculateUpadOutputVoltage(rLegValue, rMidValue, this.supplyVoltage);
+                const error = outputVoltage - this.targetVoltage;
+                if (this.allowOvershoot || error <= 0) {
+                    this.calculationStats.validCombinations++;
+                    if (Math.abs(error) < 0.0001) {
+                        this.calculationStats.voltageStats.exact++;
+                    } else if (error > 0) {
+                        this.calculationStats.voltageStats.above++;
+                    } else {
+                        this.calculationStats.voltageStats.below++;
+                    }
+                    const voltageRange = this.calculateUpadVoltageRange(rLeg, rMid, rLeg, this.supplyVoltage);
+                    results.push({
+                        r1: rLeg,
+                        r2: rMid,
+                        r3: rLeg,
+                        r1Value: rLegValue,
+                        r2Value: rMidValue,
+                        r3Value: rLegValue,
+                        outputVoltage,
+                        error,
+                        componentCount: this.getComponentCount({ r1: rLeg, r2: rMid, r3: rLeg }),
+                        voltageRange,
+                        totalResistance: 2 * rLegValue + rMidValue
+                    });
+                }
+            }
+        }
+        return results;
+    }
+
     // Calculate total number of components in a result
     getComponentCount(result) {
+        if (result.r3 != null) {
+            const r1Count = Array.isArray(result.r1) ? result.r1.length : 1;
+            const r2Count = Array.isArray(result.r2) ? result.r2.length : 1;
+            const r3Count = Array.isArray(result.r3) ? result.r3.length : 1;
+            return r1Count + r2Count + r3Count;
+        }
         const r1Count = Array.isArray(result.r1) ? result.r1.length : 1;
         const r2Count = Array.isArray(result.r2) ? result.r2.length : 1;
         return r1Count + r2Count;
@@ -921,6 +1263,7 @@ async function calculateAndDisplayResults() {
     
     // Check if we can use cached results
     let allResults;
+    const dividerMode = getDividerMode();
     const useCache = isCacheValid(calculator, activeResistors, calculator.supplyVoltage, calculator.targetVoltage, calculator.allowOvershoot);
     
     if (useCache) {
@@ -937,7 +1280,17 @@ async function calculateAndDisplayResults() {
             // Use parallel processing if supported and we have a large dataset
             const useParallel = webWorkerSupported && validResistors.length > 10;
             
-            if (useParallel) {
+            if (dividerMode === 'upad') {
+                if (useParallel) {
+                    allResults = await calculator.findUpadCombinationsParallel((processed, total) => {
+                        updateLoadingProgress(processed, total);
+                    });
+                } else {
+                    allResults = await calculator.findUpadCombinationsAsync((processed, total) => {
+                        updateLoadingProgress(processed, total);
+                    });
+                }
+            } else if (useParallel) {
                 allResults = await calculator.findVoltageDividerCombinationsParallel((processed, total) => {
                     updateLoadingProgress(processed, total);
                 });
@@ -1103,21 +1456,12 @@ async function calculateAndDisplayResults() {
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
-        // Helper to convert r1/r2 array to string for renderCustom
-        function sectionToString(section) {
-            if (Array.isArray(section)) {
-                // Use the .type property if present, otherwise default to 'series'
-                const type = section.type || 'series';
-                return section.map(v => v.value ?? v).join(',') + ',' + type;
-            } else {
-                // Single resistor, treat as series
-                return (section.value ?? section) + ',series';
-            }
-        }
-        const topSection = sectionToString(result.r1);
-        const bottomSection = sectionToString(result.r2);
-        const diagram = new Diagram(diagramContainer.id, 300, 220);
-        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
+        renderResultDiagram(
+            diagramContainer,
+            result,
+            supplyVoltageInput.value,
+            targetVoltageInput.value
+        );
     });
 
     // Initialize resistance filter slider with all results
@@ -1306,19 +1650,12 @@ function updateResultsDisplay(displayResults) {
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
         if (result) {
-        // Helper to convert r1/r2 array to string for renderCustom
-        function sectionToString(section) {
-            if (Array.isArray(section)) {
-                const type = section.type || 'series';
-                return section.map(v => v.value ?? v).join(',') + ',' + type;
-            } else {
-                return (section.value ?? section) + ',series';
-            }
-        }
-        const topSection = sectionToString(result.r1);
-        const bottomSection = sectionToString(result.r2);
-        const diagram = new Diagram(diagramContainer.id, 300, 220);
-            diagram.renderCustom(topSection, bottomSection, calculator.supplyVoltage, calculator.targetVoltage);
+            renderResultDiagram(
+                diagramContainer,
+                result,
+                calculator.supplyVoltage,
+                calculator.targetVoltage
+            );
         }
     });
 
@@ -1565,19 +1902,12 @@ function initializeResistanceFilter(results) {
                 document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
                     const result = filteredResults[idx];
                     if (result) {
-                        // Helper to convert r1/r2 array to string for renderCustom
-                        function sectionToString(section) {
-                            if (Array.isArray(section)) {
-                                const type = section.type || 'series';
-                                return section.map(v => v.value ?? v).join(',') + ',' + type;
-                            } else {
-                                return (section.value ?? section) + ',series';
-                            }
-                        }
-                        const topSection = sectionToString(result.r1);
-                        const bottomSection = sectionToString(result.r2);
-                        const diagram = new Diagram(diagramContainer.id, 300, 220);
-                        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
+                        renderResultDiagram(
+                            diagramContainer,
+                            result,
+                            supplyVoltageInput.value,
+                            targetVoltageInput.value
+                        );
                     }
                 });
 
@@ -1702,21 +2032,29 @@ function getSectionPowerStats(section, current, voltageDrop) {
 }
 
 function getPowerStatsForResult(result, supplyVoltage) {
-    const totalResistance = result.r1Value + result.r2Value;
+    const totalResistance = result.totalResistance ?? (result.r1Value + result.r2Value);
     const current = supplyVoltage / totalResistance;
     const vDropR1 = current * result.r1Value;
     const vDropR2 = current * result.r2Value;
     const r1Stats = getSectionPowerStats(result.r1, current, vDropR1);
     const r2Stats = getSectionPowerStats(result.r2, current, vDropR2);
-    const totalPower = r1Stats.total + r2Stats.total;
-    const maxComponentPower = Math.max(r1Stats.maxComponentPower, r2Stats.maxComponentPower);
+    let r3Stats = null;
+    let totalPower = r1Stats.total + r2Stats.total;
+    let maxComponentPower = Math.max(r1Stats.maxComponentPower, r2Stats.maxComponentPower);
+    if (result.r3 != null) {
+        const vDropR3 = current * (result.r3Value ?? result.r1Value);
+        r3Stats = getSectionPowerStats(result.r3, current, vDropR3);
+        totalPower += r3Stats.total;
+        maxComponentPower = Math.max(maxComponentPower, r3Stats.maxComponentPower);
+    }
 
     return {
         current,
         totalPower,
         maxComponentPower,
         r1Stats,
-        r2Stats
+        r2Stats,
+        r3Stats
     };
 }
 
@@ -1733,11 +2071,15 @@ function getPowerWarnings(powerStats, calculator) {
     };
     pushWarnings(powerStats.r1Stats.components);
     pushWarnings(powerStats.r2Stats.components);
+    if (powerStats.r3Stats) {
+        pushWarnings(powerStats.r3Stats.components);
+    }
     return warnings;
 }
 
 // Function to render the results display
 function renderResults(displayResults, calculator) {
+    const isUpad = getDividerMode() === 'upad';
     if (displayResults.length === 0) {
         return `
             <div class="results-section">
@@ -1754,8 +2096,8 @@ function renderResults(displayResults, calculator) {
             <h3>Solutions <div class="help-tooltip" style="display: inline-block; margin-left: 8px;">
                 ?
                 <span class="tooltip-text">
-                    'Error' indicates how far this divider is away from the target Vout<br><br>
-                    'Real world range' Indicates the possible range which Vout may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exists but they are typically no worse then 5% tolerance as an E24 value
+                    'Error' indicates how far this solution is away from the target V<sub>out</sub><br><br>
+                    'Real world range' indicates the possible range which V<sub>out</sub> may fall in when accounting for the tolerances of real life resistors. This assumes the worst case for a given value e.g. a 1% tolerance 1K3 may exist but they are typically no worse than 5% tolerance as an E24 value
                 </span>
             </div></h3>
             <div id="resultsList">
@@ -1766,22 +2108,42 @@ function renderResults(displayResults, calculator) {
                     const warningHtml = warnings.length
                         ? `<div class="result-warning">Power warning: ${warnings.join(', ')}</div>`
                         : '';
+                    const rTopRow = `
+                                    <tr>
+                                        <td><strong>R<sub>TOP</sub></strong></td>
+                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
+                                    </tr>`;
+                    const rMidRow = isUpad ? `
+                                    <tr>
+                                        <td><strong>R<sub>MID</sub></strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>` : '';
+                    const rBotRow = isUpad ? `
+                                    <tr>
+                                        <td><strong>R<sub>BOT</sub></strong></td>
+                                        <td>${Array.isArray(result.r3) ? `${calculator.formatResistorArray(result.r3)} = ${calculator.formatResistorValue(result.r3Value)}` : calculator.formatResistorValue(result.r3Value)} <span class="upad-match-note">(nominal match to R<sub>TOP</sub>)</span></td>
+                                    </tr>` : `
+                                    <tr>
+                                        <td><strong>R<sub>BOT</sub></strong></td>
+                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
+                                    </tr>`;
+                    const ratioLabel = isUpad
+                        ? '<strong>R<sub>TOP</sub>:R<sub>MID</sub> ratio</strong>'
+                        : '<strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong>';
+                    const ratioValue = isUpad ? formatRatio(result.r1Value, result.r2Value) : formatRatio(result.r1Value, result.r2Value);
+                    const powerRow = isUpad
+                        ? `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`
+                        : `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
                     return `
                     <div class="result-item" data-index="${index}" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
                        <div class="result-content">
                             <table class="result-table">
                                 <tbody>
+                                    ${rTopRow}
+                                    ${isUpad ? rMidRow + rBotRow : rBotRow}
                                     <tr>
-                                        <td><strong>R<sub>TOP</sub></strong></td>
-                                        <td>${Array.isArray(result.r1) ? `${calculator.formatResistorArray(result.r1)} = ${calculator.formatResistorValue(result.r1Value)}` : calculator.formatResistorValue(result.r1Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>R<sub>BOT</sub></strong></td>
-                                        <td>${Array.isArray(result.r2) ? `${calculator.formatResistorArray(result.r2)} = ${calculator.formatResistorValue(result.r2Value)}` : calculator.formatResistorValue(result.r2Value)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>R<sub>TOP</sub>:R<sub>BOT</sub> ratio</strong></td>
-                                        <td>${formatRatio(result.r1Value, result.r2Value)}</td>
+                                        <td>${ratioLabel}</td>
+                                        <td>${ratioValue}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Total Resistance</strong></td>
@@ -1805,7 +2167,7 @@ function renderResults(displayResults, calculator) {
                                     </tr>
                                     <tr>
                                         <td><strong>Power Dissipation</strong></td>
-                                        <td class="power-values">R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}</td>
+                                        <td class="power-values">${powerRow}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Min package size recommendation</strong></td>
@@ -1820,7 +2182,7 @@ function renderResults(displayResults, calculator) {
                             ${warningHtml}
                         </div>
                         <div class="result-diagram" id="diagram-${index}">
-                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage})" title="Download diagram as PNG">
+                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, ${isUpad})" title="Download diagram as PNG">
                                 <i class="fas fa-download"></i>
                             </button>
                         </div>
@@ -1832,6 +2194,7 @@ function renderResults(displayResults, calculator) {
 }
 
 function initializeResultCardSliders(displayResults, calculator) {
+    const isUpad = getDividerMode() === 'upad';
     displayResults.forEach((result, index) => {
         const slider = document.getElementById(`solution-slider-${index}`);
         if (!slider) return;
@@ -1868,13 +2231,20 @@ function initializeResultCardSliders(displayResults, calculator) {
                 sliderValue.textContent = newVoltage.toFixed(1);
             }
 
-            const outputVoltage = (result.r2Value / (result.r1Value + result.r2Value)) * newVoltage;
+            let outputVoltage;
+            let range;
+            if (isUpad && result.r3 != null) {
+                outputVoltage = calculator.calculateUpadOutputVoltage(result.r1Value, result.r2Value, newVoltage);
+                range = calculator.calculateUpadVoltageRange(result.r1, result.r2, result.r3, newVoltage);
+            } else {
+                outputVoltage = (result.r2Value / (result.r1Value + result.r2Value)) * newVoltage;
+                range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
+            }
             const outputElement = card.querySelector('.output-voltage');
             if (outputElement) {
                 outputElement.textContent = outputVoltage.toFixed(2);
             }
 
-            const range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
             const rangeElement = card.querySelector('.voltage-range');
             if (rangeElement) {
                 rangeElement.textContent = `${range.min.toFixed(2)} V to ${range.max.toFixed(2)} V`;
@@ -1883,7 +2253,11 @@ function initializeResultCardSliders(displayResults, calculator) {
             const powerStats = getPowerStatsForResult(result, newVoltage);
             const powerElement = card.querySelector('.power-values');
             if (powerElement) {
-                powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
+                if (isUpad && result.r3 != null) {
+                    powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
+                } else {
+                    powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
+                }
             }
 
             const packageRec = getPackageRecommendation(powerStats.maxComponentPower);
@@ -1909,7 +2283,7 @@ function initializeResultCardSliders(displayResults, calculator) {
 }
 
 // Function to convert SVG to PNG and download
-function downloadDiagram(index, r1Value, r2Value, outputVoltage) {
+function downloadDiagram(index, r1Value, r2Value, outputVoltage, isUpad = false) {
     const diagramElement = document.getElementById(`diagram-${index}`);
     const svgElement = diagramElement.querySelector('svg');
     
@@ -1924,11 +2298,11 @@ function downloadDiagram(index, r1Value, r2Value, outputVoltage) {
     const supplyVoltage = parseFloat(document.getElementById('supplyVoltage').value);
     const targetVoltage = parseFloat(document.getElementById('targetVoltage').value);
     
-    // Create filename in required format: voltagedivider-vsupply-vout-r1-r2.png
     const calculator = new ResistorCalculator();
-    const r1Formatted = calculator.formatResistorValue(r1Value).replace(/[^\w]/g, ''); // Remove special chars
-    const r2Formatted = calculator.formatResistorValue(r2Value).replace(/[^\w]/g, ''); // Remove special chars
-    const filename = `voltagedivider-${supplyVoltage}V-${targetVoltage}V-${r1Formatted}-${r2Formatted}.png`;
+    const r1Formatted = calculator.formatResistorValue(r1Value).replace(/[^\w]/g, '');
+    const r2Formatted = calculator.formatResistorValue(r2Value).replace(/[^\w]/g, '');
+    const prefix = isUpad ? 'upad' : 'voltagedivider';
+    const filename = `${prefix}-${supplyVoltage}V-${targetVoltage}V-${r1Formatted}-${r2Formatted}.png`;
     
     const annotations = [];
     if (card) {

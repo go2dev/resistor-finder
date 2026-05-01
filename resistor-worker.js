@@ -109,11 +109,26 @@ function calculateVoltageRange(r1, r2, supplyVoltage) {
     };
 }
 
+function calculateUpadVoltageRange(rLegTop, rMid, rLegBot, supplyVoltage) {
+    const b1 = calculateSectionBounds(rLegTop);
+    const b2 = calculateSectionBounds(rMid);
+    const b3 = calculateSectionBounds(rLegBot);
+    const vmax = supplyVoltage * (b2.upper + b3.upper) / (b1.lower + b2.upper + b3.upper);
+    const vmin = supplyVoltage * (b2.lower + b3.lower) / (b1.upper + b2.lower + b3.lower);
+    return { min: vmin, max: vmax };
+}
+
 // Get component count
 function getComponentCount(r1, r2) {
     const r1Count = Array.isArray(r1) ? r1.length : 1;
     const r2Count = Array.isArray(r2) ? r2.length : 1;
     return r1Count + r2Count;
+}
+
+function getUpadComponentCount(rLeg, rMid) {
+    const legCount = Array.isArray(rLeg) ? rLeg.length : 1;
+    const midCount = Array.isArray(rMid) ? rMid.length : 1;
+    return 2 * legCount + midCount;
 }
 
 // Process a chunk of R2 indices
@@ -255,6 +270,130 @@ function processChunk(data) {
     return { results, stats };
 }
 
+function processUpadChunk(data) {
+    const {
+        rMidIndices,
+        combinations,
+        resistanceCacheArray,
+        sortedIndices,
+        supplyVoltage,
+        targetVoltage,
+        allowOvershoot,
+        targetRatio
+    } = data;
+
+    const resistanceCache = new Map(resistanceCacheArray);
+    const results = [];
+    const seenRatios = new Map();
+    const stats = {
+        processed: 0,
+        skipped: 0,
+        validCombinations: 0,
+        voltageStats: {
+            above: 0,
+            below: 0,
+            exact: 0
+        }
+    };
+
+    for (const j of rMidIndices) {
+        const rMidIdx = sortedIndices[j];
+        const rMidValue = resistanceCache.get(rMidIdx);
+        if (!rMidValue || rMidValue === 0) continue;
+
+        const idealLeg = rMidValue * (1 / targetRatio - 1) / 2;
+        let left = 0;
+        let right = sortedIndices.length - 1;
+        let closestIdx = 0;
+        let minDiff = Infinity;
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const midValue = resistanceCache.get(sortedIndices[mid]);
+            const diff = Math.abs(midValue - idealLeg);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = mid;
+            }
+            if (midValue < idealLeg) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
+        const startIdx = Math.max(0, closestIdx - testRange);
+        const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
+
+        for (let k = startIdx; k <= endIdx; k++) {
+            const rLegIdx = sortedIndices[k];
+            const rLegValue = resistanceCache.get(rLegIdx);
+            if (!rLegValue || rLegValue === 0) continue;
+
+            const denom = 2 * rLegValue + rMidValue;
+            const ratio = (rMidValue + rLegValue) / denom;
+            const ratioKey = ratio.toFixed(10);
+            const existingEntry = seenRatios.get(ratioKey);
+            if (existingEntry) {
+                const totalR = 2 * rLegValue + rMidValue;
+                const componentCount = getUpadComponentCount(combinations[rLegIdx], combinations[rMidIdx]);
+                if (
+                    componentCount > existingEntry.componentCount
+                    || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                ) {
+                    stats.processed++;
+                    stats.skipped++;
+                    continue;
+                }
+            }
+
+            const outputVoltage = ratio * supplyVoltage;
+            const error = outputVoltage - targetVoltage;
+
+            if (allowOvershoot || error <= 0) {
+                stats.validCombinations++;
+                if (Math.abs(error) < 0.0001) {
+                    stats.voltageStats.exact++;
+                } else if (error > 0) {
+                    stats.voltageStats.above++;
+                } else {
+                    stats.voltageStats.below++;
+                }
+
+                const rLegCombo = combinations[rLegIdx];
+                const voltageRange = calculateUpadVoltageRange(
+                    rLegCombo,
+                    combinations[rMidIdx],
+                    rLegCombo,
+                    supplyVoltage
+                );
+                const result = {
+                    r1: rLegCombo,
+                    r2: combinations[rMidIdx],
+                    r3: rLegCombo,
+                    r1Value: rLegValue,
+                    r2Value: rMidValue,
+                    r3Value: rLegValue,
+                    outputVoltage,
+                    error,
+                    componentCount: getUpadComponentCount(rLegCombo, combinations[rMidIdx]),
+                    voltageRange,
+                    totalResistance: 2 * rLegValue + rMidValue
+                };
+                results.push(result);
+                seenRatios.set(ratioKey, {
+                    totalR: result.totalResistance,
+                    componentCount: result.componentCount,
+                    result
+                });
+            }
+            stats.processed++;
+        }
+    }
+
+    return { results, stats };
+}
+
 // Message handler
 self.addEventListener('message', function(e) {
     const { type, data } = e.data;
@@ -280,6 +419,22 @@ self.addEventListener('message', function(e) {
                 self.postMessage({ 
                     type: 'error', 
                     error: error.message 
+                });
+            }
+            break;
+
+        case 'processUpadChunk':
+            try {
+                const result = processUpadChunk(data);
+                self.postMessage({
+                    type: 'upadChunkComplete',
+                    results: result.results,
+                    stats: result.stats
+                });
+            } catch (error) {
+                self.postMessage({
+                    type: 'error',
+                    error: error.message
                 });
             }
             break;

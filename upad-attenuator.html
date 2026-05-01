@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voltage Divider Resistor Calculator</title>
+    <title>U-Pad Attenuator Resistor Calculator</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="nuis/nouislider.css">
     <link
@@ -12,7 +12,7 @@
 />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body data-page="voltage-divider" data-divider-mode="divider">
+<body data-page="voltage-divider" data-divider-mode="upad">
     <div class="theme-toggle-fixed">
         <label class="theme-switch theme-switch-dark" for="checkbox">
             <input type="checkbox" id="checkbox" />
@@ -23,12 +23,12 @@
         </label>
     </div>
     <div class="container">
-        <h1>Voltage Divider Resistor Calculator
+        <h1>U-Pad Attenuator Resistor Calculator
             <div class="help-tooltip">
                 ?
                 <span class="tooltip-text">
-                    Find the best resistor combinations for a voltage divider circuit from a fixed list of resistor values.
-                    Enter your available resistor values, supply voltage, and target output voltage to find optimal combinations.
+                    Find resistor triples (R<sub>TOP</sub>, R<sub>MID</sub>, R<sub>BOT</sub>) from your available values with R<sub>TOP</sub> = R<sub>BOT</sub> for a symmetric U-pad.
+                    Supply and target voltages set the required attenuation (same transfer as a divider with R<sub>TOP</sub>+R<sub>BOT</sub> in series to ground and R<sub>MID</sub> to the tap).
                     <br><br>
                     Works best on desktop.
                     <br><br>
@@ -39,26 +39,26 @@
 
         <div id="topNav"></div>
         <div class="mode-tabs" id="dividerModeTabs" role="tablist" aria-label="Calculator mode">
-            <a href="index.html" class="mode-tab active" data-mode="divider">Voltage divider</a>
-            <a href="upad-attenuator.html" class="mode-tab" data-mode="upad">U-pad attenuator</a>
+            <a href="index.html" class="mode-tab" data-mode="divider">Voltage divider</a>
+            <a href="upad-attenuator.html" class="mode-tab active" data-mode="upad">U-pad attenuator</a>
         </div>
-        
+
         <div class="main-content">
             <div class="input-section">
                 <div id="resistorInputSection"></div>
-                
+
                 <div class="voltage-inputs">
                     <div class="input-group">
-                        <label for="supplyVoltage">Supply Voltage (V<sub>supply</sub>):</label>
+                        <label for="supplyVoltage">Supply Voltage (V<sub>in</sub>):</label>
                         <input type="number" id="supplyVoltage" value="5" step="0.1">
                     </div>
-                    
+
                     <div class="input-group">
                         <label for="targetVoltage">Target Voltage (V<sub>out</sub>):</label>
                         <input type="number" id="targetVoltage" value="3.3">
                     </div>
                 </div>
-                
+
                 <button id="calculateBtn">Calculate Combinations</button>
             </div>
 
@@ -75,7 +75,7 @@
                             <div class="help-tooltip">
                                 ?
                                 <span class="tooltip-text">
-                                    When enabled, the calculator will include combinations that produce voltages above the target voltage. 
+                                    When enabled, the calculator will include combinations that produce voltages above the target voltage.
                                     This can be useful when you need to find the closest possible match, even if it exceeds your target.
                                 </span>
                                                     </div>
@@ -110,8 +110,7 @@
         </div>
 
         <div id="results" class="results-container"></div>
-        
-        <!-- Loading spinner -->
+
         <div id="loadingSpinner" class="loading-spinner" style="display: none;">
             <div class="spinner"></div>
             <p>Calculating combinations...</p>
@@ -125,4 +124,4 @@
     <script src="schematic.js"></script>
     <script src="nuis/nouislider.js"></script>
 </body>
-</html> 
+</html>

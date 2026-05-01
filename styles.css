@@ -393,6 +393,42 @@ label {
     font-weight: 600;
 }
 
+.mode-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0.35rem;
+    margin: 0 0 1.25rem;
+    flex-wrap: wrap;
+}
+
+.mode-tab {
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--squircle-radius-sm);
+    border: 1px solid var(--input-border);
+    background-color: var(--result-bg);
+    font-size: 0.9rem;
+}
+
+.mode-tab:hover {
+    color: var(--text-color);
+    border-color: var(--input-focus-border);
+}
+
+.mode-tab.active {
+    color: var(--text-color);
+    border-color: var(--accent-color);
+    background-color: var(--container-bg);
+    font-weight: 600;
+}
+
+.upad-match-note {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    font-weight: normal;
+}
+
 .inline-option {
     margin-top: 0.5rem;
 }

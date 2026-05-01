@@ -658,4 +658,80 @@ class Diagram {
         // Ground
         this.svg.appendChild(this.schematic.drawGround(centerX, currY));
     }
+
+    /**
+     * Symmetric U-pad: Rtop from Vin to tap, Rmid from tap to node, Rbot from node to GND (Rtop === Rbot nominal).
+     * topSectionStr / botSectionStr use the same parse format as renderCustom (value,...,series|parallel).
+     */
+    renderUpad(topSectionStr, midSectionStr, bottomSectionStr, supplyVoltage, targetVoltage) {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const topSection = this.parseSection(topSectionStr);
+        const midSection = this.parseSection(midSectionStr);
+        const bottomSection = this.parseSection(bottomSectionStr);
+
+        const getRequiredHeight = (section) => {
+            if (section.type === 'series') {
+                return section.values.length * 50 + 35;
+            }
+            if (section.type === 'parallel') {
+                return 35 + 20;
+            }
+            return 50;
+        };
+
+        const topHeight = getRequiredHeight(topSection);
+        const midHeight = getRequiredHeight(midSection);
+        const botHeight = getRequiredHeight(bottomSection);
+        const baseHeight = 30 + 20 + 20 + 10 + 20 + 30;
+        const totalHeight = Math.max(260, baseHeight + topHeight + midHeight + botHeight);
+
+        const width = 300;
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${totalHeight}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', totalHeight);
+
+        const centerX = width / 2;
+        let currY = 30;
+
+        this.svg.appendChild(this.schematic.drawVCC(centerX, currY, supplyVoltage));
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX, currY + 20));
+        currY += 20;
+
+        const topRes = this.renderSection(topSection, centerX, currY, true);
+        currY = topRes.end[1] + 20;
+
+        const junctionRadius = 4;
+        this.svg.appendChild(this.schematic.drawWire(centerX, topRes.end[1], centerX, currY));
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', centerX);
+        circle.setAttribute('cy', currY);
+        circle.setAttribute('r', junctionRadius);
+        circle.setAttribute('stroke', this.schematic.styles.stroke);
+        circle.setAttribute('stroke-width', this.schematic.styles.strokeWidth);
+        circle.setAttribute('fill', '#000');
+        this.svg.appendChild(circle);
+
+        const hWireLen = width / 2 - 60;
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX + hWireLen, currY));
+        const voutLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        voutLabel.setAttribute('x', centerX + hWireLen + 30);
+        voutLabel.setAttribute('y', currY - 8);
+        voutLabel.setAttribute('font-size', '12px');
+        voutLabel.setAttribute('text-anchor', 'end');
+        voutLabel.textContent = `Vout [${targetVoltage}V]`;
+        this.svg.appendChild(voutLabel);
+
+        currY += junctionRadius + 10;
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY - junctionRadius - 10, centerX, currY));
+
+        const midRes = this.renderSection(midSection, centerX, currY, false);
+        currY = midRes.end[1] + 20;
+
+        const botRes = this.renderSection(bottomSection, centerX, currY, false);
+        currY = botRes.end[1] + 20;
+
+        this.svg.appendChild(this.schematic.drawWire(centerX, botRes.end[1], centerX, currY));
+        this.svg.appendChild(this.schematic.drawGround(centerX, currY));
+    }
 } 
