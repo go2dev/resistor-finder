@@ -837,6 +837,8 @@ async function calculateAndDisplayResults() {
                 formatted: calculator.formatResistorValue(parsed.value),
                 input: value,
                 source: parsed.source,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
+                jlcBasicMeta: ResistorUtils.getJlcBasicMeta(parsed.value),
                 active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             };
             validResistors.push(resistorEntry);
@@ -854,6 +856,8 @@ async function calculateAndDisplayResults() {
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 debug: parsed.debug,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
+                jlcBasicMeta: ResistorUtils.getJlcBasicMeta(parsed.value),
                 active: activeStateMap.has(key) ? activeStateMap.get(key) : true
             });
         } else {
@@ -1270,6 +1274,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         tooltips.forEach(tooltip => positionTooltip(tooltip));
     });
+
+    if (window.JlcBasicCatalog) {
+        window.JlcBasicCatalog.init().then(() => {
+            window.CommonUI?.refreshJlcBasicParsedBoxes?.();
+        });
+    }
 });
 
 // Add this function at the end of the file, before the last closing brace

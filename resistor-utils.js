@@ -63,6 +63,58 @@ const ResistorUtils = {
         E192: 0.5
     },
 
+    _jlcBasicOhmSet: null,
+
+    buildJlcBasicOhmSetFromLut() {
+        const set = new Set();
+        for (const token of this.luts.JLC_BASIC) {
+            try {
+                set.add(this.parseResistorValue(token));
+            } catch {
+                /* ignore */
+            }
+        }
+        return set;
+    },
+
+    setJlcBasicOhmSet(ohmSet) {
+        if (ohmSet instanceof Set) {
+            this._jlcBasicOhmSet = ohmSet;
+        }
+    },
+
+    getJlcBasicOhmSet() {
+        if (!this._jlcBasicOhmSet) {
+            this._jlcBasicOhmSet = this.buildJlcBasicOhmSetFromLut();
+        }
+        return this._jlcBasicOhmSet;
+    },
+
+    isJlcBasicResistance(ohms) {
+        if (typeof ohms !== 'number' || !Number.isFinite(ohms) || ohms < 0) return false;
+        const set = this.getJlcBasicOhmSet();
+        for (const ref of set) {
+            const tol = Math.max(1e-12, Math.min(ohms, ref) * 1e-9);
+            if (Math.abs(ohms - ref) <= tol) return true;
+        }
+        return false;
+    },
+
+    getJlcBasicMeta(ohms) {
+        if (typeof ohms !== 'number' || !Number.isFinite(ohms) || ohms < 0) return null;
+        const catalog = typeof globalThis !== 'undefined' ? globalThis.JlcBasicCatalog : null;
+        if (catalog && typeof catalog.getMetaForOhms === 'function') {
+            const m = catalog.getMetaForOhms(ohms);
+            if (m && (m.packages.length || m.tolerances.length)) {
+                return { ...m, detailSource: 'catalog' };
+            }
+        }
+        if (this.isJlcBasicResistance(ohms)) {
+            return { packages: [], tolerances: [], detailSource: 'lut' };
+        }
+        return null;
+    },
+
     getEia96BaseValues() {
         return this.series.E96.map(value => Math.round(value * 100));
     },
