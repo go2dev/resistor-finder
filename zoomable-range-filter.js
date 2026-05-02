@@ -204,6 +204,46 @@
 
         let suppressSyncFilterFromView = false;
 
+        function resetMainChartGraphics() {
+            gBars = null;
+            gRug = null;
+            gAxis = null;
+            zoomLayer = null;
+            zoomBehavior = null;
+            xFullScale = null;
+        }
+
+        function resetOverviewGraphics() {
+            gOvBins = null;
+            gOvOverlay = null;
+            gOvAxis = null;
+        }
+
+        function ensureOverviewGroups() {
+            if (!overviewSvg) return;
+            const ov = d3.select(overviewSvg);
+            if (!gOvBins || !overviewSvg.contains(gOvBins.node())) {
+                ov.selectAll('g').remove();
+                resetOverviewGraphics();
+                gOvBins = ov.append('g').attr('class', 'zrf-ov-bins');
+                gOvOverlay = ov.append('g').attr('class', 'zrf-ov-overlay');
+                gOvAxis = ov.append('g').attr('class', 'zrf-ov-axis');
+            }
+        }
+
+        function ensureMainChartGroups() {
+            if (!svg) return;
+            const rootSvg = d3.select(svg);
+            if (!gBars || !svg.contains(gBars.node())) {
+                rootSvg.selectAll('g').remove();
+                rootSvg.select('rect.zoom-layer').remove();
+                resetMainChartGraphics();
+                gBars = rootSvg.append('g').attr('class', 'zrf-bars');
+                gRug = rootSvg.append('g').attr('class', 'zrf-rug');
+                gAxis = rootSvg.append('g').attr('class', 'zrf-axis');
+            }
+        }
+
         let propFullMinRef = propFullMin;
         let propFullMaxRef = propFullMax;
 
@@ -531,11 +571,7 @@
             const maxLen = d3.max(bins, b => b.length) || 1;
             const y = d3.scaleLinear().domain([0, maxLen]).range([hBar - 6, 2]);
 
-            if (!gOvBins) {
-                gOvBins = overviewSvg.append('g').attr('class', 'zrf-ov-bins');
-                gOvOverlay = overviewSvg.append('g').attr('class', 'zrf-ov-overlay');
-                gOvAxis = overviewSvg.append('g').attr('class', 'zrf-ov-axis');
-            }
+            ensureOverviewGroups();
 
             gOvBins.selectAll('rect')
                 .data(bins)
@@ -612,11 +648,7 @@
             const maxLen = d3.max(bins, b => b.length) || 1;
             const y = d3.scaleLinear().domain([0, maxLen]).range([h - 4, 4]);
 
-            if (!gBars) {
-                gBars = svg.append('g').attr('class', 'zrf-bars');
-                gRug = svg.append('g').attr('class', 'zrf-rug');
-                gAxis = svg.append('g').attr('class', 'zrf-axis');
-            }
+            ensureMainChartGroups();
 
             gBars.selectAll('rect')
                 .data(bins)
@@ -646,12 +678,14 @@
             gAxis.attr('transform', `translate(0, ${h})`).call(axis);
 
             if (!zoomLayer) {
-                zoomLayer = svg.append('rect')
+                const rootSvg = d3.select(svg);
+                zoomLayer = rootSvg.append('rect')
                     .attr('class', 'zoom-layer')
                     .attr('x', 0)
                     .attr('y', 0)
                     .attr('height', h + axisPad)
-                    .style('fill', 'transparent');
+                    .style('fill', 'transparent')
+                    .node();
 
                 xFullScale = d3.scaleLinear().domain([fullMin, fullMax]).range([0, width]);
 
@@ -680,13 +714,13 @@
                         }
                     });
 
-                zoomLayer.call(zoomBehavior);
+                d3.select(zoomLayer).call(zoomBehavior);
             }
 
             refreshZoomExtent(width);
-            zoomLayer.attr('width', width);
+            d3.select(zoomLayer).attr('width', width);
             suppressZoom = true;
-            zoomLayer.call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, width));
+            d3.select(zoomLayer).call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, width));
             suppressZoom = false;
 
             drawOverviewFullDomain(width);
@@ -699,7 +733,7 @@
                 drawOverviewFullDomain(width);
                 drawChart(width);
             } else if (zoomLayer) {
-                zoomLayer.attr('width', width);
+                d3.select(zoomLayer).attr('width', width);
             }
             if (showHistogram && showFullRangeOverview && results.length === 0 && overviewWrap) {
                 overviewWrap.hidden = true;
@@ -713,7 +747,7 @@
             const w = parseFloat(svg.getAttribute('width')) || container.clientWidth || 400;
             refreshZoomExtent(w);
             suppressZoom = true;
-            zoomLayer.call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, w));
+            d3.select(zoomLayer).call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, w));
             suppressZoom = false;
         }
 
@@ -844,15 +878,8 @@
                     sliderEl.noUiSlider.destroy();
                     sliderApi = null;
                 }
-                gBars = null;
-                gRug = null;
-                gAxis = null;
-                gOvBins = null;
-                gOvOverlay = null;
-                gOvAxis = null;
-                zoomLayer = null;
-                zoomBehavior = null;
-                xFullScale = null;
+                resetMainChartGraphics();
+                resetOverviewGraphics();
                 if (svg) {
                     svg.innerHTML = '';
                 }
