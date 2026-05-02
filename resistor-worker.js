@@ -109,11 +109,64 @@ function calculateVoltageRange(r1, r2, supplyVoltage) {
     };
 }
 
+function calculateUpadVoltageRange(rLegTop, rMid, rLegBot, supplyVoltage) {
+    const b1 = calculateSectionBounds(rLegTop);
+    const b2 = calculateSectionBounds(rMid);
+    const b3 = calculateSectionBounds(rLegBot);
+    const vmax = supplyVoltage * (b2.upper + b3.upper) / (b1.lower + b2.upper + b3.upper);
+    const vmin = supplyVoltage * (b2.lower + b3.lower) / (b1.upper + b2.lower + b3.lower);
+    return { min: vmin, max: vmax };
+}
+
+function upadLoadedTapRatioWorker(rLeg, rMid, zLoad) {
+    if (!Number.isFinite(rLeg) || !Number.isFinite(rMid) || rLeg <= 0 || rMid <= 0) return 0;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        const denom = 2 * rLeg + rMid;
+        return denom > 0 ? (rMid + rLeg) / denom : 0;
+    }
+    const sumMidBot = rMid + rLeg;
+    const req = (sumMidBot * zLoad) / (sumMidBot + zLoad);
+    const den = rLeg + req;
+    return den > 0 ? req / den : 0;
+}
+
+function idealUpadLegForMid(rMid, targetRatio, zLoad) {
+    if (!Number.isFinite(rMid) || rMid <= 0 || !Number.isFinite(targetRatio) || targetRatio <= 0 || targetRatio >= 1) {
+        return NaN;
+    }
+    const t = targetRatio;
+    const M = rMid;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        return (M / 2) * (1 / t - 1);
+    }
+    const Z = zLoad;
+    const a = t;
+    const b = t * M + 2 * t * Z - Z;
+    const c = -Z * M * (1 - t);
+    if (Math.abs(a) < 1e-30) return NaN;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) return NaN;
+    const sqrtD = Math.sqrt(disc);
+    const r1 = (-b + sqrtD) / (2 * a);
+    const r2 = (-b - sqrtD) / (2 * a);
+    const pick = (x) => (Number.isFinite(x) && x > 0 ? x : NaN);
+    const x1 = pick(r1);
+    const x2 = pick(r2);
+    if (Number.isFinite(x1) && Number.isFinite(x2)) return Math.min(x1, x2);
+    return Number.isFinite(x1) ? x1 : x2;
+}
+
 // Get component count
 function getComponentCount(r1, r2) {
     const r1Count = Array.isArray(r1) ? r1.length : 1;
     const r2Count = Array.isArray(r2) ? r2.length : 1;
     return r1Count + r2Count;
+}
+
+function getUpadComponentCount(rLeg, rMid) {
+    const legCount = Array.isArray(rLeg) ? rLeg.length : 1;
+    const midCount = Array.isArray(rMid) ? rMid.length : 1;
+    return 2 * legCount + midCount;
 }
 
 // Process a chunk of R2 indices
@@ -255,6 +308,278 @@ function processChunk(data) {
     return { results, stats };
 }
 
+function processUpadChunk(data) {
+    const {
+        rMidIndices,
+        combinations,
+        resistanceCacheArray,
+        sortedIndices,
+        supplyVoltage,
+        targetVoltage,
+        allowOvershoot,
+        targetRatio,
+        upadZLoad
+    } = data;
+
+    const resistanceCache = new Map(resistanceCacheArray);
+    const results = [];
+    const seenRatios = new Map();
+    const zLoad = Number.isFinite(upadZLoad) && upadZLoad > 0 ? upadZLoad : 0;
+    const stats = {
+        processed: 0,
+        skipped: 0,
+        validCombinations: 0,
+        voltageStats: {
+            above: 0,
+            below: 0,
+            exact: 0
+        }
+    };
+
+    for (const j of rMidIndices) {
+        const rMidIdx = sortedIndices[j];
+        const rMidValue = resistanceCache.get(rMidIdx);
+        if (!rMidValue || rMidValue === 0) continue;
+
+        const idealLeg = idealUpadLegForMid(rMidValue, targetRatio, zLoad);
+        if (!Number.isFinite(idealLeg) || idealLeg <= 0) continue;
+
+        let left = 0;
+        let right = sortedIndices.length - 1;
+        let closestIdx = 0;
+        let minDiff = Infinity;
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const midValue = resistanceCache.get(sortedIndices[mid]);
+            const diff = Math.abs(midValue - idealLeg);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = mid;
+            }
+            if (midValue < idealLeg) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
+        const startIdx = Math.max(0, closestIdx - testRange);
+        const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
+
+        for (let k = startIdx; k <= endIdx; k++) {
+            const rLegIdx = sortedIndices[k];
+            const rLegValue = resistanceCache.get(rLegIdx);
+            if (!rLegValue || rLegValue === 0) continue;
+
+            const ratio = upadLoadedTapRatioWorker(rLegValue, rMidValue, zLoad);
+            const ratioKey = ratio.toFixed(10);
+            const existingEntry = seenRatios.get(ratioKey);
+            if (existingEntry) {
+                const totalR = 2 * rLegValue + rMidValue;
+                const componentCount = getUpadComponentCount(combinations[rLegIdx], combinations[rMidIdx]);
+                if (
+                    componentCount > existingEntry.componentCount
+                    || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                ) {
+                    stats.processed++;
+                    stats.skipped++;
+                    continue;
+                }
+            }
+
+            const outputVoltage = ratio * supplyVoltage;
+            const error = outputVoltage - targetVoltage;
+
+            if (allowOvershoot || error <= 0) {
+                stats.validCombinations++;
+                if (Math.abs(error) < 0.0001) {
+                    stats.voltageStats.exact++;
+                } else if (error > 0) {
+                    stats.voltageStats.above++;
+                } else {
+                    stats.voltageStats.below++;
+                }
+
+                const rLegCombo = combinations[rLegIdx];
+                const voltageRange = calculateUpadVoltageRange(
+                    rLegCombo,
+                    combinations[rMidIdx],
+                    rLegCombo,
+                    supplyVoltage
+                );
+                const result = {
+                    attenuatorKind: 'u',
+                    r1: rLegCombo,
+                    r2: combinations[rMidIdx],
+                    r3: rLegCombo,
+                    r1Value: rLegValue,
+                    r2Value: rMidValue,
+                    r3Value: rLegValue,
+                    outputVoltage,
+                    error,
+                    componentCount: getUpadComponentCount(rLegCombo, combinations[rMidIdx]),
+                    voltageRange,
+                    totalResistance: 2 * rLegValue + rMidValue
+                };
+                results.push(result);
+                seenRatios.set(ratioKey, {
+                    totalR: result.totalResistance,
+                    componentCount: result.componentCount,
+                    result
+                });
+            }
+            stats.processed++;
+        }
+    }
+
+    return { results, stats };
+}
+
+function idealLpadSeriesForShuntWorker(rShunt, zLoad, targetRatio) {
+    if (!Number.isFinite(rShunt) || rShunt <= 0 || !Number.isFinite(targetRatio) || targetRatio <= 0 || targetRatio >= 1) {
+        return NaN;
+    }
+    const t = targetRatio;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        return rShunt * (1 / t - 1);
+    }
+    const req = 1 / (1 / rShunt + 1 / zLoad);
+    if (!Number.isFinite(req) || req <= 0) return NaN;
+    return req * (1 / t - 1);
+}
+
+function lpadLoadedTapRatioWorker(rSeries, rShunt, zLoad) {
+    if (!Number.isFinite(rSeries) || !Number.isFinite(rShunt) || rSeries <= 0 || rShunt <= 0) return 0;
+    if (!Number.isFinite(zLoad) || zLoad <= 0) {
+        const denom = rSeries + rShunt;
+        return denom > 0 ? rShunt / denom : 0;
+    }
+    const req = 1 / (1 / rShunt + 1 / zLoad);
+    const den = rSeries + req;
+    return den > 0 ? req / den : 0;
+}
+
+function processLpadChunk(data) {
+    const {
+        rShuntIndices,
+        combinations,
+        resistanceCacheArray,
+        sortedIndices,
+        supplyVoltage,
+        targetVoltage,
+        allowOvershoot,
+        targetRatio,
+        lpadZLoad
+    } = data;
+
+    const resistanceCache = new Map(resistanceCacheArray);
+    const results = [];
+    const seenRatios = new Map();
+    const zLoad = Number.isFinite(lpadZLoad) && lpadZLoad > 0 ? lpadZLoad : 0;
+    const stats = {
+        processed: 0,
+        skipped: 0,
+        validCombinations: 0,
+        voltageStats: { above: 0, below: 0, exact: 0 }
+    };
+
+    for (const j of rShuntIndices) {
+        const rShuntIdx = sortedIndices[j];
+        const rShuntValue = resistanceCache.get(rShuntIdx);
+        if (!rShuntValue || rShuntValue === 0) continue;
+
+        const idealSeries = idealLpadSeriesForShuntWorker(rShuntValue, zLoad, targetRatio);
+        if (!Number.isFinite(idealSeries) || idealSeries <= 0) continue;
+
+        let left = 0;
+        let right = sortedIndices.length - 1;
+        let closestIdx = 0;
+        let minDiff = Infinity;
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const midValue = resistanceCache.get(sortedIndices[mid]);
+            const diff = Math.abs(midValue - idealSeries);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = mid;
+            }
+            if (midValue < idealSeries) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
+        const startIdx = Math.max(0, closestIdx - testRange);
+        const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
+
+        for (let k = startIdx; k <= endIdx; k++) {
+            const rSeriesIdx = sortedIndices[k];
+            const rSeriesValue = resistanceCache.get(rSeriesIdx);
+            if (!rSeriesValue || rSeriesValue === 0) continue;
+
+            const ratio = lpadLoadedTapRatioWorker(rSeriesValue, rShuntValue, zLoad);
+            const ratioKey = ratio.toFixed(10);
+            const existingEntry = seenRatios.get(ratioKey);
+            if (existingEntry) {
+                const totalR = rSeriesValue + rShuntValue;
+                const componentCount = getComponentCount(combinations[rSeriesIdx], combinations[rShuntIdx]);
+                if (
+                    componentCount > existingEntry.componentCount
+                    || (componentCount === existingEntry.componentCount && totalR >= existingEntry.totalR)
+                ) {
+                    stats.processed++;
+                    stats.skipped++;
+                    continue;
+                }
+            }
+
+            const outputVoltage = ratio * supplyVoltage;
+            const error = outputVoltage - targetVoltage;
+
+            if (allowOvershoot || error <= 0) {
+                stats.validCombinations++;
+                if (Math.abs(error) < 0.0001) {
+                    stats.voltageStats.exact++;
+                } else if (error > 0) {
+                    stats.voltageStats.above++;
+                } else {
+                    stats.voltageStats.below++;
+                }
+
+                const voltageRange = calculateVoltageRange(
+                    combinations[rSeriesIdx],
+                    combinations[rShuntIdx],
+                    supplyVoltage
+                );
+                const result = {
+                    attenuatorKind: 'l',
+                    r1: combinations[rSeriesIdx],
+                    r2: combinations[rShuntIdx],
+                    r1Value: rSeriesValue,
+                    r2Value: rShuntValue,
+                    outputVoltage,
+                    error,
+                    componentCount: getComponentCount(combinations[rSeriesIdx], combinations[rShuntIdx]),
+                    voltageRange,
+                    totalResistance: rSeriesValue + rShuntValue
+                };
+                results.push(result);
+                seenRatios.set(ratioKey, {
+                    totalR: result.totalResistance,
+                    componentCount: result.componentCount,
+                    result
+                });
+            }
+            stats.processed++;
+        }
+    }
+
+    return { results, stats };
+}
+
 // Message handler
 self.addEventListener('message', function(e) {
     const { type, data } = e.data;
@@ -280,6 +605,37 @@ self.addEventListener('message', function(e) {
                 self.postMessage({ 
                     type: 'error', 
                     error: error.message 
+                });
+            }
+            break;
+
+        case 'processUpadChunk':
+            try {
+                const result = processUpadChunk(data);
+                self.postMessage({
+                    type: 'upadChunkComplete',
+                    results: result.results,
+                    stats: result.stats
+                });
+            } catch (error) {
+                self.postMessage({
+                    type: 'error',
+                    error: error.message
+                });
+            }
+            break;
+        case 'processLpadChunk':
+            try {
+                const result = processLpadChunk(data);
+                self.postMessage({
+                    type: 'lpadChunkComplete',
+                    results: result.results,
+                    stats: result.stats
+                });
+            } catch (error) {
+                self.postMessage({
+                    type: 'error',
+                    error: error.message
                 });
             }
             break;

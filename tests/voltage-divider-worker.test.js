@@ -22,6 +22,13 @@ function loadWorkerContext() {
 this.calculateTotalResistance = calculateTotalResistance;
 this.calculateVoltageRange = calculateVoltageRange;
 this.calculateOutputVoltage = calculateOutputVoltage;
+this.calculateUpadVoltageRange = calculateUpadVoltageRange;
+this.processUpadChunk = processUpadChunk;
+this.processLpadChunk = processLpadChunk;
+this.idealUpadLegForMid = idealUpadLegForMid;
+this.upadLoadedTapRatioWorker = upadLoadedTapRatioWorker;
+this.idealLpadSeriesForShuntWorker = idealLpadSeriesForShuntWorker;
+this.lpadLoadedTapRatioWorker = lpadLoadedTapRatioWorker;
 this.findResistorSeries = findResistorSeries;
 this.calculateSectionBounds = calculateSectionBounds;`,
         context
@@ -57,5 +64,29 @@ module.exports = function runVoltageDividerWorkerTests() {
     {
         const output = context.calculateOutputVoltage(10000, 10000, 12);
         assert.ok(Math.abs(output - 6) < 0.0001, 'Expected 12V divider midpoint at 6V');
+    }
+
+    {
+        const rLeg = { value: 1000, series: 'E24' };
+        const rMid = { value: 2000, series: 'E24' };
+        const range = context.calculateUpadVoltageRange(rLeg, rMid, rLeg, 10);
+        assert.ok(range.min < range.max, 'U-pad range should have min < max');
+        assert.ok(range.min > 0 && range.max <= 10, 'U-pad Vout range should stay within supply');
+    }
+
+    {
+        const rLeg = { value: 2000, series: 'E24' };
+        const rMid = { value: 1000, series: 'E24' };
+        const ratio = (1000 + 2000) / (2 * 2000 + 1000);
+        assert.ok(Math.abs(ratio - 0.6) < 0.0001, 'U-pad transfer 2k/1k/2k should be 0.6');
+        const range = context.calculateUpadVoltageRange(rLeg, rMid, rLeg, 10);
+        assert.ok(range.min < range.max, 'U-pad range should have min < max');
+        assert.ok(range.min > 0 && range.max <= 10, 'U-pad Vout range should stay within supply');
+    }
+
+    {
+        const ideal = context.idealLpadSeriesForShuntWorker(1000, 50000, 0.6);
+        const r = context.lpadLoadedTapRatioWorker(ideal, 1000, 50000);
+        assert.ok(Math.abs(r - 0.6) < 0.0005, 'L-pad loaded tap ratio should match target at ideal series');
     }
 };
