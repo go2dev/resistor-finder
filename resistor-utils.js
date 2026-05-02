@@ -438,6 +438,97 @@ const ResistorUtils = {
         if (after.length === 0) return '0R';
         return `0R${after}`;
     },
+
+    /** IPC / metric package size tokens — not resistance in BOM description text. */
+    FOOTPRINT_SIZE_CODES: new Set([
+        '01005', '02016', '0201', '0402', '0603', '0805', '1206', '1210', '2010', '2512', '1812',
+        '1005', '1608', '2012', '2520', '3216', '3225', '3528', '4532', '5664', '5750',
+        '2220', '2225', '2824', '3040', '3640', '02032', '03015', '05025', '0612', '0617', '1020'
+    ]),
+
+    isFootprintSizeCodeToken(token) {
+        const u = String(token || '').trim();
+        if (!u) return false;
+        if (this.FOOTPRINT_SIZE_CODES.has(u)) return true;
+        if (/^0\d{3}$/.test(u)) return true;
+        return false;
+    },
+
+    /** Plain decimals like 72.455 are usually prices, not 72.455 Ω. */
+    looksLikePriceDecimalString(s) {
+        const t = String(s || '').trim();
+        if (!/^\d+\.\d+$/.test(t) || /[kKmMgGrRΩ]/i.test(t)) return false;
+        const fp = parseFloat(t);
+        return Number.isFinite(fp) && Math.floor(fp) >= 30;
+    },
+
+    /**
+     * Parse a single token as resistance magnitude only (RKM / plain number).
+     * Delegates to parseResistorValue.
+     */
+    tryParseResistanceMagnitudeToken(token) {
+        if (!token || typeof token !== 'string') return null;
+        const t = token.trim();
+        if (!t || t.length > 80) return null;
+        if (this.isFootprintSizeCodeToken(t)) return null;
+        if (this.looksLikePriceDecimalString(t)) return null;
+        try {
+            const v = this.parseResistorValue(t);
+            if (!Number.isFinite(v) || v <= 0) return null;
+            return { raw: t, value: v };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    /**
+     * Full BOM cell: marking codes, EIA-96, value with optional (tolerance) — same as parseResistorInput.
+     */
+    tryParseBomResistanceCell(cell) {
+        if (!cell || typeof cell !== 'string') return null;
+        const s = cell.trim();
+        if (!s) return null;
+        if (this.isFootprintSizeCodeToken(s)) return null;
+        if (/^\d+$/.test(s)) {
+            const n = parseInt(s, 10);
+            if (n >= 2 && n <= 999999) return null;
+        }
+        try {
+            const parsed = this.parseResistorInput(s, { snapToSeries: false });
+            if (!Number.isFinite(parsed.value) || parsed.value <= 0) return null;
+            if (this.looksLikePriceDecimalString(s)) return null;
+            return { parsed, raw: s };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    /**
+     * All-digit Value cell on an R line (e.g. Excel "091"); delegates to parseResistorValue.
+     */
+    parseBomDigitOnlyValueOhms(raw, isRContext) {
+        if (!isRContext || raw == null) return null;
+        const s = String(raw).trim();
+        if (!/^\d+$/.test(s)) return null;
+        try {
+            const v = this.parseResistorValue(s);
+            if (!Number.isFinite(v) || v <= 0 || v >= 1e15) return null;
+            return v;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    /** Scan delimited text for the first parseable resistance token. */
+    findFirstResistanceMagnitudeInText(text) {
+        const parts = String(text || '').split(/[\s,;/|]+/).filter(Boolean);
+        for (const p of parts) {
+            const r = this.tryParseResistanceMagnitudeToken(p);
+            if (r) return r;
+        }
+        return null;
+    },
+
     calculateSeriesResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
         return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);

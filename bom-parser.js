@@ -47,20 +47,6 @@
     const QTY_HEADER_HINT = /^(qty|quantity|q\.?ty|count|amount|#|#\.?\s*of|pieces?|multiples?|mqty|order\s*qty|usage|qty\s*per\s*pcb|qty\s*per)$/i;
     const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|ref\s*des|ref\s*des\.|id|pos|part\s*designators?)$/i;
 
-    /** Plain numbers that match IPC / metric footprint sizes — not resistance (e.g. 1210 in "1210 (3225 Metric)"). */
-    const FOOTPRINT_SIZE_CODE = new Set([
-        '01005', '02016', '0201', '0402', '0603', '0805', '1206', '1210', '2010', '2512', '1812',
-        '1005', '1608', '2012', '2520', '3216', '3225', '3528', '4532', '5664', '5750',
-        '2220', '2225', '2824', '3040', '3640', '02032', '03015', '05025', '0612', '0617', '1020'
-    ]);
-
-    function isFootprintSizeCodeToken(t) {
-        const u = String(t || '').trim();
-        if (!u) return false;
-        if (FOOTPRINT_SIZE_CODE.has(u)) return true;
-        if (/^0\d{3}$/.test(u)) return true;
-        return false;
-    }
     const TOL_HEADER_HINT = /tol|precision|accuracy|pct|%/i;
     const SERIES_HEADER_HINT = /e\s*(24|48|96|192)|series|decade/i;
 
@@ -197,63 +183,6 @@
         return SERIES_HEADER_HINT.test(String(h || '').trim()) ? 5 : 0;
     }
 
-    function parseDigitOnlyValueAsOhms(raw, isRContext) {
-        if (!isRContext || raw == null) return null;
-        const s = String(raw).trim();
-        if (!/^\d+$/.test(s)) return null;
-        if (s.length === 1) return parseFloat(s);
-        if (s[0] === '0') {
-            const restDigits = s.slice(1);
-            let frac = 0;
-            for (let i = 0; i < restDigits.length; i++) {
-                frac = frac * 10 + (restDigits.charCodeAt(i) - 48);
-            }
-            if (frac <= 0) return null;
-            return frac / Math.pow(10, s.length);
-        }
-        return parseFloat(s);
-    }
-
-    function tryParseResistanceToken(token) {
-        if (!token || typeof token !== 'string') return null;
-        const t = token.trim();
-        if (!t || t.length > 80) return null;
-        if (isFootprintSizeCodeToken(t)) return null;
-        if (/^\d+\.\d+$/.test(t) && !/[kKmMgGrRΩ]/i.test(t)) {
-            const fp = parseFloat(t);
-            if (Number.isFinite(fp) && Math.floor(fp) >= 30) return null;
-        }
-        try {
-            const v = ResistorUtils.parseResistorValue(t);
-            if (!Number.isFinite(v) || v <= 0) return null;
-            return { raw: t, value: v };
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function tryParseFullCell(cell) {
-        if (!cell || typeof cell !== 'string') return null;
-        const s = cell.trim();
-        if (!s) return null;
-        if (isFootprintSizeCodeToken(s)) return null;
-        if (/^\d+$/.test(s)) {
-            const n = parseInt(s, 10);
-            if (n >= 2 && n <= 999999) return null;
-        }
-        try {
-            const parsed = ResistorUtils.parseResistorInput(s, { snapToSeries: false });
-            if (!Number.isFinite(parsed.value) || parsed.value <= 0) return null;
-            if (/^\d+\.\d+$/.test(s) && !/[kKmMgGrRΩ]/i.test(s)) {
-                const intPart = Math.floor(parsed.value);
-                if (intPart >= 30) return null;
-            }
-            return { parsed, raw: s };
-        } catch (e) {
-            return null;
-        }
-    }
-
     function extractSeriesFromText(text) {
         const m = String(text || '').match(/\bE(24|48|96|192)\b/i);
         if (m) return 'E' + m[1];
@@ -286,7 +215,7 @@
             if (cell == null || String(cell).trim() === '') return;
             const raw = String(cell).trim();
             if (isValueColumnForDigitCodes(h)) {
-                const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+                const digitOhms = ResistorUtils.parseBomDigitOnlyValueOhms(raw, hasR);
                 if (digitOhms != null && digitOhms > 0 && digitOhms < 1e15) {
                     const sc = scoreHeaderForValue(h) + 7;
                     if (sc > bestScore) {
@@ -296,8 +225,8 @@
                     return;
                 }
             }
-            const full = tryParseFullCell(raw);
-            const tok = full ? null : tryParseResistanceToken(raw);
+            const full = ResistorUtils.tryParseBomResistanceCell(raw);
+            const tok = full ? null : ResistorUtils.tryParseResistanceMagnitudeToken(raw);
             const sc = scoreHeaderForValue(h) + (full ? 8 : tok ? 4 : 0);
             if (sc > bestScore) {
                 bestScore = sc;
@@ -315,7 +244,7 @@
             if (!cell) return;
             const raw = String(cell).trim();
             if (isValueColumnForDigitCodes(h)) {
-                const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+                const digitOhms = ResistorUtils.parseBomDigitOnlyValueOhms(raw, hasR);
                 if (digitOhms != null && digitOhms > 0) {
                     if (!best || digitOhms > 0) {
                         best = { type: 'token', value: digitOhms, displayRaw: raw };
@@ -323,12 +252,9 @@
                     return;
                 }
             }
-            const parts = String(cell).split(/[\s,;/|]+/).filter(Boolean);
-            for (const p of parts) {
-                const tok = tryParseResistanceToken(p);
-                if (tok && (!best || tok.value > 0)) {
-                    best = { type: 'token', value: tok.value, displayRaw: tok.raw };
-                }
+            const partsTok = ResistorUtils.findFirstResistanceMagnitudeInText(String(cell));
+            if (partsTok && (!best || partsTok.value > 0)) {
+                best = { type: 'token', value: partsTok.value, displayRaw: partsTok.raw };
             }
         });
         return best;

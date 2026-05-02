@@ -64,6 +64,8 @@ module.exports = function runBomParserTests() {
     vm.runInContext(`${resistorUtilsSrc}\nthis.ResistorUtils = ResistorUtils;`, ctxRu);
     assert.strictEqual(ctxRu.ResistorUtils.parseToleranceInput('E24', null), 5);
     assert.strictEqual(ctxRu.ResistorUtils.parseToleranceInput('e96', null), 1);
+    const tok47 = ctxRu.ResistorUtils.tryParseResistanceMagnitudeToken('4k7');
+    assert.ok(tok47 && tok47.raw === '4k7' && tok47.value === 4700);
 
     const hBom1 = ['Qty', 'Part Designators', 'Value', 'Description'];
     const rowL = {
