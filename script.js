@@ -36,6 +36,9 @@ let currentResistanceRange = {
     max: Infinity
 };
 
+/** @type {{ destroy: () => void, updateFullDomain: (r: unknown[], o?: { forceReset?: boolean }) => void, getFilterRange: () => { min: number, max: number } } | null} */
+let resistanceZoomFilter = null;
+
 // Function to generate a state key for cache validation
 function generateStateKey(calculator, resistorValues, supplyVoltage, targetVoltage, allowOvershoot) {
     const resistorKey = resistorValues
@@ -966,16 +969,11 @@ async function calculateAndDisplayResults() {
         const maxRes = Math.max(...resistances);
         currentResistanceRange.min = minRes;
         currentResistanceRange.max = maxRes;
-        const slider = document.getElementById('resistance-slider');
-        if (slider && slider.noUiSlider) {
-            slider.noUiSlider.updateOptions({
-                range: {
-                    min: minRes,
-                    max: maxRes
-                }
-            });
-            slider.noUiSlider.set([minRes, maxRes]);
-            formatResistanceSliderPips(slider);
+        if (resistanceZoomFilter) {
+            resistanceZoomFilter.updateFullDomain(mapResultsToNumericFilterInput(allResults), { forceReset: true });
+            const r = resistanceZoomFilter.getFilterRange();
+            currentResistanceRange.min = r.min;
+            currentResistanceRange.max = r.max;
         }
         logDividerDebug('Reset filter range due to empty results', { minRes, maxRes });
         displayResults = filterAndSortResults(allResults, currentResistanceRange.min, currentResistanceRange.max);
@@ -1333,56 +1331,21 @@ function updateResultsDisplay(displayResults) {
     updateResistanceFilterRange(filteredAllResults, shouldResetRange);
 }
 
-// Function to update the resistance filter range based on filtered results
+// Function to update the resistance filter range based on filtered results (active resistor toggles)
 function updateResistanceFilterRange(filteredResults, forceReset = false) {
-    const slider = document.getElementById('resistance-slider');
-    if (!slider || !slider.noUiSlider) return;
-    
+    if (!resistanceZoomFilter) return;
+
     if (filteredResults.length === 0) {
-        // No results, disable the slider
-        slider.setAttribute('disabled', true);
+        resistanceZoomFilter.updateFullDomain([], {});
         logDividerDebug('Filter range update: no results');
         return;
-    } else {
-        // Re-enable the slider if it was disabled
-        slider.removeAttribute('disabled');
     }
-    
-    // Calculate new min and max from filtered results
-    const resistances = filteredResults.map(r => r.totalResistance);
-    const minRes = Math.min(...resistances);
-    const maxRes = Math.max(...resistances);
-    
-    // Only update if the range has changed significantly
-    const currentRange = slider.noUiSlider.options.range;
-    if (forceReset || Math.abs(currentRange.min - minRes) > 0.01 || Math.abs(currentRange.max - maxRes) > 0.01) {
-        // Reset current filter range to include all results
-        currentResistanceRange.min = minRes;
-        currentResistanceRange.max = maxRes;
-        
-        // Update slider range
-        slider.noUiSlider.updateOptions({
-            range: {
-                'min': minRes,
-                'max': maxRes
-            }
-        });
-        
-        // Reset slider position to full range
-        slider.noUiSlider.set([minRes, maxRes]);
-        formatResistanceSliderPips(slider);
-        logDividerDebug('Filter range reset', { minRes, maxRes, forceReset });
-    }
-}
 
-function formatResistanceSliderPips(slider) {
-    const pips = slider.querySelectorAll('.noUi-value');
-    pips.forEach(pip => {
-        const value = parseFloat(pip.getAttribute('data-value'));
-        if (!isNaN(value)) {
-            pip.textContent = ResistorUtils.formatResistanceLabel(value);
-        }
-    });
+    resistanceZoomFilter.updateFullDomain(mapResultsToNumericFilterInput(filteredResults), { forceReset });
+    const r = resistanceZoomFilter.getFilterRange();
+    currentResistanceRange.min = r.min;
+    currentResistanceRange.max = r.max;
+    logDividerDebug('Filter range sync', { min: r.min, max: r.max, forceReset });
 }
 
 // Test function for resistor value parsing
@@ -1447,144 +1410,98 @@ document.addEventListener('DOMContentLoaded', () => {
     // testResistorParsing(); // Commented out to prevent automatic test execution
 });
 
-// Initialize resistance filter slider
+function mapResultsToNumericFilterInput(results) {
+    return results.map((r, i) => ({
+        id: `r-${i}-${r.totalResistance}`,
+        value: r.totalResistance
+    }));
+}
+
+function applyResistanceFilterToResultsUI(minVal, maxVal) {
+    const calculator = new ResistorCalculator();
+    if (!resultsCache.isValid || !resultsCache.allResults) return;
+
+    const filteredResults = filterAndSortResults(resultsCache.allResults, minVal, maxVal);
+    const resultsSection = document.querySelector('.results-section');
+    if (!resultsSection) return;
+
+    resultsSection.outerHTML = renderResults(filteredResults, calculator);
+
+    document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
+        const result = filteredResults[idx];
+        if (result) {
+            function sectionToString(section) {
+                if (Array.isArray(section)) {
+                    const type = section.type || 'series';
+                    return section.map(v => v.value ?? v).join(',') + ',' + type;
+                }
+                return (section.value ?? section) + ',series';
+            }
+            const topSection = sectionToString(result.r1);
+            const bottomSection = sectionToString(result.r2);
+            const diagram = new Diagram(diagramContainer.id, 300, 220);
+            diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
+        }
+    });
+
+    initializeResultCardSliders(filteredResults, calculator);
+}
+
+// Initialize zoomable resistance filter (full result set for histogram domain)
 function initializeResistanceFilter(results) {
-    if (results.length === 0) return;
-    
-    // Find min and max total resistance values efficiently
-    let minResistance = Infinity;
-    let maxResistance = -Infinity;
-    
-    for (const result of results) {
-        if (result.totalResistance < minResistance) {
-            minResistance = result.totalResistance;
-        }
-        if (result.totalResistance > maxResistance) {
-            maxResistance = result.totalResistance;
-        }
-    }
-    
-    // Show the filter section
     const filterSection = document.querySelector('.resistance-filter-section');
-    if (filterSection) {
-    filterSection.style.display = 'block';
-    }
-    
-    // Get the slider element
-    const slider = document.getElementById('resistance-slider');
-    if (!slider) {
+    const mount = document.getElementById('resistance-zoom-filter');
+    if (!filterSection || !mount || typeof ZoomableRangeFilter === 'undefined') {
         return;
     }
-    
-    // Check if slider already exists and preserve current values
-    let currentMin = minResistance;
-    let currentMax = maxResistance;
-    let sliderExists = false;
-    
-    if (slider.noUiSlider) {
-        // Slider exists - preserve current values if they're within the new range
-        const currentValues = slider.noUiSlider.get();
-        const currentMinVal = parseInt(currentValues[0]);
-        const currentMaxVal = parseInt(currentValues[1]);
-        
-        // Only preserve values if they're within the new valid range
-        if (currentMinVal >= minResistance && currentMaxVal <= maxResistance) {
-            currentMin = currentMinVal;
-            currentMax = currentMaxVal;
-        }
-        
-        sliderExists = true;
-        slider.noUiSlider.destroy();
-    } else {
-        // New slider - update global resistance range to full range initially
-        currentResistanceRange.min = minResistance;
-        currentResistanceRange.max = maxResistance;
-    }
-    
-    // Create the range slider
-    noUiSlider.create(slider, {
-        start: [currentMin, currentMax],
-        behaviour: 'drag-smooth-steps-tap',
-        connect: true,
-        range: {
-            'min': minResistance,
-            'max': maxResistance
-        },
-        step: 1,
-        format: {
-            to: function (value) {
-                return Math.round(value);
-            },
-            from: function (value) {
-                return Number(value);
-            }
-        },
-        pips: {
-            mode: 'count',
-            values: 5,
-            density: 4
-        }
-    });
 
-    formatResistanceSliderPips(slider);
-    
-    // Update the global range if we're preserving slider position
-    if (sliderExists) {
-        currentResistanceRange.min = currentMin;
-        currentResistanceRange.max = currentMax;
+    filterSection.style.display = 'block';
+
+    if (results.length === 0) {
+        if (resistanceZoomFilter) {
+            resistanceZoomFilter.updateFullDomain([], {});
+        }
+        return;
     }
-    
-    // Update the display values
+
+    const numericResults = results.map((r, i) => ({
+        id: `r-${i}-${r.totalResistance}`,
+        value: r.totalResistance
+    }));
+
     const calculator = new ResistorCalculator();
-    document.getElementById('resistance-min').textContent = calculator.formatResistorValue(currentMin);
-    document.getElementById('resistance-max').textContent = calculator.formatResistorValue(currentMax);
-    
-    // Add event listener for slider changes - real-time filtering
-    slider.noUiSlider.on('update', function (values, handle) {
-        const minVal = parseInt(values[0]);
-        const maxVal = parseInt(values[1]);
-        
-        // Update display values
-        document.getElementById('resistance-min').textContent = calculator.formatResistorValue(minVal);
-        document.getElementById('resistance-max').textContent = calculator.formatResistorValue(maxVal);
-        
-        // Update global range
-        currentResistanceRange.min = minVal;
-        currentResistanceRange.max = maxVal;
-        
-        // Apply real-time filtering if we have cached results
-        if (resultsCache.isValid && resultsCache.allResults) {
-            const filteredResults = filterAndSortResults(resultsCache.allResults, minVal, maxVal);
-            
-            // Update only the results section
-            const resultsSection = document.querySelector('.results-section');
-            if (resultsSection) {
-                resultsSection.outerHTML = renderResults(filteredResults, calculator);
-                
-                // Reinitialize diagrams for the new results
-                document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
-                    const result = filteredResults[idx];
-                    if (result) {
-                        // Helper to convert r1/r2 array to string for renderCustom
-                        function sectionToString(section) {
-                            if (Array.isArray(section)) {
-                                const type = section.type || 'series';
-                                return section.map(v => v.value ?? v).join(',') + ',' + type;
-                            } else {
-                                return (section.value ?? section) + ',series';
-                            }
-                        }
-                        const topSection = sectionToString(result.r1);
-                        const bottomSection = sectionToString(result.r2);
-                        const diagram = new Diagram(diagramContainer.id, 300, 220);
-                        diagram.renderCustom(topSection, bottomSection, supplyVoltageInput.value, targetVoltageInput.value);
-                    }
-                });
+    const formatOhm = (v) => calculator.formatResistorValue(v);
 
-                initializeResultCardSliders(filteredResults, calculator);
-            }
+    const rangeOk =
+        Number.isFinite(currentResistanceRange.min) &&
+        Number.isFinite(currentResistanceRange.max) &&
+        currentResistanceRange.min <= currentResistanceRange.max;
+
+    if (resistanceZoomFilter) {
+        resistanceZoomFilter.updateFullDomain(mapResultsToNumericFilterInput(results), { forceReset: false });
+        const r = resistanceZoomFilter.getFilterRange();
+        currentResistanceRange.min = r.min;
+        currentResistanceRange.max = r.max;
+        return;
+    }
+
+    resistanceZoomFilter = ZoomableRangeFilter.create(mount, {
+        results: numericResults,
+        initialFilterMin: rangeOk ? currentResistanceRange.min : undefined,
+        initialFilterMax: rangeOk ? currentResistanceRange.max : undefined,
+        formatValue: formatOhm,
+        showHistogram: true,
+        showRug: true,
+        onFilterChange(range) {
+            currentResistanceRange.min = range.filterMin;
+            currentResistanceRange.max = range.filterMax;
+            applyResistanceFilterToResultsUI(range.filterMin, range.filterMax);
         }
     });
+
+    const r = resistanceZoomFilter.getFilterRange();
+    currentResistanceRange.min = r.min;
+    currentResistanceRange.max = r.max;
 }
 
 // Function to filter and sort results based on resistance range

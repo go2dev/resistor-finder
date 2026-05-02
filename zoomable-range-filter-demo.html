@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zoomable range filter demo</title>
+  <link rel="stylesheet" href="nuis/nouislider.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { padding: 1.5rem; max-width: 720px; margin: 0 auto; font-family: system-ui, sans-serif; }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    p { color: #444; font-size: 0.9rem; margin-bottom: 1rem; }
+    #demo-mount {
+      min-height: 320px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fafafa;
+    }
+  </style>
+</head>
+<body>
+  <h1>Zoomable range filter (demo)</h1>
+  <p>
+    500 synthetic results with a <strong>uniform random</strong> distribution between 15&nbsp;Ω and 40&nbsp;kΩ.
+    Zoom or pan the <strong>lower</strong> chart to set the resistance window; the slider then spans that window so you can narrow the filter with the handles.
+  </p>
+  <div id="demo-mount"></div>
+  <script src="resistor-utils.js"></script>
+  <script src="vendor/d3-7.9.0.min.js"></script>
+  <script src="nuis/nouislider.js"></script>
+  <script src="zoomable-range-filter.js"></script>
+  <script>
+    (function () {
+      var fullMin = 15;
+      var fullMax = 40000;
+      var n = 500;
+      var results = [];
+      var i;
+      for (i = 0; i < n; i++) {
+        var u = Math.random();
+        var v = fullMin + u * (fullMax - fullMin);
+        results.push({ id: 'r' + i, value: Math.round(v) });
+      }
+      ZoomableRangeFilter.create(document.getElementById('demo-mount'), {
+        results: results,
+        fullMin: fullMin,
+        fullMax: fullMax,
+        formatValue: function (x) { return ResistorUtils.formatResistorValue(x); },
+        showHistogram: true,
+        showFullRangeOverview: true,
+        showRug: true,
+        onFilterChange: function (range, selected) {
+          console.log('filter', range.filterMin, range.filterMax, 'selected', selected.length);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
