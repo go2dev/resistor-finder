@@ -5,6 +5,7 @@
         topNav.innerHTML = `
             <div class="top-nav">
                 <a href="index.html" class="nav-link ${page === 'voltage-divider' ? 'active' : ''}">Voltage Divider</a>
+                <a href="interactive-divider.html" class="nav-link ${page === 'interactive-divider' ? 'active' : ''}">Interactive Divider</a>
                 <a href="target-resistance.html" class="nav-link ${page === 'target-resistance' ? 'active' : ''}">Target Resistance</a>
                 <a href="readme.html" target="_blank" class="nav-link">Documentation</a>
             </div>

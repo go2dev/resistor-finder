@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Voltage Divider</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+        rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body data-page="interactive-divider">
+    <div class="theme-toggle-fixed">
+        <label class="theme-switch theme-switch-dark" for="checkbox">
+            <input type="checkbox" id="checkbox" />
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
+    <div class="container">
+        <h1>Interactive Voltage Divider
+            <div class="help-tooltip">
+                ?
+                <span class="tooltip-text">
+                    Set resistor values using the same notation as elsewhere (e.g. 4k7, 10k(1%)).
+                    Tap or click components on the diagram to edit values, add parallel resistors, or remove branches.
+                    Thin strips above/below a resistor insert another in series.
+                    Hover parallel buses for the equivalent resistance of that group.
+                    Supply voltage is swept here; V<sub>out</sub> is computed from your divider.
+                    <br><br>
+                    <a href="readme.html" target="_blank" style="color: var(--accent-color); text-decoration: underline;">View documentation →</a>
+                </span>
+            </div>
+        </h1>
+
+        <div id="topNav"></div>
+
+        <div class="main-content interactive-divider-main">
+            <div class="input-section interactive-divider-inputs">
+                <div class="voltage-inputs">
+                    <div class="input-group">
+                        <label for="interactiveSupplyVoltage">Supply Voltage (V<sub>supply</sub>):</label>
+                        <input type="number" id="interactiveSupplyVoltage" value="5" step="0.1" min="0.001">
+                    </div>
+                </div>
+                <div class="option-group interactive-parse-options">
+                    <label class="theme-switch" for="interactiveSnapToSeries">
+                        <input type="checkbox" id="interactiveSnapToSeries" />
+                        <div class="slider round"></div>
+                    </label>
+                    <span class="theme-label">Snap input to E series</span>
+                    <span class="autofill-label" style="margin-left:1rem">Series:</span>
+                    <select id="interactiveSnapSeries" class="autofill-range-select">
+                        <option value="E24" selected>E24</option>
+                        <option value="E48">E48</option>
+                        <option value="E96">E96</option>
+                        <option value="E192">E192</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="interactive-divider-layout">
+            <div class="interactive-diagram-wrap" id="interactiveDividerDiagram" aria-label="Voltage divider schematic"></div>
+            <div class="interactive-divider-side">
+                <h3>Calculated output</h3>
+                <div id="interactiveDividerResults" class="results-container interactive-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="interactiveResistorDialog" class="interactive-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="interactiveDialogTitle">
+        <div class="interactive-dialog-inner">
+            <h3 id="interactiveDialogTitle">Resistor</h3>
+            <label for="interactiveResistorInput">Value (same notation as main calculator)</label>
+            <input type="text" id="interactiveResistorInput" class="interactive-dialog-input" placeholder="e.g. 10k, 4k7(1%)">
+            <div class="interactive-dialog-actions">
+                <button type="button" id="interactiveDialogApply">Apply</button>
+                <button type="button" id="interactiveDialogParallel">Add parallel</button>
+                <button type="button" id="interactiveDialogRemove">Remove</button>
+                <button type="button" id="interactiveDialogClose">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <footer id="pageFooter"></footer>
+    <script src="resistor-utils.js"></script>
+    <script src="common-ui.js"></script>
+    <script src="script.js"></script>
+    <script src="schematic.js"></script>
+    <script src="interactive-divider.js"></script>
+</body>
+</html>
