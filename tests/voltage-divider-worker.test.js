@@ -22,6 +22,13 @@ function loadWorkerContext() {
 this.calculateTotalResistance = calculateTotalResistance;
 this.calculateVoltageRange = calculateVoltageRange;
 this.calculateOutputVoltage = calculateOutputVoltage;
+this.calculateUpadVoltageRange = calculateUpadVoltageRange;
+this.processUpadChunk = processUpadChunk;
+this.processLpadChunk = processLpadChunk;
+this.idealUpadLegForMid = idealUpadLegForMid;
+this.upadLoadedTapRatioWorker = upadLoadedTapRatioWorker;
+this.idealLpadSeriesForShuntWorker = idealLpadSeriesForShuntWorker;
+this.lpadLoadedTapRatioWorker = lpadLoadedTapRatioWorker;
 this.findResistorSeries = findResistorSeries;
 this.calculateSectionBounds = calculateSectionBounds;
 this.getVoltageDividerR1SearchHalfWidth = getVoltageDividerR1SearchHalfWidth;`,
@@ -64,5 +71,29 @@ module.exports = function runVoltageDividerWorkerTests() {
         assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(8), 7);
         assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(100), 10);
         assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(600), 50);
+    }
+
+    {
+        const rLeg = { value: 1000, series: 'E24' };
+        const rMid = { value: 2000, series: 'E24' };
+        const range = context.calculateUpadVoltageRange(rLeg, rMid, rLeg, 10);
+        assert.ok(range.min < range.max, 'U-pad range should have min < max');
+        assert.ok(range.min > 0 && range.max <= 10, 'U-pad Vout range should stay within supply');
+    }
+
+    {
+        const rLeg = { value: 2000, series: 'E24' };
+        const rMid = { value: 1000, series: 'E24' };
+        const ratio = (1000 + 2000) / (2 * 2000 + 1000);
+        assert.ok(Math.abs(ratio - 0.6) < 0.0001, 'U-pad transfer 2k/1k/2k should be 0.6');
+        const range = context.calculateUpadVoltageRange(rLeg, rMid, rLeg, 10);
+        assert.ok(range.min < range.max, 'U-pad range should have min < max');
+        assert.ok(range.min > 0 && range.max <= 10, 'U-pad Vout range should stay within supply');
+    }
+
+    {
+        const ideal = context.idealLpadSeriesForShuntWorker(1000, 50000, 0.6);
+        const r = context.lpadLoadedTapRatioWorker(ideal, 1000, 50000);
+        assert.ok(Math.abs(r - 0.6) < 0.0005, 'L-pad loaded tap ratio should match target at ideal series');
     }
 };
