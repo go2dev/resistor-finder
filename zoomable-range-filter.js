@@ -111,13 +111,13 @@
         );
     }
 
+    /** Matches d3-zoom + linear rescaleX so pan direction matches dragging the data window. */
     function transformForViewDomain(viewMin, viewMax, fullMin, fullMax, width) {
-        const xFull = d3.scaleLinear().domain([fullMin, fullMax]).range([0, width]);
         const fullSpan = fullMax - fullMin;
         const viewSpan = viewMax - viewMin;
         const k = fullSpan / viewSpan;
-        const x = -xFull(viewMin) * k;
-        return d3.zoomIdentity.translate(x, 0).scale(k);
+        const tx = (width * (viewMin - fullMin)) / viewSpan;
+        return d3.zoomIdentity.translate(tx, 0).scale(k);
     }
 
     function selectionOffScreen(filterMin, filterMax, viewMin, viewMax) {
@@ -259,7 +259,7 @@
         }
 
         const overviewBarH = 34;
-        const overviewAxisPad = 14;
+        const overviewAxisPad = 26;
 
         container.classList.add('zoom-range-filter');
         container.innerHTML = `
@@ -290,10 +290,10 @@
                     <div class="zrf-overview-caption">All results (full range)</div>
                     <svg class="zrf-overview-chart" role="img" aria-label="How many results fall in each part of the full value range"></svg>
                 </div>
+                <div class="range-help zrf-help"></div>
                 <div class="range-slider-wrap">
                     <div class="range-slider zrf-noui"></div>
                 </div>
-                <div class="range-help zrf-help"></div>
                 <div class="sr-only zrf-live" aria-live="polite"></div>
             </section>
         `;

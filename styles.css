@@ -1315,7 +1315,7 @@ ul ul, ol ol, ul ol, ol ul {
     font-size: 0.78rem;
     color: var(--text-color);
     opacity: 0.75;
-    margin-top: 0.35rem;
+    margin: 0.35rem 0 0.6rem;
 }
 
 /* Hide left handle of supply voltage slider */
