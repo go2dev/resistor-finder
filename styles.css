@@ -1257,6 +1257,14 @@ ul ul, ol ol, ul ol, ol ul {
 
 .zrf-overview-wrap {
     margin: 0.35rem 0 0.5rem;
+    background: var(--container-bg, #fff);
+    border: 1px solid var(--input-border, #ddd);
+    border-radius: 6px;
+    padding: 6px 8px 2px;
+}
+
+.zoom-range-filter .zrf-overview-chart .zrf-ov-bin {
+    shape-rendering: crispEdges;
 }
 
 .zrf-overview-caption {

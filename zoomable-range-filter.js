@@ -276,7 +276,7 @@
                     <button type="button" class="zrf-btn zrf-show-selection">Show selection</button>
                 </div>
                 <div class="zrf-empty" hidden>No results available</div>
-                <div class="zrf-overview-wrap" hidden>
+                <div class="zrf-overview-wrap">
                     <div class="zrf-overview-caption">All results (full range)</div>
                     <svg class="zrf-overview-chart" role="img" aria-label="How many results fall in each part of the full value range"></svg>
                 </div>
@@ -514,6 +514,7 @@
                 return;
             }
             overviewWrap.hidden = false;
+            overviewWrap.style.display = '';
 
             const hBar = overviewBarH;
             const totalH = overviewBarH + overviewAxisPad;
@@ -539,8 +540,9 @@
             gOvBins.selectAll('rect')
                 .data(bins)
                 .join('rect')
-                .attr('fill', 'var(--text-color, #333)')
-                .attr('opacity', 0.35)
+                .attr('class', 'zrf-ov-bin')
+                .attr('fill', '#5dade2')
+                .attr('opacity', 0.85)
                 .attr('x', d => xFull(d.x0))
                 .attr('y', d => y(d.length))
                 .attr('width', d => Math.max(1, xFull(d.x1) - xFull(d.x0) - 0.5))
@@ -571,7 +573,7 @@
                 .attr('width', Math.max(2, Math.abs(fx1 - fx0)))
                 .attr('height', hBar - 10)
                 .attr('fill', 'none')
-                .attr('stroke', 'var(--button-bg, #3498db)')
+                .attr('stroke', '#2980b9')
                 .attr('stroke-width', 2)
                 .attr('pointer-events', 'none');
 
@@ -619,7 +621,7 @@
             gBars.selectAll('rect')
                 .data(bins)
                 .join('rect')
-                .attr('fill', 'var(--button-bg, #3498db)')
+                .attr('fill', '#3498db')
                 .attr('opacity', 0.75)
                 .attr('x', d => xView(d.x0))
                 .attr('y', d => y(d.length))
@@ -630,7 +632,7 @@
             gRug.selectAll('line')
                 .data(showRugMarks ? visible : [], d => d.id)
                 .join('line')
-                .attr('stroke', 'var(--text-color, #333)')
+                .attr('stroke', '#555')
                 .attr('stroke-width', 1)
                 .attr('opacity', 0.35)
                 .attr('x1', d => xView(d.value))
@@ -701,6 +703,7 @@
             }
             if (showHistogram && showFullRangeOverview && results.length === 0 && overviewWrap) {
                 overviewWrap.hidden = true;
+                overviewWrap.style.display = 'none';
             }
             updateCount();
         }
@@ -858,6 +861,7 @@
                 }
                 if (overviewWrap) {
                     overviewWrap.hidden = true;
+                    overviewWrap.style.display = 'none';
                 }
                 updateCount();
                 emitFilter(true);
