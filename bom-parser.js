@@ -26,8 +26,9 @@
         /\bohms?\b/i,
         /Ω/,
         /Ω/,
-        /\b\d+(?:\.\d+)?\s*[kKmMgGrRlL][ωωΩ]?\b/i,
+        /\b\d+(?:\.\d+)?\s*[kKmMgG][ωωΩ]?\b/i,
         /\b\d+(?:\.\d+)?\s*ω\b/i,
+        /\b\d+(?:\.\d+)?r\d+\b/i,
         /\bchip\s*res\b/i,
         /\bthick\s*film\b/i,
         /\bthin\s*film\b/i
@@ -45,7 +46,7 @@
 
     const VALUE_HEADER_HINT = /^(value|resistance|res\.?|ohms?|comp(ONENT)?\s*value|size|description|comment|part\s*comment|notes?)$/i;
     const QTY_HEADER_HINT = /^(qty|quantity|q\.?ty|count|amount|#|#\.?\s*of|pieces?|multiples?|mqty|order\s*qty|usage)$/i;
-    const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|id|pos)$/i;
+    const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|id|pos|part\s*designators?)$/i;
 
     /** Plain numbers that match IPC / metric footprint sizes — not resistance (e.g. 1210 in "1210 (3225 Metric)"). */
     const FOOTPRINT_SIZE_CODE = new Set([
@@ -141,8 +142,36 @@
         return STRONG_KEYWORDS.some(re => re.test(text));
     }
 
-    function rowHasDesignatorR(text) {
-        return /\bR\d{1,5}\b/i.test(text);
+    function getPrimaryDesignator(row, headers) {
+        let best = '';
+        headers.forEach(h => {
+            if (!DESIGNATOR_HEADER_HINT.test(String(h || '').trim())) return;
+            const v = row[h];
+            if (v == null || String(v).trim() === '') return;
+            const first = String(v).split(/[,;/]/)[0].trim();
+            if (first && (!best || first.length < best.length)) best = first;
+        });
+        return best;
+    }
+
+    function rowHasDesignatorR(row, headers, rowText) {
+        const d = getPrimaryDesignator(row, headers);
+        if (d && /^R\d/i.test(d)) return true;
+        return /\bR\d{1,5}\b/i.test(rowText);
+    }
+
+    function rowExcludedAsNonResistor(row, headers, rowText) {
+        const d = getPrimaryDesignator(row, headers);
+        if (!d) return false;
+        const low = rowText.toLowerCase();
+        if (/^L\d/i.test(d) && /\b(ferrite|bead|inductor|choke|we-cbf|we-cnsw|emi\s*suppression)\b/i.test(low)) {
+            return true;
+        }
+        if (/^C\d/i.test(d) && /\b(capacitor|cap\s|farad|\bnf\b|\bpf\b|\bµf\b|\bUF\b)\b/i.test(low)) {
+            return true;
+        }
+        if (/^LED/i.test(d)) return true;
+        return false;
     }
 
     function rowSuggestsZeroOhm(text) {
@@ -276,11 +305,14 @@
     }
 
     function isResistorRow(row, headers, rowText) {
+        if (rowExcludedAsNonResistor(row, headers, rowText)) {
+            return { match: false, reason: 'excluded-non-resistor' };
+        }
         const strong = rowHasStrongKeyword(rowText);
-        const hasR = rowHasDesignatorR(rowText);
+        const hasR = rowHasDesignatorR(row, headers, rowText);
         const valuePick = pickValueCell(row, headers);
-        if (strong) return { match: true, reason: 'strong' };
         if (hasR && valuePick) return { match: true, reason: 'ref+value' };
+        if (strong && hasR) return { match: true, reason: 'strong+ref' };
         return { match: false, reason: 'none' };
     }
 
@@ -290,14 +322,17 @@
 
     function buildInputString(value, tolerance, series) {
         const base = formatOhmValueForInput(value);
-        const bracketParts = [];
-        if (tolerance != null && Number.isFinite(tolerance)) {
-            const dec = tolerance % 1 === 0 ? String(Math.round(tolerance)) : String(tolerance);
-            bracketParts.push(dec + '%');
-        } else if (series && /^E\d+/i.test(series)) {
-            bracketParts.push(series.toUpperCase());
+        let tolOut = tolerance != null && Number.isFinite(tolerance) ? tolerance : null;
+        if (tolOut == null && series && /^E(24|48|96|192)$/i.test(String(series))) {
+            const seriesName = String(series).replace(/^e/i, 'E').toUpperCase();
+            if (ResistorUtils.resistorTolerances[seriesName] != null) {
+                tolOut = ResistorUtils.resistorTolerances[seriesName];
+            }
         }
-        if (bracketParts.length) return `${base}(${bracketParts.join(', ')})`;
+        if (tolOut != null && Number.isFinite(tolOut)) {
+            const dec = tolOut % 1 === 0 ? String(Math.round(tolOut)) : String(tolOut);
+            return `${base}(${dec}%)`;
+        }
         return base;
     }
 

@@ -77,6 +77,14 @@ const ResistorUtils = {
             return this.toleranceLetterMap[upper];
         }
 
+        const eSeriesTol = upper.match(/^E(24|48|96|192)$/);
+        if (eSeriesTol) {
+            const name = 'E' + eSeriesTol[1];
+            if (this.resistorTolerances[name] != null) {
+                return this.resistorTolerances[name];
+            }
+        }
+
         const numeric = trimmed.replace('%', '');
         const parsed = parseFloat(numeric);
         if (!isNaN(parsed)) {

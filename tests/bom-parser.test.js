@@ -59,6 +59,31 @@ module.exports = function runBomParserTests() {
     assert.ok(/\(0\.1%\)/i.test(ex2.csv));
     assert.ok(/\(1%\)/i.test(ex2.csv));
 
+    const ctxRu = { console: {} };
+    vm.createContext(ctxRu);
+    vm.runInContext(`${resistorUtilsSrc}\nthis.ResistorUtils = ResistorUtils;`, ctxRu);
+    assert.strictEqual(ctxRu.ResistorUtils.parseToleranceInput('E24', null), 5);
+    assert.strictEqual(ctxRu.ResistorUtils.parseToleranceInput('e96', null), 1);
+
+    const hBom1 = ['Qty', 'Part Designators', 'Value', 'Description'];
+    const rowL = {
+        Qty: '',
+        'Part Designators': 'L1',
+        Value: '75R',
+        Description: 'SMD EMI Suppression Ferrite Beads'
+    };
+    const txtL = Object.values(rowL).join(' | ');
+    assert.strictEqual(BomParser._test.isResistorRow(rowL, hBom1, txtL).match, false, 'L ferrite row excluded');
+
+    const rowR33 = {
+        Qty: '',
+        'Part Designators': 'R1',
+        Value: '33R',
+        Description: 'Current limit resistor'
+    };
+    const exR = BomParser.extractResistorsFromRows({ rows: [rowR33], headers: hBom1, includeDnp: false });
+    assert.ok(/33R\(5%\)/i.test(exR.csv) || /33\(5%\)/i.test(exR.csv), 'E24 standard -> 5% bracket not E24 label');
+
     const csvQty = [
         'Designator,Quantity,Description,Footprint',
         '"R1, R2",2,100R 0.5W 5% 1210 SMD,RESC1210_L'
