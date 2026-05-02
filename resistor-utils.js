@@ -402,19 +402,20 @@ const ResistorUtils = {
         return `${(value * 1e3).toFixed(2).replace(/\.?0+$/, '')}m`;
     },
 
-    // Calculate equivalent resistance for resistors in series
+    // Calculate equivalent resistance for resistors in series (supports nested series/parallel legs)
     calculateSeriesResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
-        return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);
+        return resistors.reduce((sum, r) => sum + this.calculateTotalResistance(r), 0);
     },
 
-    // Calculate equivalent resistance for resistors in parallel
+    // Calculate equivalent resistance for resistors in parallel (supports nested legs)
     calculateParallelResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
-        return 1 / resistors.reduce((sum, r) => sum + (1 / (r.value ?? r)), 0);
+        const reciprocalSum = resistors.reduce((sum, r) => sum + (1 / this.calculateTotalResistance(r)), 0);
+        return 1 / reciprocalSum;
     },
 
-    // Calculate total resistance based on connection type
+    // Calculate total resistance based on connection type (nested arrays use .type: 'parallel' or default series)
     calculateTotalResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
         if (resistors.type === 'parallel') {
