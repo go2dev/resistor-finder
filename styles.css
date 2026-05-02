@@ -1274,12 +1274,6 @@ ul ul, ol ol, ul ol, ol ul {
     margin-bottom: 0.2rem;
 }
 
-.zoom-range-filter .zrf-overview-chart {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-}
-
 .zoom-range-filter .zrf-ov-axis text {
     font-size: 0.65rem;
     fill: var(--text-color);
@@ -1296,19 +1290,19 @@ ul ul, ol ol, ul ol, ol ul {
     width: 100%;
 }
 
-.zoom-range-filter .range-chart {
+.zoom-range-filter .zrf-overview-chart {
     display: block;
     width: 100%;
     max-width: 100%;
-    margin-top: 4px;
+    touch-action: none;
 }
 
-.zoom-range-filter .zoom-layer {
+.zoom-range-filter .zrf-overview-zoom-layer {
     touch-action: none;
     cursor: grab;
 }
 
-.zoom-range-filter .zoom-layer:active {
+.zoom-range-filter .zrf-overview-zoom-layer:active {
     cursor: grabbing;
 }
 

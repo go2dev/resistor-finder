@@ -1491,7 +1491,6 @@ function initializeResistanceFilter(results) {
         initialFilterMax: rangeOk ? currentResistanceRange.max : undefined,
         formatValue: formatOhm,
         showHistogram: true,
-        showRug: true,
         onFilterChange(range) {
             currentResistanceRange.min = range.filterMin;
             currentResistanceRange.max = range.filterMax;

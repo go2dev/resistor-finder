@@ -23,7 +23,7 @@
   <h1>Zoomable range filter (demo)</h1>
   <p>
     500 synthetic results with a <strong>uniform random</strong> distribution between 15&nbsp;Ω and 40&nbsp;kΩ.
-    Zoom or pan the <strong>lower</strong> chart to set the resistance window; the slider then spans that window so you can narrow the filter with the handles.
+    Scroll or pinch on the <strong>histogram</strong> to zoom; drag to pan the window. The slider then spans that window so you can narrow the filter with the handles.
   </p>
   <div id="demo-mount"></div>
   <script src="resistor-utils.js"></script>
@@ -49,7 +49,6 @@
         formatValue: function (x) { return ResistorUtils.formatResistorValue(x); },
         showHistogram: true,
         showFullRangeOverview: true,
-        showRug: true,
         onFilterChange: function (range, selected) {
           console.log('filter', range.filterMin, range.filterMax, 'selected', selected.length);
         }

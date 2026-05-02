@@ -1,5 +1,5 @@
 /**
- * ZoomableRangeFilter — two-handle range over a zoomable view (D3 zoom + histogram + noUiSlider).
+ * ZoomableRangeFilter — noUiSlider over a zoomable view; full-range histogram with wheel/pinch zoom and drag-pan.
  * Expects globals `noUiSlider` and `d3`.
  */
 (function (global) {
@@ -120,10 +120,6 @@
         return d3.zoomIdentity.translate(x, 0).scale(k);
     }
 
-    function targetBinCount(width) {
-        return Math.max(12, Math.min(80, Math.round(width / 12)));
-    }
-
     function selectionOffScreen(filterMin, filterMax, viewMin, viewMax) {
         return filterMax < viewMin || filterMin > viewMax;
     }
@@ -152,17 +148,16 @@
             formatValue = defaultFormat,
             parseValue,
             showHistogram = true,
-            /** When true, a small histogram fixed to the full domain shows where all results sit; the chart below is the zoomed view. */
+            /** Full-domain histogram with zoom/pan interaction. */
             showFullRangeOverview = true,
-            showRug = true,
             /** When true (default), pan/zoom/fit set filter to the view window; handles then narrow inside that window. */
             syncFilterToViewOnZoom = true,
             /** Debounce onFilterChange during wheel/drag zoom (ms). 0 = fire every frame. */
             filterEmitDebounceMs = 80,
             onFilterChange,
             onViewChange,
-            helpTextDesktop = 'Top: all results. Bottom: zoom/pan sets the resistance window; then drag the handles to narrow the filter inside that window.',
-            helpTextTouch = 'Top: all results. Bottom: pinch/drag sets the window; use handles to narrow the filter.'
+            helpTextDesktop = 'Scroll or pinch on the histogram to zoom; drag to move the window. Then use the slider to narrow the filter.',
+            helpTextTouch = 'Pinch or drag on the histogram to move the window; use the slider to narrow the filter.'
         } = options;
 
         const parse = parseValue || function (raw) {
@@ -188,10 +183,6 @@
         let sliderApi = null;
         let zoomBehavior = null;
         let zoomLayer = null;
-        let svg = null;
-        let gBars = null;
-        let gRug = null;
-        let gAxis = null;
         let overviewSvg = null;
         let gOvBins = null;
         let gOvOverlay = null;
@@ -204,43 +195,24 @@
 
         let suppressSyncFilterFromView = false;
 
-        function resetMainChartGraphics() {
-            gBars = null;
-            gRug = null;
-            gAxis = null;
-            zoomLayer = null;
-            zoomBehavior = null;
-            xFullScale = null;
-        }
-
         function resetOverviewGraphics() {
             gOvBins = null;
             gOvOverlay = null;
             gOvAxis = null;
+            zoomLayer = null;
+            zoomBehavior = null;
+            xFullScale = null;
         }
 
         function ensureOverviewGroups() {
             if (!overviewSvg) return;
             const ov = d3.select(overviewSvg);
             if (!gOvBins || !overviewSvg.contains(gOvBins.node())) {
-                ov.selectAll('g').remove();
+                ov.selectAll('g, rect.zrf-overview-zoom-layer').remove();
                 resetOverviewGraphics();
                 gOvBins = ov.append('g').attr('class', 'zrf-ov-bins');
                 gOvOverlay = ov.append('g').attr('class', 'zrf-ov-overlay');
                 gOvAxis = ov.append('g').attr('class', 'zrf-ov-axis');
-            }
-        }
-
-        function ensureMainChartGroups() {
-            if (!svg) return;
-            const rootSvg = d3.select(svg);
-            if (!gBars || !svg.contains(gBars.node())) {
-                rootSvg.selectAll('g').remove();
-                rootSvg.select('rect.zoom-layer').remove();
-                resetMainChartGraphics();
-                gBars = rootSvg.append('g').attr('class', 'zrf-bars');
-                gRug = rootSvg.append('g').attr('class', 'zrf-rug');
-                gAxis = rootSvg.append('g').attr('class', 'zrf-axis');
             }
         }
 
@@ -286,8 +258,6 @@
             viewMax = fullMax;
         }
 
-        const chartHeight = showHistogram ? 72 : 0;
-        const axisPad = 22;
         const overviewBarH = 34;
         const overviewAxisPad = 14;
 
@@ -323,7 +293,6 @@
                 <div class="range-slider-wrap">
                     <div class="range-slider zrf-noui"></div>
                 </div>
-                <svg class="range-chart" role="img" aria-label="Zoomed view of the value range under the slider"></svg>
                 <div class="range-help zrf-help"></div>
                 <div class="sr-only zrf-live" aria-live="polite"></div>
             </section>
@@ -342,7 +311,6 @@
         const liveEl = container.querySelector('.zrf-live');
         const overviewWrap = container.querySelector('.zrf-overview-wrap');
         sliderEl = container.querySelector('.zrf-noui');
-        svg = container.querySelector('.range-chart');
         overviewSvg = container.querySelector('.zrf-overview-chart');
 
         const coarsePointer = global.matchMedia && global.matchMedia('(pointer: coarse)').matches;
@@ -539,29 +507,15 @@
             if (!zoomBehavior || !xFullScale) return;
             const span = fullMax - fullMin;
             const maxZoom = span / minViewSpan;
+            const totalH = overviewBarH + overviewAxisPad;
             zoomBehavior.scaleExtent([1, maxZoom]);
             xFullScale.domain([fullMin, fullMax]).range([0, width]);
-            zoomBehavior.translateExtent([[0, 0], [width, chartHeight + axisPad]]);
-            zoomBehavior.extent([[0, 0], [width, chartHeight + axisPad]]);
+            zoomBehavior.translateExtent([[0, 0], [width, totalH]]);
+            zoomBehavior.extent([[0, 0], [width, totalH]]);
         }
 
-        function drawOverviewFullDomain(width) {
-            if (!showHistogram || !showFullRangeOverview || !overviewSvg || !overviewWrap) {
-                return;
-            }
-            if (results.length === 0 || width <= 0) {
-                overviewWrap.hidden = true;
-                return;
-            }
-            overviewWrap.hidden = false;
-            overviewWrap.style.display = '';
-
+        function drawOverviewBarsAndOverlay(width) {
             const hBar = overviewBarH;
-            const totalH = overviewBarH + overviewAxisPad;
-            overviewSvg.setAttribute('width', width);
-            overviewSvg.setAttribute('height', totalH);
-            overviewSvg.setAttribute('viewBox', `0 0 ${width} ${totalH}`);
-
             const xFull = d3.scaleLinear().domain([fullMin, fullMax]).range([0, width]);
             const allVals = results.map(r => r.value).filter(Number.isFinite);
             const nBins = Math.max(16, Math.min(100, Math.round(width / 8)));
@@ -619,82 +573,28 @@
             gOvAxis.attr('transform', `translate(0, ${hBar})`).call(axis);
         }
 
-        function drawChart(width) {
-            if (!showHistogram || width <= 0) {
-                svg.style.display = 'none';
-                return;
-            }
-            if (results.length === 0) {
-                svg.style.display = 'none';
-                return;
-            }
-            svg.style.display = '';
-
-            const h = chartHeight;
-            svg.setAttribute('width', width);
-            svg.setAttribute('height', h + axisPad);
-            svg.setAttribute('viewBox', `0 0 ${width} ${h + axisPad}`);
-
-            const xView = d3.scaleLinear().domain([viewMin, viewMax]).range([0, width]);
-            const visible = results.filter(
-                r => r.value >= viewMin && r.value <= viewMax && Number.isFinite(r.value)
-            );
-            const vals = visible.map(r => r.value);
-            const nBins = targetBinCount(width);
-            const binGen = d3.bin()
-                .domain([viewMin, viewMax])
-                .thresholds(nBins);
-            const bins = binGen(vals);
-            const maxLen = d3.max(bins, b => b.length) || 1;
-            const y = d3.scaleLinear().domain([0, maxLen]).range([h - 4, 4]);
-
-            ensureMainChartGroups();
-
-            gBars.selectAll('rect')
-                .data(bins)
-                .join('rect')
-                .attr('fill', '#3498db')
-                .attr('opacity', 0.75)
-                .attr('x', d => xView(d.x0))
-                .attr('y', d => y(d.length))
-                .attr('width', d => Math.max(1, xView(d.x1) - xView(d.x0) - 1))
-                .attr('height', d => h - 4 - y(d.length));
-
-            const showRugMarks = showRug && visible.length <= 300 && results.length <= 5000;
-            gRug.selectAll('line')
-                .data(showRugMarks ? visible : [], d => d.id)
-                .join('line')
-                .attr('stroke', '#555')
-                .attr('stroke-width', 1)
-                .attr('opacity', 0.35)
-                .attr('x1', d => xView(d.value))
-                .attr('x2', d => xView(d.value))
-                .attr('y1', 0)
-                .attr('y2', 8);
-
-            const axis = d3.axisBottom(xView)
-                .ticks(Math.min(6, Math.max(2, Math.floor(width / 90))))
-                .tickFormat(d => formatValue(d));
-            gAxis.attr('transform', `translate(0, ${h})`).call(axis);
-
-            if (!zoomLayer) {
-                const rootSvg = d3.select(svg);
-                zoomLayer = rootSvg.append('rect')
-                    .attr('class', 'zoom-layer')
+        function ensureOverviewZoom(width) {
+            const totalH = overviewBarH + overviewAxisPad;
+            const ov = d3.select(overviewSvg);
+            if (!zoomLayer || !overviewSvg.contains(zoomLayer)) {
+                zoomLayer = ov.append('rect')
+                    .attr('class', 'zrf-overview-zoom-layer')
                     .attr('x', 0)
                     .attr('y', 0)
-                    .attr('height', h + axisPad)
+                    .attr('height', totalH)
                     .style('fill', 'transparent')
+                    .style('cursor', 'grab')
                     .node();
 
                 xFullScale = d3.scaleLinear().domain([fullMin, fullMax]).range([0, width]);
 
                 zoomBehavior = d3.zoom()
                     .scaleExtent([1, (fullMax - fullMin) / minViewSpan])
-                    .translateExtent([[0, 0], [width, h + axisPad]])
-                    .extent([[0, 0], [width, h + axisPad]])
+                    .translateExtent([[0, 0], [width, totalH]])
+                    .extent([[0, 0], [width, totalH]])
                     .on('zoom', (event) => {
                         if (suppressZoom || destroyed) return;
+                        const w = parseFloat(overviewSvg.getAttribute('width')) || 400;
                         const xs = event.transform.rescaleX(xFullScale);
                         const rawMin = xs.domain()[0];
                         const rawMax = xs.domain()[1];
@@ -704,7 +604,7 @@
                             viewMax = next.viewMax;
                             applyViewToFilterIfSync();
                             updateSliderFromState();
-                            drawChart(width);
+                            drawOverviewBarsAndOverlay(w);
                             showTransientVisible();
                             emitView();
                             updateCount();
@@ -722,8 +622,27 @@
             suppressZoom = true;
             d3.select(zoomLayer).call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, width));
             suppressZoom = false;
+        }
 
-            drawOverviewFullDomain(width);
+        function drawOverviewFullDomain(width) {
+            if (!showHistogram || !showFullRangeOverview || !overviewSvg || !overviewWrap) {
+                return;
+            }
+            if (results.length === 0 || width <= 0) {
+                overviewWrap.hidden = true;
+                return;
+            }
+            overviewWrap.hidden = false;
+            overviewWrap.style.display = '';
+
+            const hBar = overviewBarH;
+            const totalH = overviewBarH + overviewAxisPad;
+            overviewSvg.setAttribute('width', width);
+            overviewSvg.setAttribute('height', totalH);
+            overviewSvg.setAttribute('viewBox', `0 0 ${width} ${totalH}`);
+
+            drawOverviewBarsAndOverlay(width);
+            ensureOverviewZoom(width);
         }
 
         function layout() {
@@ -731,7 +650,6 @@
             const width = Math.max(200, Math.floor(w));
             if (showHistogram && results.length > 0) {
                 drawOverviewFullDomain(width);
-                drawChart(width);
             } else if (zoomLayer) {
                 d3.select(zoomLayer).attr('width', width);
             }
@@ -743,8 +661,8 @@
         }
 
         function syncD3TransformToView() {
-            if (!zoomLayer || !zoomBehavior || !showHistogram || results.length === 0) return;
-            const w = parseFloat(svg.getAttribute('width')) || container.clientWidth || 400;
+            if (!zoomLayer || !zoomBehavior || !showHistogram || results.length === 0 || !overviewSvg) return;
+            const w = parseFloat(overviewSvg.getAttribute('width')) || container.clientWidth || 400;
             refreshZoomExtent(w);
             suppressZoom = true;
             d3.select(zoomLayer).call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, w));
@@ -878,11 +796,7 @@
                     sliderEl.noUiSlider.destroy();
                     sliderApi = null;
                 }
-                resetMainChartGraphics();
                 resetOverviewGraphics();
-                if (svg) {
-                    svg.innerHTML = '';
-                }
                 if (overviewSvg) {
                     overviewSvg.innerHTML = '';
                 }
@@ -994,7 +908,9 @@
         syncInputs();
         resizeObs = new ResizeObserver(() => layout());
         resizeObs.observe(container);
-        requestAnimationFrame(layout);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => layout());
+        });
 
         return {
             destroy() {
