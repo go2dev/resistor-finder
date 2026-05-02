@@ -13,7 +13,6 @@
         /\bnot (fitted|populated|installed)\b/i,
         /\bexclude(d)?\b/i,
         /\bomit(ted)?\b/i,
-        /\bn\/a\b/i,
         /\bno (fit|load)\b/i,
         /\bnf\b/i,
         /\bnoc\b/i
@@ -44,9 +43,9 @@
         /\b0\.0+\s*ohm/i
     ];
 
-    const VALUE_HEADER_HINT = /^(value|resistance|res\.?|ohms?|comp(ONENT)?\s*value|size|description|comment|part\s*comment|notes?)$/i;
-    const QTY_HEADER_HINT = /^(qty|quantity|q\.?ty|count|amount|#|#\.?\s*of|pieces?|multiples?|mqty|order\s*qty|usage)$/i;
-    const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|id|pos|part\s*designators?)$/i;
+    const VALUE_HEADER_HINT = /^(value|resistance|res\.?|ohms?|comp(ONENT)?\s*value|size|description|part\s*description|part\s*desc|comment|part\s*comment|notes?)$/i;
+    const QTY_HEADER_HINT = /^(qty|quantity|q\.?ty|count|amount|#|#\.?\s*of|pieces?|multiples?|mqty|order\s*qty|usage|qty\s*per\s*pcb|qty\s*per)$/i;
+    const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|ref\s*des|ref\s*des\.|id|pos|part\s*designators?)$/i;
 
     /** Plain numbers that match IPC / metric footprint sizes — not resistance (e.g. 1210 in "1210 (3225 Metric)"). */
     const FOOTPRINT_SIZE_CODE = new Set([
@@ -182,8 +181,11 @@
         const s = String(h || '').trim();
         if (QTY_HEADER_HINT.test(s)) return -1000;
         if (DESIGNATOR_HEADER_HINT.test(s)) return -1000;
+        if (/cost|price|€|\$|total|catalog|line\s*cost|target\s*line|competitor|equivalent|supplier|mfr|manufacturer|part\s*number|part\s*no|^pn$/i.test(s)) {
+            return -1000;
+        }
         if (VALUE_HEADER_HINT.test(s)) return 10;
-        if (/mpn|manufacturer|package|footprint|libref|sku|part\s*number|partnumber|supplier/i.test(s)) return 0;
+        if (/mpn|package|footprint|libref|sku/i.test(s)) return 0;
         return 1;
     }
 
@@ -217,6 +219,10 @@
         const t = token.trim();
         if (!t || t.length > 80) return null;
         if (isFootprintSizeCodeToken(t)) return null;
+        if (/^\d+\.\d+$/.test(t) && !/[kKmMgGrRΩ]/i.test(t)) {
+            const fp = parseFloat(t);
+            if (Number.isFinite(fp) && Math.floor(fp) >= 30) return null;
+        }
         try {
             const v = ResistorUtils.parseResistorValue(t);
             if (!Number.isFinite(v) || v <= 0) return null;
@@ -238,6 +244,10 @@
         try {
             const parsed = ResistorUtils.parseResistorInput(s, { snapToSeries: false });
             if (!Number.isFinite(parsed.value) || parsed.value <= 0) return null;
+            if (/^\d+\.\d+$/.test(s) && !/[kKmMgGrRΩ]/i.test(s)) {
+                const intPart = Math.floor(parsed.value);
+                if (intPart >= 30) return null;
+            }
             return { parsed, raw: s };
         } catch (e) {
             return null;
@@ -263,6 +273,10 @@
         return null;
     }
 
+    function isValueColumnForDigitCodes(h) {
+        return /^value$/i.test(String(h || '').trim());
+    }
+
     function pickValueCell(row, headers) {
         const hasR = rowHasDesignatorR(row, headers, rowObjectToSearchText(row));
         let best = null;
@@ -271,14 +285,16 @@
             const cell = row[h];
             if (cell == null || String(cell).trim() === '') return;
             const raw = String(cell).trim();
-            const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
-            if (digitOhms != null && digitOhms > 0 && digitOhms < 1e15) {
-                const sc = scoreHeaderForValue(h) + 7;
-                if (sc > bestScore) {
-                    bestScore = sc;
-                    best = { type: 'token', value: digitOhms, displayRaw: raw };
+            if (isValueColumnForDigitCodes(h)) {
+                const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+                if (digitOhms != null && digitOhms > 0 && digitOhms < 1e15) {
+                    const sc = scoreHeaderForValue(h) + 7;
+                    if (sc > bestScore) {
+                        bestScore = sc;
+                        best = { type: 'token', value: digitOhms, displayRaw: raw };
+                    }
+                    return;
                 }
-                return;
             }
             const full = tryParseFullCell(raw);
             const tok = full ? null : tryParseResistanceToken(raw);
@@ -298,12 +314,14 @@
             const cell = row[h];
             if (!cell) return;
             const raw = String(cell).trim();
-            const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
-            if (digitOhms != null && digitOhms > 0) {
-                if (!best || digitOhms > 0) {
-                    best = { type: 'token', value: digitOhms, displayRaw: raw };
+            if (isValueColumnForDigitCodes(h)) {
+                const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+                if (digitOhms != null && digitOhms > 0) {
+                    if (!best || digitOhms > 0) {
+                        best = { type: 'token', value: digitOhms, displayRaw: raw };
+                    }
+                    return;
                 }
-                return;
             }
             const parts = String(cell).split(/[\s,;/|]+/).filter(Boolean);
             for (const p of parts) {
@@ -319,23 +337,51 @@
     function mergeParsedMeta(primary, rowText, headers, row) {
         let tolerance = primary.tolerance != null ? primary.tolerance : null;
         let series = primary.series || null;
+        let explicitTolerance = primary.tolerance != null && Number.isFinite(primary.tolerance);
         headers.forEach(h => {
             if (scoreHeaderForTolerance(h) && row[h]) {
                 const t = ResistorUtils.parseToleranceInput(String(row[h]), null);
-                if (t != null) tolerance = t;
+                if (t != null) {
+                    tolerance = t;
+                    explicitTolerance = true;
+                }
             }
             if (scoreHeaderForSeries(h) && row[h]) {
                 const s = extractSeriesFromText(row[h]);
                 if (s) series = s;
             }
         });
+        const hasDedicatedValueCol = headers.some(h => {
+            const hn = String(h || '').trim();
+            if (!/^value$/i.test(hn)) return false;
+            const v = row[h];
+            return v != null && String(v).trim() !== '';
+        });
         if (tolerance == null) {
             headers.forEach(h => {
-                if (!/value|description|comment|notes|part\s*comment|tol/i.test(String(h || ''))) return;
+                const hn = String(h || '').trim();
+                if (!/^value$/i.test(hn)) return;
                 const cell = row[h];
                 if (cell == null || String(cell).trim() === '') return;
                 const t2 = extractToleranceFromText(String(cell), null);
-                if (t2 != null) tolerance = t2;
+                if (t2 != null) {
+                    tolerance = t2;
+                    explicitTolerance = true;
+                }
+            });
+        }
+        if (tolerance == null && !hasDedicatedValueCol) {
+            headers.forEach(h => {
+                if (!/^(description|comment|part\s*description|notes|part\s*comment)$/i.test(String(h || '').trim())) return;
+                const cell = row[h];
+                if (cell == null || String(cell).trim() === '') return;
+                const str = String(cell);
+                if (str.length > 220) return;
+                const t2 = extractToleranceFromText(str, null);
+                if (t2 != null) {
+                    tolerance = t2;
+                    explicitTolerance = false;
+                }
             });
         }
         if (!series) {
@@ -350,7 +396,7 @@
         if (!series && tolerance != null) {
             series = ResistorUtils.getSeriesForTolerance(tolerance);
         }
-        return { tolerance, series };
+        return { tolerance, series, explicitTolerance };
     }
 
     function isResistorRow(row, headers, rowText) {
@@ -369,9 +415,12 @@
         return ResistorUtils.formatResistorInputNotation(value);
     }
 
-    function buildInputString(value, tolerance, series) {
+    function buildInputString(value, tolerance, series, explicitTolerance) {
         const base = formatOhmValueForInput(value);
         if (tolerance == null || !Number.isFinite(tolerance)) {
+            return base;
+        }
+        if (!explicitTolerance) {
             return base;
         }
         const stdSeries = ResistorUtils.findResistorSeries(value);
@@ -457,11 +506,13 @@
             const merged = mergeParsedMeta(parsed, rowText, headers, row);
             const tolerance = merged.tolerance != null ? merged.tolerance : parsed.tolerance;
             const series = merged.series || parsed.series;
+            const explicitTolerance = merged.explicitTolerance === true;
             const footprint = row.Footprint != null ? String(row.Footprint).trim() : '';
             entries.push({
                 value: parsed.value,
                 tolerance: tolerance != null ? tolerance : null,
                 series: series || null,
+                explicitTolerance,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 footprint: footprint || null,
@@ -486,7 +537,7 @@
             return String(a.series || '').localeCompare(String(b.series || ''));
         });
 
-        const strings = unique.map(e => buildInputString(e.value, e.tolerance, e.series));
+        const strings = unique.map(e => buildInputString(e.value, e.tolerance, e.series, e.explicitTolerance));
         const csv = strings.join(', ');
 
         return {
@@ -515,7 +566,7 @@
             if (!line || isEmptyTableRow(line)) continue;
             const joined = line.map(c => String(c == null ? '' : c).toLowerCase()).join(' ');
             let score = 0;
-            if (/\b(value|comment|description|designator|reference|ref|qty|quantity|footprint|package)\b/.test(joined)) {
+            if (/\b(value|comment|description|part\s*description|designator|reference|ref\s*des|ref\b|qty|quantity|qty\s*per|footprint|package|mfr|part\s*no)\b/.test(joined)) {
                 score += 5;
             }
             if (/\br\d+\b/.test(joined)) score += 3;
@@ -523,6 +574,52 @@
             if (score > best) best = score;
         }
         return best;
+    }
+
+    function scoreHeaderRowCandidate(line) {
+        if (!line || isEmptyTableRow(line)) return 0;
+        let hits = 0;
+        line.forEach(cell => {
+            const s = String(cell == null ? '' : cell).trim();
+            if (!s) return;
+            const t = s.replace(/\s+/g, ' ');
+            if (VALUE_HEADER_HINT.test(t) || DESIGNATOR_HEADER_HINT.test(t) || QTY_HEADER_HINT.test(t)) {
+                hits++;
+                return;
+            }
+            const low = t.toLowerCase();
+            if (/^(mfr|manufacturer|manuf)$/i.test(low) || /part\s*(no|number|#)|^pn$|^p\/n$/i.test(low)) {
+                hits++;
+                return;
+            }
+            if (/^desc(ription)?$/i.test(low) || /^package|^footprint/i.test(low)) {
+                hits++;
+            }
+        });
+        return hits >= 2 ? hits + 4 : 0;
+    }
+
+    function findBomHeaderRowIndex(aoa) {
+        if (!aoa || !aoa.length) return 0;
+        let bestIdx = 0;
+        let bestScore = -1;
+        const maxScan = Math.min(aoa.length, 60);
+        for (let r = 0; r < maxScan; r++) {
+            const line = aoa[r];
+            const sc = scoreHeaderRowCandidate(line);
+            if (sc > bestScore) {
+                bestScore = sc;
+                bestIdx = r;
+            }
+        }
+        return bestIdx;
+    }
+
+    function trimTableToHeaderRow(aoa) {
+        if (!aoa || !aoa.length) return aoa;
+        const idx = findBomHeaderRowIndex(aoa);
+        if (idx <= 0) return aoa;
+        return aoa.slice(idx);
     }
 
     function workbookToBestTable(workbook) {
@@ -535,7 +632,8 @@
         let bestScore = -1;
         workbook.SheetNames.forEach(sheetName => {
             const sheet = workbook.Sheets[sheetName];
-            const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            const aoaRaw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            const aoa = trimTableToHeaderRow(aoaRaw);
             const sc = bomAoaHeaderScore(aoa);
             if (sc > bestScore) {
                 bestScore = sc;
@@ -545,7 +643,9 @@
         });
         if (!bestTable || !bestTable.length) {
             const sheet = workbook.Sheets[bestName];
-            bestTable = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            bestTable = trimTableToHeaderRow(
+                XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false })
+            );
         }
         return { table: bestTable, sheetName: bestName, sheetScore: bestScore };
     }
