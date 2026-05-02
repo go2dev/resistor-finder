@@ -82,7 +82,17 @@ module.exports = function runBomParserTests() {
         Description: 'Current limit resistor'
     };
     const exR = BomParser.extractResistorsFromRows({ rows: [rowR33], headers: hBom1, includeDnp: false });
-    assert.ok(/33R\(5%\)/i.test(exR.csv) || /33\(5%\)/i.test(exR.csv), 'E24 standard -> 5% bracket not E24 label');
+    assert.ok(/33R/i.test(exR.csv), 'RKM output for 33Ω');
+    assert.ok(!/\(5%\)/.test(exR.csv), 'omit brackets when tolerance matches series default');
+
+    const rowDigits = {
+        Qty: '',
+        'Part Designators': 'R2',
+        Value: '091',
+        Description: 'Resistor'
+    };
+    const exDig = BomParser.extractResistorsFromRows({ rows: [rowDigits], headers: hBom1, includeDnp: false });
+    assert.ok(/0R091/i.test(exDig.csv), 'digit-only sub-ohm for R row');
 
     const csvQty = [
         'Designator,Quantity,Description,Footprint',
@@ -92,7 +102,6 @@ module.exports = function runBomParserTests() {
     const oq = BomParser.tableToObjects(tq);
     const exQ = BomParser.extractResistorsFromRows({ rows: oq.rows, headers: oq.headers, includeDnp: false });
     assert.ok(/100R/i.test(exQ.csv) || /100\b/i.test(exQ.csv), 'Quantity column must not be parsed as ohms');
-    assert.ok(/\(5%\)/i.test(exQ.csv), 'Tolerance from description');
 
     const schText = [
         '(kicad_sch (version 20231120) (generator test)',

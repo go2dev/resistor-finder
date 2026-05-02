@@ -151,6 +151,16 @@ const ResistorUtils = {
         // Remove any whitespace
         value = value.trim();
 
+        if (/^\d+$/.test(value) && value.length >= 2 && value[0] === '0') {
+            let frac = 0;
+            for (let i = 1; i < value.length; i++) {
+                frac = frac * 10 + (value.charCodeAt(i) - 48);
+            }
+            if (frac > 0) {
+                return frac / Math.pow(10, value.length);
+            }
+        }
+
         // If it's just a number, return it
         if (!isNaN(value)) {
             return parseFloat(value);
@@ -370,7 +380,64 @@ const ResistorUtils = {
         return `${(value * 1e3).toFixed(2).replace(/\.?0+$/, '')}m`;
     },
 
-    // Calculate equivalent resistance for resistors in series
+    /**
+     * RKM-style string for the resistor value input box: 22→22R, 4.7→4R7, 330→330R, 4.7k→4K7, 0.91→0R91.
+     */
+    formatResistorInputNotation(value) {
+        if (!Number.isFinite(value) || value <= 0) return String(value);
+        const v = value;
+        if (v >= 1e9) {
+            const s = (v / 1e9).toFixed(4).replace(/\.?0+$/, '');
+            return `${s}G`;
+        }
+        if (v >= 1e6) {
+            const s = (v / 1e6).toFixed(4).replace(/\.?0+$/, '');
+            return `${s}M`;
+        }
+        if (v >= 1e3) {
+            const scaled = v / 1000;
+            const intPart = Math.floor(scaled + 1e-9);
+            const frac = scaled - intPart;
+            if (frac < 1e-6) {
+                return `${intPart}K`;
+            }
+            let f = frac;
+            let digits = '';
+            for (let i = 0; i < 6; i++) {
+                f *= 10;
+                const d = Math.min(9, Math.floor(f + 1e-9));
+                digits += d;
+                f -= d;
+                if (f < 1e-8) break;
+            }
+            digits = digits.replace(/0+$/, '');
+            return `${intPart}K${digits}`;
+        }
+        if (v >= 1) {
+            const intPart = Math.floor(v + 1e-9);
+            const frac = v - intPart;
+            if (frac < 1e-9) {
+                return `${intPart}R`;
+            }
+            let f = frac;
+            let digits = '';
+            for (let i = 0; i < 6; i++) {
+                f *= 10;
+                const d = Math.min(9, Math.floor(f + 1e-9));
+                digits += d;
+                f -= d;
+                if (f < 1e-8) break;
+            }
+            digits = digits.replace(/0+$/, '');
+            return `${intPart}R${digits}`;
+        }
+        const s = v.toFixed(12).replace(/\.?0+$/, '');
+        const dot = s.indexOf('.');
+        if (dot < 0) return `${s}R`;
+        let after = s.slice(dot + 1).replace(/0+$/, '');
+        if (after.length === 0) return '0R';
+        return `0R${after}`;
+    },
     calculateSeriesResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
         return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);

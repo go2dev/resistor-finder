@@ -26,6 +26,10 @@ Rows are treated as resistors when the row text suggests a resistor (e.g. “res
 
 When a **Footprint** column is present (e.g. from a KiCad schematic), duplicate list entries are collapsed only when value, tolerance, series, and footprint all match—so two identical resistances in different packages stay as two inputs.
 
+**Excel workbooks** with several sheets: the importer scores the first rows of each sheet for BOM-like headers (e.g. Value, Designator, R1…) and uses the best-scoring sheet instead of always the first tab—so a cover sheet or empty first tab does not hide the BOM.
+
+Imported values are written in **RKM-style** notation for the input box (e.g. `22R`, `4R7`, `330R`, `4K7`, `0R091`). **Tolerance in brackets** is only added when it differs from the default for that value’s E-series (so a plain 1% part line does not force `(1%)` on every value).
+
 ## Usage
 
 ### Voltage Divider

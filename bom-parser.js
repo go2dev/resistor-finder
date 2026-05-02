@@ -195,6 +195,23 @@
         return SERIES_HEADER_HINT.test(String(h || '').trim()) ? 5 : 0;
     }
 
+    function parseDigitOnlyValueAsOhms(raw, isRContext) {
+        if (!isRContext || raw == null) return null;
+        const s = String(raw).trim();
+        if (!/^\d+$/.test(s)) return null;
+        if (s.length === 1) return parseFloat(s);
+        if (s[0] === '0') {
+            const restDigits = s.slice(1);
+            let frac = 0;
+            for (let i = 0; i < restDigits.length; i++) {
+                frac = frac * 10 + (restDigits.charCodeAt(i) - 48);
+            }
+            if (frac <= 0) return null;
+            return frac / Math.pow(10, s.length);
+        }
+        return parseFloat(s);
+    }
+
     function tryParseResistanceToken(token) {
         if (!token || typeof token !== 'string') return null;
         const t = token.trim();
@@ -247,13 +264,24 @@
     }
 
     function pickValueCell(row, headers) {
+        const hasR = rowHasDesignatorR(row, headers, rowObjectToSearchText(row));
         let best = null;
         let bestScore = -1;
         headers.forEach(h => {
             const cell = row[h];
             if (cell == null || String(cell).trim() === '') return;
-            const full = tryParseFullCell(String(cell));
-            const tok = full ? null : tryParseResistanceToken(String(cell));
+            const raw = String(cell).trim();
+            const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+            if (digitOhms != null && digitOhms > 0 && digitOhms < 1e15) {
+                const sc = scoreHeaderForValue(h) + 7;
+                if (sc > bestScore) {
+                    bestScore = sc;
+                    best = { type: 'token', value: digitOhms, displayRaw: raw };
+                }
+                return;
+            }
+            const full = tryParseFullCell(raw);
+            const tok = full ? null : tryParseResistanceToken(raw);
             const sc = scoreHeaderForValue(h) + (full ? 8 : tok ? 4 : 0);
             if (sc > bestScore) {
                 bestScore = sc;
@@ -269,6 +297,14 @@
             if (scoreHeaderForValue(h) < 0) return;
             const cell = row[h];
             if (!cell) return;
+            const raw = String(cell).trim();
+            const digitOhms = parseDigitOnlyValueAsOhms(raw, hasR);
+            if (digitOhms != null && digitOhms > 0) {
+                if (!best || digitOhms > 0) {
+                    best = { type: 'token', value: digitOhms, displayRaw: raw };
+                }
+                return;
+            }
             const parts = String(cell).split(/[\s,;/|]+/).filter(Boolean);
             for (const p of parts) {
                 const tok = tryParseResistanceToken(p);
@@ -294,10 +330,23 @@
             }
         });
         if (tolerance == null) {
-            const t2 = extractToleranceFromText(rowText, null);
-            if (t2 != null) tolerance = t2;
+            headers.forEach(h => {
+                if (!/value|description|comment|notes|part\s*comment|tol/i.test(String(h || ''))) return;
+                const cell = row[h];
+                if (cell == null || String(cell).trim() === '') return;
+                const t2 = extractToleranceFromText(String(cell), null);
+                if (t2 != null) tolerance = t2;
+            });
         }
-        if (!series) series = extractSeriesFromText(rowText);
+        if (!series) {
+            headers.forEach(h => {
+                if (!/value|description|comment|series/i.test(String(h || ''))) return;
+                const cell = row[h];
+                if (!cell) return;
+                const s = extractSeriesFromText(String(cell));
+                if (s) series = s;
+            });
+        }
         if (!series && tolerance != null) {
             series = ResistorUtils.getSeriesForTolerance(tolerance);
         }
@@ -317,23 +366,23 @@
     }
 
     function formatOhmValueForInput(value) {
-        return ResistorUtils.formatResistorValue(value).replace(/Ω/g, '').trim();
+        return ResistorUtils.formatResistorInputNotation(value);
     }
 
     function buildInputString(value, tolerance, series) {
         const base = formatOhmValueForInput(value);
-        let tolOut = tolerance != null && Number.isFinite(tolerance) ? tolerance : null;
-        if (tolOut == null && series && /^E(24|48|96|192)$/i.test(String(series))) {
-            const seriesName = String(series).replace(/^e/i, 'E').toUpperCase();
-            if (ResistorUtils.resistorTolerances[seriesName] != null) {
-                tolOut = ResistorUtils.resistorTolerances[seriesName];
-            }
+        if (tolerance == null || !Number.isFinite(tolerance)) {
+            return base;
         }
-        if (tolOut != null && Number.isFinite(tolOut)) {
-            const dec = tolOut % 1 === 0 ? String(Math.round(tolOut)) : String(tolOut);
-            return `${base}(${dec}%)`;
+        const stdSeries = ResistorUtils.findResistorSeries(value);
+        const defaultTol = stdSeries && ResistorUtils.resistorTolerances[stdSeries] != null
+            ? ResistorUtils.resistorTolerances[stdSeries]
+            : null;
+        if (defaultTol != null && Math.abs(tolerance - defaultTol) < 1e-6) {
+            return base;
         }
-        return base;
+        const dec = tolerance % 1 === 0 ? String(Math.round(tolerance)) : String(tolerance);
+        return `${base}(${dec}%)`;
     }
 
     function dedupeKey(value, tolerance, series, powerRating, powerCode, footprint) {
@@ -452,15 +501,57 @@
         };
     }
 
-    function workbookToFirstTable(workbook) {
+    function isEmptyTableRow(line) {
+        if (!line || !line.length) return true;
+        return line.every(c => String(c == null ? '' : c).trim() === '');
+    }
+
+    function bomAoaHeaderScore(aoa) {
+        if (!aoa || !aoa.length) return -1;
+        let best = -1;
+        const maxScan = Math.min(aoa.length, 40);
+        for (let r = 0; r < maxScan; r++) {
+            const line = aoa[r];
+            if (!line || isEmptyTableRow(line)) continue;
+            const joined = line.map(c => String(c == null ? '' : c).toLowerCase()).join(' ');
+            let score = 0;
+            if (/\b(value|comment|description|designator|reference|ref|qty|quantity|footprint|package)\b/.test(joined)) {
+                score += 5;
+            }
+            if (/\br\d+\b/.test(joined)) score += 3;
+            if (/\b\d+\s*k\b|\b\d+r\b|\b\d+k\d+\b/i.test(joined)) score += 2;
+            if (score > best) best = score;
+        }
+        return best;
+    }
+
+    function workbookToBestTable(workbook) {
         const XLSX = global.XLSX;
         if (!XLSX || !workbook.SheetNames || !workbook.SheetNames.length) {
             throw new Error('No sheets in workbook');
         }
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
-        return { table: aoa, sheetName };
+        let bestName = workbook.SheetNames[0];
+        let bestTable = null;
+        let bestScore = -1;
+        workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+            const sc = bomAoaHeaderScore(aoa);
+            if (sc > bestScore) {
+                bestScore = sc;
+                bestName = sheetName;
+                bestTable = aoa;
+            }
+        });
+        if (!bestTable || !bestTable.length) {
+            const sheet = workbook.Sheets[bestName];
+            bestTable = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+        }
+        return { table: bestTable, sheetName: bestName, sheetScore: bestScore };
+    }
+
+    function workbookToFirstTable(workbook) {
+        return workbookToBestTable(workbook);
     }
 
     function parseSpreadsheetArrayBuffer(buf) {
