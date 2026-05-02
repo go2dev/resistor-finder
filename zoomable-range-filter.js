@@ -155,12 +155,14 @@
             /** When true, a small histogram fixed to the full domain shows where all results sit; the chart below is the zoomed view. */
             showFullRangeOverview = true,
             showRug = true,
-            /** When true, pan/zoom/fit update filterMin/filterMax to match the view window (demo / exploration). Default false keeps filter independent of view per original brief. */
-            syncFilterToViewOnZoom = false,
+            /** When true (default), pan/zoom/fit set filter to the view window; handles then narrow inside that window. */
+            syncFilterToViewOnZoom = true,
+            /** Debounce onFilterChange during wheel/drag zoom (ms). 0 = fire every frame. */
+            filterEmitDebounceMs = 80,
             onFilterChange,
             onViewChange,
-            helpTextDesktop = 'Top: how results spread across the full range (bracket = zoomed window). Bottom: zoomed chart — scroll or pinch to zoom, drag to pan.',
-            helpTextTouch = 'Top: full-range density. Bottom: pinch to zoom, drag to pan.'
+            helpTextDesktop = 'Top: all results. Bottom: zoom/pan sets the resistance window; then drag the handles to narrow the filter inside that window.',
+            helpTextTouch = 'Top: all results. Bottom: pinch/drag sets the window; use handles to narrow the filter.'
         } = options;
 
         const parse = parseValue || function (raw) {
@@ -198,6 +200,7 @@
         let resizeObs = null;
         let liveDebounce = null;
         let transientTimer = null;
+        let filterEmitTimer = null;
 
         let suppressSyncFilterFromView = false;
 
@@ -313,13 +316,30 @@
             return results.filter(r => r.value >= filterMin && r.value <= filterMax).length;
         }
 
-        function emitFilter() {
-            const selectedResults = results.filter(
-                r => r.value >= filterMin && r.value <= filterMax
-            );
-            if (onFilterChange) {
-                onFilterChange({ filterMin, filterMax }, selectedResults);
+        function emitFilter(immediate) {
+            const run = () => {
+                if (destroyed) return;
+                const selectedResults = results.filter(
+                    r => r.value >= filterMin && r.value <= filterMax
+                );
+                if (onFilterChange) {
+                    onFilterChange({ filterMin, filterMax }, selectedResults);
+                }
+            };
+            const ms = filterEmitDebounceMs;
+            if (immediate || !ms || ms <= 0) {
+                if (filterEmitTimer) {
+                    clearTimeout(filterEmitTimer);
+                    filterEmitTimer = null;
+                }
+                run();
+                return;
             }
+            if (filterEmitTimer) clearTimeout(filterEmitTimer);
+            filterEmitTimer = setTimeout(() => {
+                filterEmitTimer = null;
+                run();
+            }, ms);
         }
 
         function emitView() {
@@ -456,7 +476,7 @@
                 filterMax = clamp(Math.round(b), fullMin, fullMax);
                 syncInputs();
                 updateCount();
-                emitFilter();
+                emitFilter(true);
             });
         }
 
@@ -706,7 +726,7 @@
             emitView();
             showTransientVisible();
             if (syncFilterToViewOnZoom) {
-                emitFilter();
+                emitFilter(true);
             }
         }
 
@@ -722,7 +742,7 @@
             emitView();
             showTransientVisible();
             if (syncFilterToViewOnZoom) {
-                emitFilter();
+                emitFilter(true);
             }
         }
 
@@ -737,7 +757,7 @@
             emitView();
             showTransientVisible();
             if (syncFilterToViewOnZoom) {
-                emitFilter();
+                emitFilter(true);
             }
         }
 
@@ -797,7 +817,7 @@
             }
             syncInputs();
             updateCount();
-            emitFilter();
+            emitFilter(true);
         }
 
         function updateFullDomain(newResults, opts = {}) {
@@ -840,6 +860,7 @@
                     overviewWrap.hidden = true;
                 }
                 updateCount();
+                emitFilter(true);
                 return;
             }
 
@@ -871,7 +892,7 @@
             layout();
             syncD3TransformToView();
             updateCount();
-            emitFilter();
+            emitFilter(true);
         }
 
         container.querySelector('.zrf-zoom-in').addEventListener('click', zoomIn);
@@ -910,7 +931,7 @@
                 emitView();
                 showTransientVisible();
                 if (syncFilterToViewOnZoom) {
-                    emitFilter();
+                    emitFilter(true);
                 }
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
@@ -924,7 +945,7 @@
                 emitView();
                 showTransientVisible();
                 if (syncFilterToViewOnZoom) {
-                    emitFilter();
+                    emitFilter(true);
                 }
             } else if (e.key === '+' || e.key === '=') {
                 e.preventDefault();
@@ -950,6 +971,7 @@
                 if (resizeObs) resizeObs.disconnect();
                 if (transientTimer) clearTimeout(transientTimer);
                 if (liveDebounce) clearTimeout(liveDebounce);
+                if (filterEmitTimer) clearTimeout(filterEmitTimer);
                 if (sliderApi) {
                     sliderEl.noUiSlider.destroy();
                     sliderApi = null;
