@@ -93,28 +93,15 @@
             const isJlc = RU.isJlcBasicResistance(v);
             const meta = typeof RU.getJlcBasicMeta === 'function' ? RU.getJlcBasicMeta(v) : null;
             box.classList.toggle('jlc-basic', isJlc);
-            let content = box.querySelector('.parsed-value-box-content');
-            if (!content) {
-                const fmt = box.querySelector('.formatted');
-                const tip = box.querySelector('.box-tooltip');
-                if (!fmt) return;
-                content = document.createElement('div');
-                content.className = 'parsed-value-box-content';
-                box.insertBefore(content, fmt);
-                content.appendChild(fmt);
-                if (tip) box.appendChild(tip);
+            const legacyWrap = box.querySelector('.parsed-value-box-content');
+            if (legacyWrap) {
+                const fmt = legacyWrap.querySelector('.formatted');
+                const tip = legacyWrap.querySelector('.box-tooltip') || box.querySelector('.box-tooltip');
+                if (fmt) box.insertBefore(fmt, legacyWrap);
+                if (tip && tip.parentNode === legacyWrap) box.appendChild(tip);
+                legacyWrap.remove();
             }
-            let cap = content.querySelector('.jlc-basic-caption');
-            if (isJlc) {
-                if (!cap) {
-                    cap = document.createElement('span');
-                    cap.className = 'jlc-basic-caption';
-                    content.appendChild(cap);
-                }
-                cap.textContent = 'JLC Basics';
-            } else if (cap) {
-                cap.remove();
-            }
+            box.querySelectorAll('.jlc-basic-caption').forEach(el => el.remove());
             const tip = box.querySelector('.box-tooltip');
             if (!tip) return;
             const base = tip.innerHTML.split('<br>JLC PCB Basics list')[0];
@@ -171,9 +158,6 @@
                                 ? `<br>JLC catalog tolerance: ${meta.tolerances.map(t => `${t}%`).join(', ')}`
                                 : '';
                         const jlcBasicClass = isJlc ? ' jlc-basic' : '';
-                        const jlcBasicCaption = isJlc
-                            ? '<span class="jlc-basic-caption">JLC Basics</span>'
-                            : '';
                         const debugInfo = (globalThis?.DEBUG_RESISTOR_FINDER && conv.debug)
                             ? `<br>Input: ${conv.input}<br>Std: ${conv.debug.standardSeries ?? '—'} | Tol: ${conv.debug.toleranceSeries ?? '—'} | Snap: ${conv.debug.snapped ? 'yes' : 'no'}<br>Value: ${conv.debug.parsedValueBeforeSnap ?? '—'} → ${conv.debug.parsedValueAfterSnap ?? '—'}`
                             : '';
@@ -186,10 +170,7 @@
                              data-key="${conv.key || ''}"
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
-                            <div class="parsed-value-box-content">
-                                <span class="formatted">${conv.formatted}</span>
-                                ${jlcBasicCaption}
-                            </div>
+                            <span class="formatted">${conv.formatted}</span>
                             <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${jlcListLine}${jlcPkgLine}${jlcTolLine}${debugInfo}</span>
                         </div>
                     `;
