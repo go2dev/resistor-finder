@@ -15,7 +15,10 @@
 <body>
   <h1>Zoomable range filter (demo)</h1>
   <p>
-    Synthetic results from 15 Ω to 50 kΩ. Zoom the chart (scroll), pan (drag), then use the slider to pick a narrow band (e.g. 300–400 Ω).
+    500 synthetic results with a <strong>uniform random</strong> distribution between 15&nbsp;Ω and 40&nbsp;kΩ.
+    This page enables <code>syncFilterToViewOnZoom</code>: zoom or pan the <strong>lower</strong> chart and the
+    slider handles (filter) follow the visible window. The main calculator keeps the default behaviour (filter
+    unchanged by zoom).
   </p>
   <div id="demo-mount"></div>
   <script src="resistor-utils.js"></script>
@@ -23,29 +26,31 @@
   <script src="nuis/nouislider.js"></script>
   <script src="zoomable-range-filter.js"></script>
   <script>
-    var fullMin = 15;
-    var fullMax = 50000;
-    var results = [];
-    var i;
-    for (i = 0; i < 400; i++) {
-      var t = i / 399;
-      var v = fullMin + t * t * (fullMax - fullMin);
-      results.push({ id: 's' + i, value: Math.round(v) });
-    }
-    for (i = 0; i < 80; i++) {
-      results.push({ id: 'c' + i, value: 300 + Math.round((i / 79) * 100) });
-    }
-    ZoomableRangeFilter.create(document.getElementById('demo-mount'), {
-      results: results,
-      fullMin: fullMin,
-      fullMax: fullMax,
-      formatValue: function (x) { return ResistorUtils.formatResistorValue(x); },
-      showHistogram: true,
-      showRug: true,
-      onFilterChange: function (range, selected) {
-        console.log('filter', range, 'selected count', selected.length);
+    (function () {
+      var fullMin = 15;
+      var fullMax = 40000;
+      var n = 500;
+      var results = [];
+      var i;
+      for (i = 0; i < n; i++) {
+        var u = Math.random();
+        var v = fullMin + u * (fullMax - fullMin);
+        results.push({ id: 'r' + i, value: Math.round(v) });
       }
-    });
+      ZoomableRangeFilter.create(document.getElementById('demo-mount'), {
+        results: results,
+        fullMin: fullMin,
+        fullMax: fullMax,
+        formatValue: function (x) { return ResistorUtils.formatResistorValue(x); },
+        showHistogram: true,
+        showFullRangeOverview: true,
+        showRug: true,
+        syncFilterToViewOnZoom: true,
+        onFilterChange: function (range, selected) {
+          console.log('filter', range.filterMin, range.filterMax, 'selected', selected.length);
+        }
+      });
+    })();
   </script>
 </body>
 </html>

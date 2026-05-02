@@ -155,6 +155,8 @@
             /** When true, a small histogram fixed to the full domain shows where all results sit; the chart below is the zoomed view. */
             showFullRangeOverview = true,
             showRug = true,
+            /** When true, pan/zoom/fit update filterMin/filterMax to match the view window (demo / exploration). Default false keeps filter independent of view per original brief. */
+            syncFilterToViewOnZoom = false,
             onFilterChange,
             onViewChange,
             helpTextDesktop = 'Top: how results spread across the full range (bracket = zoomed window). Bottom: zoomed chart — scroll or pinch to zoom, drag to pan.',
@@ -196,6 +198,8 @@
         let resizeObs = null;
         let liveDebounce = null;
         let transientTimer = null;
+
+        let suppressSyncFilterFromView = false;
 
         let propFullMinRef = propFullMin;
         let propFullMaxRef = propFullMax;
@@ -344,6 +348,24 @@
                 transientTimer = null;
                 if (!destroyed) visibleEl.classList.remove('is-visible');
             }, 1200);
+        }
+
+        function applyViewToFilterIfSync() {
+            if (!syncFilterToViewOnZoom || suppressSyncFilterFromView || results.length === 0) {
+                return;
+            }
+            let lo = Math.round(viewMin);
+            let hi = Math.round(viewMax);
+            lo = clamp(lo, fullMin, fullMax);
+            hi = clamp(hi, fullMin, fullMax);
+            if (lo > hi) {
+                const t = lo;
+                lo = hi;
+                hi = t;
+            }
+            filterMin = lo;
+            filterMax = hi;
+            syncInputs();
         }
 
         function setDisabled(disabled) {
@@ -624,11 +646,15 @@
                         if (next.viewMin !== viewMin || next.viewMax !== viewMax) {
                             viewMin = next.viewMin;
                             viewMax = next.viewMax;
+                            applyViewToFilterIfSync();
                             updateSliderFromState();
                             drawChart(width);
                             showTransientVisible();
                             emitView();
                             updateCount();
+                            if (syncFilterToViewOnZoom) {
+                                emitFilter();
+                            }
                         }
                     });
 
@@ -673,11 +699,15 @@
             const c = zoomViewAround(viewMin, viewMax, (viewMin + viewMax) / 2, 2, fullMin, fullMax, minViewSpan);
             viewMin = c.viewMin;
             viewMax = c.viewMax;
+            applyViewToFilterIfSync();
             updateSliderFromState();
             layout();
             syncD3TransformToView();
             emitView();
             showTransientVisible();
+            if (syncFilterToViewOnZoom) {
+                emitFilter();
+            }
         }
 
         function zoomOut() {
@@ -685,26 +715,35 @@
             const c = zoomViewAround(viewMin, viewMax, (viewMin + viewMax) / 2, 0.5, fullMin, fullMax, minViewSpan);
             viewMin = c.viewMin;
             viewMax = c.viewMax;
+            applyViewToFilterIfSync();
             updateSliderFromState();
             layout();
             syncD3TransformToView();
             emitView();
             showTransientVisible();
+            if (syncFilterToViewOnZoom) {
+                emitFilter();
+            }
         }
 
         function fitAll() {
             if (results.length === 0) return;
             viewMin = fullMin;
             viewMax = fullMax;
+            applyViewToFilterIfSync();
             updateSliderFromState();
             layout();
             syncD3TransformToView();
             emitView();
             showTransientVisible();
+            if (syncFilterToViewOnZoom) {
+                emitFilter();
+            }
         }
 
         function showSelection() {
             if (results.length === 0) return;
+            suppressSyncFilterFromView = true;
             const filterSpan = Math.max(filterMax - filterMin, minViewSpan);
             const padding = filterSpan * 0.5;
             const next = constrainViewDomain(
@@ -721,6 +760,7 @@
             syncD3TransformToView();
             emitView();
             showTransientVisible();
+            suppressSyncFilterFromView = false;
         }
 
         function commitFilterInputs() {
@@ -863,21 +903,29 @@
                 const p = panViewByFraction(viewMin, viewMax, -panFrac, fullMin, fullMax, minViewSpan);
                 viewMin = p.viewMin;
                 viewMax = p.viewMax;
+                applyViewToFilterIfSync();
                 updateSliderFromState();
                 layout();
                 syncD3TransformToView();
                 emitView();
                 showTransientVisible();
+                if (syncFilterToViewOnZoom) {
+                    emitFilter();
+                }
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 const p = panViewByFraction(viewMin, viewMax, panFrac, fullMin, fullMax, minViewSpan);
                 viewMin = p.viewMin;
                 viewMax = p.viewMax;
+                applyViewToFilterIfSync();
                 updateSliderFromState();
                 layout();
                 syncD3TransformToView();
                 emitView();
                 showTransientVisible();
+                if (syncFilterToViewOnZoom) {
+                    emitFilter();
+                }
             } else if (e.key === '+' || e.key === '=') {
                 e.preventDefault();
                 zoomIn();
