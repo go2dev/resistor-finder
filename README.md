@@ -4,7 +4,7 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 ## Features
 
-- Import resistor values from a BOM by drag-and-drop (CSV, Excel `.xlsx`/`.xls`, OpenDocument `.ods`) on the available-resistors field; optional inclusion of DNP/DNF lines
+- Import resistor values from a BOM or **KiCad 6+ schematic** (`.kicad_sch`) by drag-and-drop on the available-resistors field; optional inclusion of DNP/DNF lines and symbols marked `(in_bom no)`
 - Calculate voltage divider combinations using available resistor values
 - Support for resistors in series and parallel combinations
 - RKM / R notation input support (IEC 60062) and EIA-96 marking codes
@@ -18,9 +18,13 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 ## BOM import (privacy)
 
-You can drag a bill-of-materials file onto the dashed box around **Available Resistor Values** (or paste a file from the clipboard). The app uses the [SheetJS](https://sheetjs.com/) library (vendored in this repo) to read spreadsheets **only inside your browser**: files are not uploaded to any server, and no BOM data is sent over the network for parsing. After extracting resistor values (and optional tolerance / E-series hints from the sheet), the tool fills the same comma-separated input the rest of the calculator uses.
+You can drag a bill-of-materials file onto the dashed box around **Available Resistor Values** (or paste a file from the clipboard). The app uses the [SheetJS](https://sheetjs.com/) library (vendored in this repo) to read spreadsheets **only inside your browser**: files are not uploaded to any server, and no BOM data is sent over the network for parsing. **KiCad schematics** (`.kicad_sch`, KiCad 6+) are read the same way using a small built-in parser (no npm); symbol instances are turned into the same row shape as a CSV BOM, then the same resistor filter runs.
 
-Rows are treated as resistors when the row text suggests a resistor (e.g. “resistor”, “ohm”, value like `10k`) or when a designator such as `R12` appears **and** a parseable resistance is found. Lines tagged DNP, DNF, “do not populate”, “exclude”, and similar are skipped by default; enable **Include DNP / DNF / excluded lines** to count those values too. Zero-ohm links / jumpers are ignored.
+As an alternative to vendoring a parser, the npm package [kicad-to-circuit-json](https://www.npmjs.com/package/kicad-to-circuit-json) could be bundled for richer Circuit JSON output, but this project intentionally avoids a `package.json` build step, so we parse KiCad’s documented s-expression format directly.
+
+Rows are treated as resistors when the row text suggests a resistor (e.g. “resistor”, “ohm”, value like `10k`) or when a designator such as `R12` appears **and** a parseable resistance is found. Lines tagged DNP, DNF, “do not populate”, “exclude”, and similar are skipped by default; enable **Include DNP / DNF / excluded lines** to count those values too. For KiCad schematics, symbols with `(in_bom no)` are skipped unless that same option is enabled. Zero-ohm links / jumpers are ignored.
+
+When a **Footprint** column is present (e.g. from a KiCad schematic), duplicate list entries are collapsed only when value, tolerance, series, and footprint all match—so two identical resistances in different packages stay as two inputs.
 
 ## Usage
 

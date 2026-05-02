@@ -5,18 +5,20 @@ const vm = require('vm');
 
 const projectRoot = path.join(__dirname, '..');
 const resistorUtilsSrc = fs.readFileSync(path.join(projectRoot, 'resistor-utils.js'), 'utf8');
+const kicadSchSrc = fs.readFileSync(path.join(projectRoot, 'kicad-sch.js'), 'utf8');
 const bomParserSrc = fs.readFileSync(path.join(projectRoot, 'bom-parser.js'), 'utf8');
 
 function loadBomParser() {
     const sandbox = { console };
     vm.createContext(sandbox);
     vm.runInContext(resistorUtilsSrc, sandbox);
+    vm.runInContext(kicadSchSrc, sandbox);
     vm.runInContext(bomParserSrc, sandbox);
-    return sandbox.BomParser;
+    return { BomParser: sandbox.BomParser, KicadSchParser: sandbox.KicadSchParser };
 }
 
 module.exports = function runBomParserTests() {
-    const BomParser = loadBomParser();
+    const { BomParser, KicadSchParser } = loadBomParser();
 
     assert.strictEqual(BomParser._test.rowHasDnp('R1 10k DNP'), true);
     assert.strictEqual(BomParser._test.rowHasDnp('R1 10k fitted'), false);
@@ -56,4 +58,32 @@ module.exports = function runBomParserTests() {
     const ex2 = BomParser.extractResistorsFromRows({ rows: o2.rows, headers: o2.headers, includeDnp: false });
     assert.ok(/\(0\.1%\)/i.test(ex2.csv));
     assert.ok(/\(1%\)/i.test(ex2.csv));
+
+    const schText = [
+        '(kicad_sch (version 20231120) (generator test)',
+        '  (symbol "Device:R" (at 0 0 0)',
+        '    (in_bom yes) (on_board yes)',
+        '    (uuid 11111111-1111-1111-1111-111111111111)',
+        '    (property "Reference" "R1" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (property "Value" "10k" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (property "Footprint" "Resistor_SMD:R_0603_1608Metric" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (instances (project "" (path "/123" (reference "R1") (unit 1))))',
+        '  )',
+        '  (symbol "Device:R" (at 0 0 0)',
+        '    (in_bom yes) (on_board yes)',
+        '    (uuid 22222222-2222-2222-2222-222222222222)',
+        '    (property "Reference" "R2" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (property "Value" "10k" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (property "Footprint" "Resistor_SMD:R_0805_2012Metric" (at 0 0 0) (effects (font (size 1.27 1.27))))',
+        '    (instances (project "" (path "/456" (reference "R2") (unit 1))))',
+        '  )',
+        ')'
+    ].join('\n');
+    const sch = KicadSchParser.schematicToResistorRows(schText);
+    const exSch = BomParser.extractResistorsFromRows({
+        rows: sch.rows,
+        headers: sch.headers,
+        includeDnp: false
+    });
+    assert.strictEqual((exSch.csv.match(/10k/gi) || []).length, 2, 'Different footprints should keep two 10k entries');
 };

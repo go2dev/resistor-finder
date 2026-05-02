@@ -275,12 +275,13 @@
         return base;
     }
 
-    function dedupeKey(value, tolerance, series, powerRating, powerCode) {
+    function dedupeKey(value, tolerance, series, powerRating, powerCode, footprint) {
         const tol = tolerance != null && Number.isFinite(tolerance) ? tolerance : '';
         const ser = series || '';
         const pr = powerRating != null ? powerRating : '';
         const pc = powerCode || '';
-        return `${value}|${tol}|${ser}|${pr}|${pc}`;
+        const fp = footprint != null && String(footprint).trim() !== '' ? String(footprint).trim() : '';
+        return `${value}|${tol}|${ser}|${pr}|${pc}|${fp}`;
     }
 
     /**
@@ -301,6 +302,10 @@
         rows.forEach((row, idx) => {
             const rowText = rowObjectToSearchText(row);
             if (!rowText.trim()) return;
+            if (row._in_bom === 'no' && !includeDnp) {
+                skippedDnp++;
+                return;
+            }
             const dnp = rowHasDnp(rowText);
             if (dnp && !includeDnp) {
                 skippedDnp++;
@@ -342,12 +347,14 @@
             const merged = mergeParsedMeta(parsed, rowText, headers, row);
             const tolerance = merged.tolerance != null ? merged.tolerance : parsed.tolerance;
             const series = merged.series || parsed.series;
+            const footprint = row.Footprint != null ? String(row.Footprint).trim() : '';
             entries.push({
                 value: parsed.value,
                 tolerance: tolerance != null ? tolerance : null,
                 series: series || null,
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
+                footprint: footprint || null,
                 dnp
             });
         });
@@ -355,7 +362,7 @@
         const seen = new Map();
         const unique = [];
         entries.forEach(e => {
-            const key = dedupeKey(e.value, e.tolerance, e.series, e.powerRating, e.powerCode);
+            const key = dedupeKey(e.value, e.tolerance, e.series, e.powerRating, e.powerCode, e.footprint);
             if (seen.has(key)) return;
             seen.set(key, true);
             unique.push(e);
@@ -433,6 +440,7 @@
             || mime.indexOf('spreadsheet') >= 0
             || mime.indexOf('excel') >= 0
             || mime.indexOf('opendocument') >= 0;
+        const isKicadSch = ext === 'kicad_sch' || name.toLowerCase().endsWith('.kicad_sch');
 
         const reader = new FileReader();
         reader.onerror = () => {
@@ -444,6 +452,32 @@
                 if (isTextBom) {
                     const text = typeof e.target.result === 'string' ? e.target.result : '';
                     table = csvTextToTable(text);
+                } else if (isKicadSch) {
+                    const text = typeof e.target.result === 'string' ? e.target.result : '';
+                    const KSP = global.KicadSchParser;
+                    if (!KSP || !KSP.schematicToResistorRows) {
+                        throw new Error('KiCad schematic parser not loaded');
+                    }
+                    const warnings = [];
+                    const sch = KSP.schematicToResistorRows(text);
+                    sch.warnings.forEach(w => warnings.push(w));
+                    const { csv, warnings: ew, stats } = extractResistorsFromRows({
+                        rows: sch.rows,
+                        headers: sch.headers,
+                        includeDnp
+                    });
+                    ew.forEach(w => warnings.push(w));
+                    if (inputEl) inputEl.value = csv;
+                    if (onDone) {
+                        onDone({
+                            ok: true,
+                            csv,
+                            warnings,
+                            stats: Object.assign({}, stats, { source: 'kicad_sch' }),
+                            filename: name
+                        });
+                    }
+                    return;
                 } else if (isTsv) {
                     const text = typeof e.target.result === 'string' ? e.target.result : '';
                     table = tableFromTextDelimited(text, '\t');
@@ -470,7 +504,7 @@
                 if (onDone) onDone({ ok: false, error: err.message || String(err) });
             }
         };
-        if (isTextBom || isTsv) {
+        if (isTextBom || isTsv || isKicadSch) {
             reader.readAsText(file);
         } else {
             reader.readAsArrayBuffer(file);
@@ -487,7 +521,7 @@
 
         const hint = document.createElement('div');
         hint.className = 'bom-drop-hint';
-        hint.innerHTML = 'Drag and drop a BOM file here (CSV, Excel .xlsx/.xls, or OpenDocument .ods). Parsed entirely in your browser.';
+        hint.innerHTML = 'Drag and drop a BOM or KiCad schematic (.kicad_sch) here (CSV, Excel .xlsx/.xls, OpenDocument .ods). Parsed entirely in your browser.';
 
         const row = document.createElement('div');
         row.className = 'bom-dnp-row';
@@ -531,7 +565,8 @@
                 const w = (result.warnings && result.warnings.length)
                     ? ` (${result.warnings.length} warning(s))`
                     : '';
-                setStatus(`BOM: ${result.stats.count} resistor value(s) from "${result.filename || 'file'}"${w}`, false);
+                const src = result.stats && result.stats.source === 'kicad_sch' ? 'Schematic' : 'BOM';
+                setStatus(`${src}: ${result.stats.count} resistor value(s) from "${result.filename || 'file'}"${w}`, false);
                 if (options.onApplied) options.onApplied(result);
             });
         }
