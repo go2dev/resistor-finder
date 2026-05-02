@@ -720,6 +720,8 @@ function parseResistorList(values, options) {
                 formatted: ResistorUtils.formatResistorValue(parsed.value),
                 input: value,
                 source: parsed.source,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
+                jlcBasicMeta: ResistorUtils.getJlcBasicMeta(parsed.value),
                 active
             });
             conversions.push({
@@ -733,6 +735,8 @@ function parseResistorList(values, options) {
                 powerRating: parsed.powerRating,
                 powerCode: parsed.powerCode,
                 debug: parsed.debug,
+                isJlcBasic: ResistorUtils.isJlcBasicResistance(parsed.value),
+                jlcBasicMeta: ResistorUtils.getJlcBasicMeta(parsed.value),
                 active
             });
         } catch (error) {
@@ -1365,4 +1369,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         tooltips.forEach(tooltip => positionTooltip(tooltip));
     });
+
+    if (window.JlcBasicCatalog) {
+        window.JlcBasicCatalog.init().then(() => {
+            window.CommonUI?.refreshJlcBasicParsedBoxes?.();
+        });
+    }
 });

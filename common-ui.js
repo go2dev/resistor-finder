@@ -80,6 +80,48 @@
             grid.style.setProperty('--parsed-box-width', `${targetWidth}px`);
         });
     };
+
+    /**
+     * Re-apply JLC basics styling after async catalog load (no full recalculation).
+     */
+    window.CommonUI.refreshJlcBasicParsedBoxes = function (root = document) {
+        const RU = window.ResistorUtils;
+        if (!RU || typeof RU.isJlcBasicResistance !== 'function') return;
+        root.querySelectorAll('.parsed-value-box[data-value]').forEach(box => {
+            const v = parseFloat(box.dataset.value);
+            if (!Number.isFinite(v)) return;
+            const isJlc = RU.isJlcBasicResistance(v);
+            const meta = typeof RU.getJlcBasicMeta === 'function' ? RU.getJlcBasicMeta(v) : null;
+            box.classList.toggle('jlc-basic', isJlc);
+            const legacyWrap = box.querySelector('.parsed-value-box-content');
+            if (legacyWrap) {
+                const fmt = legacyWrap.querySelector('.formatted');
+                const tip = legacyWrap.querySelector('.box-tooltip') || box.querySelector('.box-tooltip');
+                if (fmt) box.insertBefore(fmt, legacyWrap);
+                if (tip && tip.parentNode === legacyWrap) box.appendChild(tip);
+                legacyWrap.remove();
+            }
+            box.querySelectorAll('.jlc-basic-caption').forEach(el => el.remove());
+            const tip = box.querySelector('.box-tooltip');
+            if (!tip) return;
+            const base = tip.innerHTML.split('<br>JLC PCB Basics list')[0];
+            const debugIdx = base.indexOf('<br>Input:');
+            const head = debugIdx >= 0 ? base.slice(0, debugIdx) : base;
+            const tail = debugIdx >= 0 ? base.slice(debugIdx) : '';
+            let extra = '';
+            if (isJlc) {
+                extra += '<br>JLC PCB Basics list';
+                if (meta && meta.packages && meta.packages.length) {
+                    extra += `<br>JLC basics sizes: ${meta.packages.join(', ')}`;
+                }
+                if (meta && meta.tolerances && meta.tolerances.length) {
+                    extra += `<br>JLC catalog tolerance: ${meta.tolerances.map(t => `${t}%`).join(', ')}`;
+                }
+            }
+            tip.innerHTML = head + extra + tail;
+        });
+        window.CommonUI.normalizeParsedValueWidths(root);
+    };
     window.CommonUI.renderParsedValuesGrid = function ({
         title = 'Available resistors',
         tooltipText = 'Click a value to temporarily exclude/include it from the calculation. Colours indicate the E series of the value',
@@ -104,11 +146,23 @@
                             : (conv.series ? `${resistorTolerances[conv.series]}% (series)` : 'Unknown');
                         const powerLabel = conv.powerRating ? `Power code: ${conv.powerCode} (${conv.powerRating}W)` : '';
                         const powerLine = powerLabel ? `<br>${powerLabel}` : '';
+                        const meta = conv.jlcBasicMeta;
+                        const isJlc = Boolean(conv.isJlcBasic);
+                        const jlcListLine = isJlc ? '<br>JLC PCB Basics list' : '';
+                        const jlcPkgLine =
+                            meta && meta.packages && meta.packages.length
+                                ? `<br>JLC basics sizes: ${meta.packages.join(', ')}`
+                                : '';
+                        const jlcTolLine =
+                            meta && meta.tolerances && meta.tolerances.length
+                                ? `<br>JLC catalog tolerance: ${meta.tolerances.map(t => `${t}%`).join(', ')}`
+                                : '';
+                        const jlcBasicClass = isJlc ? ' jlc-basic' : '';
                         const debugInfo = (globalThis?.DEBUG_RESISTOR_FINDER && conv.debug)
                             ? `<br>Input: ${conv.input}<br>Std: ${conv.debug.standardSeries ?? '—'} | Tol: ${conv.debug.toleranceSeries ?? '—'} | Snap: ${conv.debug.snapped ? 'yes' : 'no'}<br>Value: ${conv.debug.parsedValueBeforeSnap ?? '—'} → ${conv.debug.parsedValueAfterSnap ?? '—'}`
                             : '';
                         return `
-                        <div class="parsed-value-box ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
+                        <div class="parsed-value-box${jlcBasicClass} ${conv.active !== false ? 'active' : 'disabled'} ${conv.series ? 'series-' + conv.series.toLowerCase() : 'series-none'}"
                              data-id="${conv.id}"
                              data-value="${conv.value}"
                              data-input="${conv.input}"
@@ -117,7 +171,7 @@
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
                             <span class="formatted">${conv.formatted}</span>
-                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${debugInfo}</span>
+                            <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${jlcListLine}${jlcPkgLine}${jlcTolLine}${debugInfo}</span>
                         </div>
                     `;
                     }).join('')}

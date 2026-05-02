@@ -1,4 +1,5 @@
 const tests = [
+    require('./jlc-basic-utils.test'),
     require('./target-resistance-worker.test'),
     require('./voltage-divider-worker.test')
 ];
