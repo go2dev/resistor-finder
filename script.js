@@ -421,7 +421,7 @@ function sectionToStringForDiagram(section) {
     return (section.value ?? section) + ',series';
 }
 
-function renderResultDiagram(diagramContainer, result, supplyVoltage, targetVoltage) {
+function renderResultDiagram(diagramContainer, result, supplyVoltage, targetVoltage, diagramOptions = {}) {
     const diagram = new Diagram(diagramContainer.id, 300, 220);
     const kind = result.attenuatorKind || (result.r3 != null ? 'u' : null);
     if (kind === 'u' && result.r3 != null) {
@@ -430,16 +430,50 @@ function renderResultDiagram(diagramContainer, result, supplyVoltage, targetVolt
             sectionToStringForDiagram(result.r2),
             sectionToStringForDiagram(result.r3),
             supplyVoltage,
-            targetVoltage
+            targetVoltage,
+            diagramOptions
+        );
+    } else if (kind === 'l') {
+        diagram.renderLpad(
+            sectionToStringForDiagram(result.r1),
+            sectionToStringForDiagram(result.r2),
+            supplyVoltage,
+            targetVoltage,
+            diagramOptions
         );
     } else {
         diagram.renderCustom(
             sectionToStringForDiagram(result.r1),
             sectionToStringForDiagram(result.r2),
             supplyVoltage,
-            targetVoltage
+            targetVoltage,
+            diagramOptions
         );
     }
+}
+
+function getAttenuatorDiagramOptions() {
+    if (!isBalancedAttenuatorPage()) return {};
+    const kind = getAttenuatorKind();
+    const calc = new ResistorCalculator();
+    const zEl = document.getElementById('upadZLoad');
+    const zRes = getNumericInputValue(zEl, 'Z load');
+    const zLoadStr = zRes.valid ? `${calc.formatResistorValue(zRes.value)}Ω` : '';
+    if (kind === 'u') {
+        return {
+            caption: 'U-pad (symmetric: R_top = R_bot)',
+            zLoadLabel: 'Z_load',
+            zLoadValueStr: zLoadStr
+        };
+    }
+    if (kind === 'l') {
+        return {
+            caption: 'L-pad (R_shunt ∥ Z_load to ground)',
+            zLoadLabel: 'Z_load',
+            zLoadValueStr: zLoadStr
+        };
+    }
+    return {};
 }
 
 function logDividerDebug(...args) {
@@ -2206,6 +2240,7 @@ async function calculateAndDisplayResults() {
         calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
     );
 
+    const diagOpts = getAttenuatorDiagramOptions();
     // Initialize diagrams for each result
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
@@ -2213,7 +2248,8 @@ async function calculateAndDisplayResults() {
             diagramContainer,
             result,
             calculator.supplyVoltage,
-            result.outputVoltage
+            result.outputVoltage,
+            diagOpts
         );
     });
 
@@ -2408,6 +2444,7 @@ function updateResultsDisplay(displayResults) {
 
     resultsSection.outerHTML = renderResults(displayResults, calculator);
 
+    const diagOpts = getAttenuatorDiagramOptions();
     document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
         const result = displayResults[idx];
         if (result) {
@@ -2415,7 +2452,8 @@ function updateResultsDisplay(displayResults) {
                 diagramContainer,
                 result,
                 calculator.supplyVoltage,
-                result.outputVoltage
+                result.outputVoltage,
+                diagOpts
             );
         }
     });
@@ -2660,6 +2698,7 @@ function initializeResistanceFilter(results) {
                 const supplyV = supplyResult.valid ? supplyResult.value : 0;
                 resultsSection.outerHTML = renderResults(filteredResults, calculator);
                 
+                const diagOpts = getAttenuatorDiagramOptions();
                 // Reinitialize diagrams for the new results
                 document.querySelectorAll('.result-diagram').forEach((diagramContainer, idx) => {
                     const result = filteredResults[idx];
@@ -2668,7 +2707,8 @@ function initializeResistanceFilter(results) {
                             diagramContainer,
                             result,
                             supplyV,
-                            result.outputVoltage
+                            result.outputVoltage,
+                            diagOpts
                         );
                     }
                 });
@@ -3000,6 +3040,11 @@ function renderResults(displayResults, calculator) {
                         ? ` <span class="upad-match-note">(floor ${formatWatts(sizingPower)})</span>`
                         : '';
                     const kindArg = JSON.stringify(result.attenuatorKind || null);
+                    const sliderBlock = isBalancedAttenuatorPage() ? '' : `
+                            <div class="solution-slider">
+                                <label>Supply Voltage: <span class="solution-slider-value">${calculator.supplyVoltage.toFixed(1)}</span> V</label>
+                                <div class="solution-slider-control" id="solution-slider-${index}"></div>
+                            </div>`;
                     return `
                     <div class="result-item" data-index="${index}" data-r1="${result.r1Value}" data-r2="${result.r2Value}">
                        <div class="result-content">
@@ -3042,10 +3087,7 @@ function renderResults(displayResults, calculator) {
                                     </tr>
                                 </tbody>
                             </table>
-                            <div class="solution-slider">
-                                <label>Supply Voltage: <span class="solution-slider-value">${calculator.supplyVoltage.toFixed(1)}</span> V</label>
-                                <div class="solution-slider-control" id="solution-slider-${index}"></div>
-                            </div>
+                            ${sliderBlock}
                             ${warningHtml}
                         </div>
                         <div class="result-diagram" id="diagram-${index}">
@@ -3146,10 +3188,9 @@ function applyLpadLoadedAnalysis(result, vin, zLoad, minPowerFloorW) {
 }
 
 function initializeResultCardSliders(displayResults, calculator) {
-    const isBalanced = isBalancedAttenuatorPage();
-    const attKind = isBalanced ? getAttenuatorKind() : null;
-    const isUpadBalanced = isBalanced && attKind === 'u';
-    const isLpadBalanced = isBalanced && attKind === 'l';
+    if (isBalancedAttenuatorPage()) {
+        return;
+    }
     displayResults.forEach((result, index) => {
         const slider = document.getElementById(`solution-slider-${index}`);
         if (!slider) return;
@@ -3186,139 +3227,12 @@ function initializeResultCardSliders(displayResults, calculator) {
                 sliderValue.textContent = newVoltage.toFixed(1);
             }
 
-            let outputVoltage;
-            let range;
-            if (isUpadBalanced && result.r3 != null) {
-                const zLoadEl = document.getElementById('upadZLoad');
-                const zLoadRes = getNumericInputValue(zLoadEl, 'Z load');
-                const zLoad = zLoadRes.valid ? zLoadRes.value : 0;
-                const minPowEl = document.getElementById('upadMinPowerW');
-                const minFloor = minPowEl && minPowEl.value.trim() !== '' ? parseFloat(minPowEl.value) : NaN;
-                applyUpadLoadedAnalysis(
-                    result,
-                    newVoltage,
-                    zLoad,
-                    Number.isFinite(minFloor) && minFloor >= 0 ? minFloor : 0
-                );
-                outputVoltage = result.outputVoltage;
-                range = calculator.calculateUpadVoltageRange(result.r1, result.r2, result.r3, newVoltage);
+            const outputVoltage = (result.r2Value / (result.r1Value + result.r2Value)) * newVoltage;
+            const range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
 
-                const ua = result.upad;
-                const setText = (sel, text) => {
-                    const el = card.querySelector(sel);
-                    if (el) el.textContent = text;
-                };
-                setText('.upad-zin-loaded', formatImpedanceOhms(ua.zInLoaded, calculator));
-                setText('.upad-zout', formatImpedanceOhms(ua.zOutThevenin, calculator));
-                setText('.upad-i-top', formatUpadCurrent(ua.iTop));
-                setText('.upad-i-mid', formatUpadCurrent(ua.iMid));
-                setText('.upad-i-bot', formatUpadCurrent(ua.iBot));
-                setText('.upad-i-load', formatUpadCurrent(ua.iLoad));
-                setText('.upad-insertion-db', Number.isFinite(result.insertionLossDb) ? `${result.insertionLossDb.toFixed(3)} dB` : '—');
-
-                const dbEl = document.getElementById('upadAttenuationDb');
-                const dbRaw = dbEl ? (dbEl.value !== '' ? dbEl.value : dbEl.defaultValue) : '';
-                const targetDb = parseFloat(dbRaw);
-                const errDb = Number.isFinite(targetDb) ? (result.insertionLossDb - targetDb) : NaN;
-                setText('.upad-err-db', Number.isFinite(errDb) ? `${errDb >= 0 ? '+' : ''}${errDb.toFixed(3)} dB` : '—');
-                const errHz = Number.isFinite(errDb) ? (errDb * Math.LN10 / 20) : NaN;
-                setText('.upad-err-hz', Number.isFinite(errHz) ? `${errHz >= 0 ? '+' : ''}${errHz.toExponential(2)} × f` : '—');
-
-                const zInEl = document.getElementById('upadZInTarget');
-                const zOutEl = document.getElementById('upadZOutTarget');
-                let zStr = '— (no Z targets)';
-                if (zInEl?.value.trim() || zOutEl?.value.trim()) {
-                    const tIn = zInEl?.value.trim() ? parseFloat(zInEl.value) : NaN;
-                    const tOut = zOutEl?.value.trim() ? parseFloat(zOutEl.value) : NaN;
-                    const eIn = Number.isFinite(tIn) && tIn > 0 ? (100 * (ua.zInLoaded / tIn - 1)) : NaN;
-                    const eOut = Number.isFinite(tOut) && tOut > 0 ? (100 * (ua.zOutThevenin / tOut - 1)) : NaN;
-                    zStr = `${Number.isFinite(eIn) ? `${eIn >= 0 ? '+' : ''}${eIn.toFixed(2)}%` : '—'} / ${Number.isFinite(eOut) ? `${eOut >= 0 ? '+' : ''}${eOut.toFixed(2)}%` : '—'}`;
-                }
-                setText('.upad-z-err', zStr);
-
-                const errEl = card.querySelector('.error-value');
-                if (errEl) {
-                    errEl.textContent = `${result.error > 0 ? '+' : ''}${result.error.toFixed(3)}`;
-                }
-
-                const diagramContainer = document.getElementById(`diagram-${index}`);
-                if (diagramContainer) {
-                    const kindArg = JSON.stringify(result.attenuatorKind || null);
-                    diagramContainer.innerHTML = `
-                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, true, ${kindArg})" title="Download diagram as PNG">
-                                <i class="fas fa-download"></i>
-                            </button>`;
-                    renderResultDiagram(diagramContainer, result, newVoltage, result.outputVoltage);
-                }
-            } else if (isLpadBalanced && result.attenuatorKind === 'l') {
-                const zLoadEl = document.getElementById('upadZLoad');
-                const zLoadRes = getNumericInputValue(zLoadEl, 'Z load');
-                const zLoad = zLoadRes.valid ? zLoadRes.value : 0;
-                const minPowEl = document.getElementById('upadMinPowerW');
-                const minFloor = minPowEl && minPowEl.value.trim() !== '' ? parseFloat(minPowEl.value) : NaN;
-                applyLpadLoadedAnalysis(
-                    result,
-                    newVoltage,
-                    zLoad,
-                    Number.isFinite(minFloor) && minFloor >= 0 ? minFloor : 0
-                );
-                outputVoltage = result.outputVoltage;
-                range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
-
-                const ua = result.upad;
-                const setText = (sel, text) => {
-                    const el = card.querySelector(sel);
-                    if (el) el.textContent = text;
-                };
-                setText('.upad-zin-loaded', formatImpedanceOhms(ua.zInLoaded, calculator));
-                setText('.upad-zout', formatImpedanceOhms(ua.zOutThevenin, calculator));
-                setText('.upad-i-top', formatUpadCurrent(ua.iTop));
-                setText('.upad-i-mid', formatUpadCurrent(ua.iMid));
-                setText('.upad-i-bot', '—');
-                setText('.upad-i-load', formatUpadCurrent(ua.iLoad));
-                setText('.upad-insertion-db', Number.isFinite(result.insertionLossDb) ? `${result.insertionLossDb.toFixed(3)} dB` : '—');
-
-                const dbEl = document.getElementById('upadAttenuationDb');
-                const dbRaw = dbEl ? (dbEl.value !== '' ? dbEl.value : dbEl.defaultValue) : '';
-                const targetDb = parseFloat(dbRaw);
-                const errDb = Number.isFinite(targetDb) ? (result.insertionLossDb - targetDb) : NaN;
-                setText('.upad-err-db', Number.isFinite(errDb) ? `${errDb >= 0 ? '+' : ''}${errDb.toFixed(3)} dB` : '—');
-                const errHz = Number.isFinite(errDb) ? (errDb * Math.LN10 / 20) : NaN;
-                setText('.upad-err-hz', Number.isFinite(errHz) ? `${errHz >= 0 ? '+' : ''}${errHz.toExponential(2)} × f` : '—');
-
-                const zInEl = document.getElementById('upadZInTarget');
-                const zOutEl = document.getElementById('upadZOutTarget');
-                let zStr = '— (no Z targets)';
-                if (zInEl?.value.trim() || zOutEl?.value.trim()) {
-                    const tIn = zInEl?.value.trim() ? parseFloat(zInEl.value) : NaN;
-                    const tOut = zOutEl?.value.trim() ? parseFloat(zOutEl.value) : NaN;
-                    const eIn = Number.isFinite(tIn) && tIn > 0 ? (100 * (ua.zInLoaded / tIn - 1)) : NaN;
-                    const eOut = Number.isFinite(tOut) && tOut > 0 ? (100 * (ua.zOutThevenin / tOut - 1)) : NaN;
-                    zStr = `${Number.isFinite(eIn) ? `${eIn >= 0 ? '+' : ''}${eIn.toFixed(2)}%` : '—'} / ${Number.isFinite(eOut) ? `${eOut >= 0 ? '+' : ''}${eOut.toFixed(2)}%` : '—'}`;
-                }
-                setText('.upad-z-err', zStr);
-
-                const errEl = card.querySelector('.error-value');
-                if (errEl) {
-                    errEl.textContent = `${result.error > 0 ? '+' : ''}${result.error.toFixed(3)}`;
-                }
-
-                const diagramContainer = document.getElementById(`diagram-${index}`);
-                if (diagramContainer) {
-                    const kindArg = JSON.stringify(result.attenuatorKind || null);
-                    diagramContainer.innerHTML = `
-                            <button class="diagram-download-btn" onclick="downloadDiagram(${index}, ${result.r1Value}, ${result.r2Value}, ${result.outputVoltage}, true, ${kindArg})" title="Download diagram as PNG">
-                                <i class="fas fa-download"></i>
-                            </button>`;
-                    renderResultDiagram(diagramContainer, result, newVoltage, result.outputVoltage);
-                }
-            } else {
-                outputVoltage = (result.r2Value / (result.r1Value + result.r2Value)) * newVoltage;
-                range = calculator.calculateVoltageRange(result.r1, result.r2, newVoltage);
-            }
             const outputElement = card.querySelector('.output-voltage');
             if (outputElement) {
-                outputElement.textContent = outputVoltage.toFixed((isUpadBalanced && result.r3 != null) || isLpadBalanced ? 3 : 2);
+                outputElement.textContent = outputVoltage.toFixed(2);
             }
 
             const rangeElement = card.querySelector('.voltage-range');
@@ -3329,24 +3243,13 @@ function initializeResultCardSliders(displayResults, calculator) {
             const powerStats = getPowerStatsForResult(result, newVoltage);
             const powerElement = card.querySelector('.power-values');
             if (powerElement) {
-                if (isUpadBalanced && result.r3 != null) {
-                    powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>MID</sub>: ${formatWatts(powerStats.r2Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r3Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
-                } else if (isLpadBalanced) {
-                    powerElement.innerHTML = `R<sub>SER</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>SHUNT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Z<sub>load</sub>: ${formatWatts(powerStats.loadDissipation || 0)}, Resistors total: ${formatWatts(powerStats.totalDissipatedInNetwork ?? 0)}, All sinks: ${formatWatts(powerStats.totalPower)}`;
-                } else {
-                    powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
-                }
+                powerElement.innerHTML = `R<sub>TOP</sub>: ${formatWatts(powerStats.r1Stats.total)}, R<sub>BOT</sub>: ${formatWatts(powerStats.r2Stats.total)}, Total: ${formatWatts(powerStats.totalPower)}`;
             }
 
-            const sizingPower = powerStats.maxComponentPowerSizing ?? powerStats.maxComponentPower;
-            const packageRec = getPackageRecommendation(sizingPower);
+            const packageRec = getPackageRecommendation(powerStats.maxComponentPower);
             const packageElement = card.querySelector('.package-recommendation');
             if (packageElement) {
-                const maxR = powerStats.maxResistorPower ?? powerStats.maxComponentPower;
-                const note = ((isUpadBalanced && result.r3 != null) || isLpadBalanced) && Number.isFinite(sizingPower) && sizingPower > maxR
-                    ? ` (floor ${formatWatts(sizingPower)})`
-                    : '';
-                packageElement.textContent = `${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})${note}`;
+                packageElement.textContent = `${packageRec.imperial}/${packageRec.metric} (min ${formatWatts(packageRec.rating)})`;
             }
 
             const warnings = getPowerWarnings(powerStats, calculator);

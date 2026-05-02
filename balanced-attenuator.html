@@ -57,8 +57,9 @@
 
                 <div class="voltage-inputs upad-inputs">
                     <div class="input-group">
-                        <label for="supplyVoltage">Source voltage V<sub>in</sub> (for analysis &amp; slider):</label>
+                        <label for="supplyVoltage">Source voltage V<sub>in</sub> (for dissipation &amp; table figures):</label>
                         <input type="number" id="supplyVoltage" value="5" step="0.1">
+                        <span class="field-hint">Attenuation is set by dB and Z<sub>load</sub>; V<sub>in</sub> scales currents and power in the results (no per-card slider).</span>
                     </div>
                     <div class="input-group">
                         <label for="upadAttenuationDb">Target attenuation (insertion loss, dB):</label>
