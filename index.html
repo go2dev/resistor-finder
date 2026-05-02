@@ -87,16 +87,16 @@
                                 <option value="totalResistanceDesc">Total Resistance ↓ (Descending)</option>
                             </select>
                             <div class="resistance-filter-section" style="display: none;">
-                                <span class="theme-label">Filter Total Resistance [Min: <span id="resistance-min">0</span> - Max: <span id="resistance-max">0</span>]
+                                <span class="theme-label">Filter total resistance
                                     <div class="help-tooltip" style="display: inline;">
                                         ?
                                         <span class="tooltip-text">
-                                            Move the handles to set the filter range. Drag the range from the middle to adjust the filter while maintaining the min-max range.
+                                            Scroll or pinch on the histogram to zoom; drag to pan. The slider covers the current window so you can narrow the filter with the handles or min/max inputs. The strip shows where all results sit across the full range.
                                         </span>
                                     </div>
                                 </span>
                                 <div class="resistance-filter-container">
-                                    <div id="resistance-slider"></div>
+                                    <div id="resistance-zoom-filter"></div>
                                 </div>
                             </div>
                         </div>
@@ -117,9 +117,11 @@
     <footer id="pageFooter"></footer>
     <script src="resistor-utils.js"></script>
     <script src="jlc-basic-catalog.js"></script>
+    <script src="vendor/d3-7.9.0.min.js"></script>
+    <script src="nuis/nouislider.js"></script>
+    <script src="zoomable-range-filter.js"></script>
     <script src="common-ui.js"></script>
     <script src="script.js"></script>
     <script src="schematic.js"></script>
-    <script src="nuis/nouislider.js"></script>
 </body>
 </html> 
