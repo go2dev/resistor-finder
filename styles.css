@@ -879,6 +879,24 @@ footer a:hover {
     border-radius: var(--squircle-radius);
 }
 
+.parsed-value-box-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.parsed-value-box .jlc-basic-caption {
+    font-size: 0.65rem;
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--text-color);
+    opacity: 0.85;
+    text-align: center;
+    white-space: nowrap;
+}
 .parsed-value-box:hover {
     border-color: #808080;
     box-shadow: 0 0 0 2px var(--button-bg);
