@@ -43,7 +43,24 @@
         /\b0\.0+\s*ohm/i
     ];
 
-    const VALUE_HEADER_HINT = /^(value|resistance|res\.?|ohms?|comp(ONENT)?\s*value|size|r\b)/i;
+    const VALUE_HEADER_HINT = /^(value|resistance|res\.?|ohms?|comp(ONENT)?\s*value|size|description|comment|part\s*comment|notes?)$/i;
+    const QTY_HEADER_HINT = /^(qty|quantity|q\.?ty|count|amount|#|#\.?\s*of|pieces?|multiples?|mqty|order\s*qty|usage)$/i;
+    const DESIGNATOR_HEADER_HINT = /^(designator|reference|ref|id|pos)$/i;
+
+    /** Plain numbers that match IPC / metric footprint sizes — not resistance (e.g. 1210 in "1210 (3225 Metric)"). */
+    const FOOTPRINT_SIZE_CODE = new Set([
+        '01005', '02016', '0201', '0402', '0603', '0805', '1206', '1210', '2010', '2512', '1812',
+        '1005', '1608', '2012', '2520', '3216', '3225', '3528', '4532', '5664', '5750',
+        '2220', '2225', '2824', '3040', '3640', '02032', '03015', '05025', '0612', '0617', '1020'
+    ]);
+
+    function isFootprintSizeCodeToken(t) {
+        const u = String(t || '').trim();
+        if (!u) return false;
+        if (FOOTPRINT_SIZE_CODE.has(u)) return true;
+        if (/^0\d{3}$/.test(u)) return true;
+        return false;
+    }
     const TOL_HEADER_HINT = /tol|precision|accuracy|pct|%/i;
     const SERIES_HEADER_HINT = /e\s*(24|48|96|192)|series|decade/i;
 
@@ -134,8 +151,10 @@
 
     function scoreHeaderForValue(h) {
         const s = String(h || '').trim();
+        if (QTY_HEADER_HINT.test(s)) return -1000;
+        if (DESIGNATOR_HEADER_HINT.test(s)) return -1000;
         if (VALUE_HEADER_HINT.test(s)) return 10;
-        if (/mpn|manufacturer|package|footprint|libref|sku/i.test(s)) return 0;
+        if (/mpn|manufacturer|package|footprint|libref|sku|part\s*number|partnumber|supplier/i.test(s)) return 0;
         return 1;
     }
 
@@ -151,6 +170,7 @@
         if (!token || typeof token !== 'string') return null;
         const t = token.trim();
         if (!t || t.length > 80) return null;
+        if (isFootprintSizeCodeToken(t)) return null;
         try {
             const v = ResistorUtils.parseResistorValue(t);
             if (!Number.isFinite(v) || v <= 0) return null;
@@ -164,6 +184,11 @@
         if (!cell || typeof cell !== 'string') return null;
         const s = cell.trim();
         if (!s) return null;
+        if (isFootprintSizeCodeToken(s)) return null;
+        if (/^\d+$/.test(s)) {
+            const n = parseInt(s, 10);
+            if (n >= 2 && n <= 999999) return null;
+        }
         try {
             const parsed = ResistorUtils.parseResistorInput(s, { snapToSeries: false });
             if (!Number.isFinite(parsed.value) || parsed.value <= 0) return null;
@@ -212,6 +237,7 @@
         });
         if (best) return best;
         headers.forEach(h => {
+            if (scoreHeaderForValue(h) < 0) return;
             const cell = row[h];
             if (!cell) return;
             const parts = String(cell).split(/[\s,;/|]+/).filter(Boolean);

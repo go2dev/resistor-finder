@@ -59,6 +59,16 @@ module.exports = function runBomParserTests() {
     assert.ok(/\(0\.1%\)/i.test(ex2.csv));
     assert.ok(/\(1%\)/i.test(ex2.csv));
 
+    const csvQty = [
+        'Designator,Quantity,Description,Footprint',
+        '"R1, R2",2,100R 0.5W 5% 1210 SMD,RESC1210_L'
+    ].join('\n');
+    const tq = BomParser.csvTextToTable(csvQty);
+    const oq = BomParser.tableToObjects(tq);
+    const exQ = BomParser.extractResistorsFromRows({ rows: oq.rows, headers: oq.headers, includeDnp: false });
+    assert.ok(/100R/i.test(exQ.csv) || /100\b/i.test(exQ.csv), 'Quantity column must not be parsed as ohms');
+    assert.ok(/\(5%\)/i.test(exQ.csv), 'Tolerance from description');
+
     const schText = [
         '(kicad_sch (version 20231120) (generator test)',
         '  (symbol "Device:R" (at 0 0 0)',
