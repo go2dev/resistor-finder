@@ -1255,9 +1255,33 @@ ul ul, ol ol, ul ol, ol ul {
     margin-bottom: 0.5rem;
 }
 
-.range-slider-wrap {
-    margin: 6px 0 4px;
+.zrf-overview-wrap {
+    margin: 0.35rem 0 0.5rem;
 }
+
+.zrf-overview-caption {
+    font-size: 0.72rem;
+    color: var(--text-color);
+    opacity: 0.8;
+    margin-bottom: 0.2rem;
+}
+
+.zoom-range-filter .zrf-overview-chart {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+}
+
+.zoom-range-filter .zrf-ov-axis text {
+    font-size: 0.65rem;
+    fill: var(--text-color);
+}
+
+.zoom-range-filter .zrf-ov-axis path,
+.zoom-range-filter .zrf-ov-axis line {
+    stroke: var(--input-border);
+}
+
 
 .zoom-range-filter .range-slider.zrf-noui {
     margin: 8px 0;

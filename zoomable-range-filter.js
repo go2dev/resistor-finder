@@ -152,11 +152,13 @@
             formatValue = defaultFormat,
             parseValue,
             showHistogram = true,
+            /** When true, a small histogram fixed to the full domain shows where all results sit; the chart below is the zoomed view. */
+            showFullRangeOverview = true,
             showRug = true,
             onFilterChange,
             onViewChange,
-            helpTextDesktop = 'Scroll or pinch to zoom. Drag to move the range.',
-            helpTextTouch = 'Pinch to zoom. Drag to move the range.'
+            helpTextDesktop = 'Top: how results spread across the full range (bracket = zoomed window). Bottom: zoomed chart — scroll or pinch to zoom, drag to pan.',
+            helpTextTouch = 'Top: full-range density. Bottom: pinch to zoom, drag to pan.'
         } = options;
 
         const parse = parseValue || function (raw) {
@@ -186,6 +188,10 @@
         let gBars = null;
         let gRug = null;
         let gAxis = null;
+        let overviewSvg = null;
+        let gOvBins = null;
+        let gOvOverlay = null;
+        let gOvAxis = null;
         let xFullScale = null;
         let resizeObs = null;
         let liveDebounce = null;
@@ -235,6 +241,8 @@
 
         const chartHeight = showHistogram ? 72 : 0;
         const axisPad = 22;
+        const overviewBarH = 34;
+        const overviewAxisPad = 14;
 
         container.classList.add('zoom-range-filter');
         container.innerHTML = `
@@ -261,10 +269,14 @@
                     <button type="button" class="zrf-btn zrf-show-selection">Show selection</button>
                 </div>
                 <div class="zrf-empty" hidden>No results available</div>
+                <div class="zrf-overview-wrap" hidden>
+                    <div class="zrf-overview-caption">All results (full range)</div>
+                    <svg class="zrf-overview-chart" role="img" aria-label="How many results fall in each part of the full value range"></svg>
+                </div>
                 <div class="range-slider-wrap">
                     <div class="range-slider zrf-noui"></div>
                 </div>
-                <svg class="range-chart" role="img" aria-label="Distribution of result values"></svg>
+                <svg class="range-chart" role="img" aria-label="Zoomed view of the value range under the slider"></svg>
                 <div class="range-help zrf-help"></div>
                 <div class="sr-only zrf-live" aria-live="polite"></div>
             </section>
@@ -281,8 +293,10 @@
         const emptyEl = container.querySelector('.zrf-empty');
         const helpEl = container.querySelector('.zrf-help');
         const liveEl = container.querySelector('.zrf-live');
+        const overviewWrap = container.querySelector('.zrf-overview-wrap');
         sliderEl = container.querySelector('.zrf-noui');
         svg = container.querySelector('.range-chart');
+        overviewSvg = container.querySelector('.zrf-overview-chart');
 
         const coarsePointer = global.matchMedia && global.matchMedia('(pointer: coarse)').matches;
         helpEl.textContent = coarsePointer ? helpTextTouch : helpTextDesktop;
@@ -449,6 +463,82 @@
             zoomBehavior.extent([[0, 0], [width, chartHeight + axisPad]]);
         }
 
+        function drawOverviewFullDomain(width) {
+            if (!showHistogram || !showFullRangeOverview || !overviewSvg || !overviewWrap) {
+                return;
+            }
+            if (results.length === 0 || width <= 0) {
+                overviewWrap.hidden = true;
+                return;
+            }
+            overviewWrap.hidden = false;
+
+            const hBar = overviewBarH;
+            const totalH = overviewBarH + overviewAxisPad;
+            overviewSvg.setAttribute('width', width);
+            overviewSvg.setAttribute('height', totalH);
+            overviewSvg.setAttribute('viewBox', `0 0 ${width} ${totalH}`);
+
+            const xFull = d3.scaleLinear().domain([fullMin, fullMax]).range([0, width]);
+            const allVals = results.map(r => r.value).filter(Number.isFinite);
+            const nBins = Math.max(16, Math.min(100, Math.round(width / 8)));
+            const bins = d3.bin()
+                .domain([fullMin, fullMax])
+                .thresholds(nBins)(allVals);
+            const maxLen = d3.max(bins, b => b.length) || 1;
+            const y = d3.scaleLinear().domain([0, maxLen]).range([hBar - 6, 2]);
+
+            if (!gOvBins) {
+                gOvBins = overviewSvg.append('g').attr('class', 'zrf-ov-bins');
+                gOvOverlay = overviewSvg.append('g').attr('class', 'zrf-ov-overlay');
+                gOvAxis = overviewSvg.append('g').attr('class', 'zrf-ov-axis');
+            }
+
+            gOvBins.selectAll('rect')
+                .data(bins)
+                .join('rect')
+                .attr('fill', 'var(--text-color, #333)')
+                .attr('opacity', 0.35)
+                .attr('x', d => xFull(d.x0))
+                .attr('y', d => y(d.length))
+                .attr('width', d => Math.max(1, xFull(d.x1) - xFull(d.x0) - 0.5))
+                .attr('height', d => hBar - 6 - y(d.length));
+
+            const vx0 = clamp(xFull(viewMin), 0, width);
+            const vx1 = clamp(xFull(viewMax), 0, width);
+            const fx0 = clamp(xFull(filterMin), 0, width);
+            const fx1 = clamp(xFull(filterMax), 0, width);
+
+            gOvOverlay.selectAll('rect.zrf-ov-view').data([0])
+                .join('rect')
+                .attr('class', 'zrf-ov-view')
+                .attr('x', Math.min(vx0, vx1))
+                .attr('y', 1)
+                .attr('width', Math.max(2, Math.abs(vx1 - vx0)))
+                .attr('height', hBar - 8)
+                .attr('fill', 'rgba(52, 152, 219, 0.18)')
+                .attr('stroke', 'rgba(52, 152, 219, 0.55)')
+                .attr('stroke-width', 1)
+                .attr('pointer-events', 'none');
+
+            gOvOverlay.selectAll('rect.zrf-ov-filter').data([0])
+                .join('rect')
+                .attr('class', 'zrf-ov-filter')
+                .attr('x', Math.min(fx0, fx1))
+                .attr('y', 2)
+                .attr('width', Math.max(2, Math.abs(fx1 - fx0)))
+                .attr('height', hBar - 10)
+                .attr('fill', 'none')
+                .attr('stroke', 'var(--button-bg, #3498db)')
+                .attr('stroke-width', 2)
+                .attr('pointer-events', 'none');
+
+            const axis = d3.axisBottom(xFull)
+                .ticks(Math.min(5, Math.max(2, Math.floor(width / 100))))
+                .tickFormat(d => formatValue(d));
+            gOvAxis.attr('transform', `translate(0, ${hBar})`).call(axis);
+        }
+
         function drawChart(width) {
             if (!showHistogram || width <= 0) {
                 svg.style.display = 'none';
@@ -550,15 +640,21 @@
             suppressZoom = true;
             zoomLayer.call(zoomBehavior.transform, transformForViewDomain(viewMin, viewMax, fullMin, fullMax, width));
             suppressZoom = false;
+
+            drawOverviewFullDomain(width);
         }
 
         function layout() {
             const w = container.clientWidth || container.parentElement?.clientWidth || 400;
             const width = Math.max(200, Math.floor(w));
             if (showHistogram && results.length > 0) {
+                drawOverviewFullDomain(width);
                 drawChart(width);
             } else if (zoomLayer) {
                 zoomLayer.attr('width', width);
+            }
+            if (showHistogram && showFullRangeOverview && results.length === 0 && overviewWrap) {
+                overviewWrap.hidden = true;
             }
             updateCount();
         }
@@ -688,11 +784,20 @@
                 gBars = null;
                 gRug = null;
                 gAxis = null;
+                gOvBins = null;
+                gOvOverlay = null;
+                gOvAxis = null;
                 zoomLayer = null;
                 zoomBehavior = null;
                 xFullScale = null;
                 if (svg) {
                     svg.innerHTML = '';
+                }
+                if (overviewSvg) {
+                    overviewSvg.innerHTML = '';
+                }
+                if (overviewWrap) {
+                    overviewWrap.hidden = true;
                 }
                 updateCount();
                 return;
