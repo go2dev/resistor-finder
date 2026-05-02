@@ -1366,3 +1366,12 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltips.forEach(tooltip => positionTooltip(tooltip));
     });
 });
+
+if (window.BomParser && resistorValuesInput) {
+    window.BomParser.initResistorBomDropZone({
+        input: resistorValuesInput,
+        onApplied: () => {
+            calculateResults().catch(err => console.error(err));
+        }
+    });
+}

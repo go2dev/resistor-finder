@@ -4,6 +4,7 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 
 ## Features
 
+- Import resistor values from a BOM or **KiCad 6+ schematic** (`.kicad_sch`) by drag-and-drop on the available-resistors field; optional inclusion of DNP/DNF lines and symbols marked `(in_bom no)`
 - Calculate voltage divider combinations using available resistor values
 - Support for resistors in series and parallel combinations
 - RKM / R notation input support (IEC 60062) and EIA-96 marking codes
@@ -15,11 +16,25 @@ A tool for finding optimal resistor combinations from a limited set to create a 
 - PNG export includes key result text
 - Shows top 5 best matches sorted by error
 
+## BOM import (privacy)
+
+You can drag a bill-of-materials file onto the dashed box around **Available Resistor Values** (or paste a file from the clipboard). The app uses the [SheetJS](https://sheetjs.com/) library (vendored in this repo) to read spreadsheets **only inside your browser**: files are not uploaded to any server, and no BOM data is sent over the network for parsing. **KiCad schematics** (`.kicad_sch`, KiCad 6+) are read the same way using a small built-in parser (no npm); symbol instances are turned into the same row shape as a CSV BOM, then the same resistor filter runs.
+
+As an alternative to vendoring a parser, the npm package [kicad-to-circuit-json](https://www.npmjs.com/package/kicad-to-circuit-json) could be bundled for richer Circuit JSON output, but this project intentionally avoids a `package.json` build step, so we parse KiCad’s documented s-expression format directly.
+
+Rows are treated as resistors when the row text suggests a resistor (e.g. “resistor”, “ohm”, value like `10k`) or when a designator such as `R12` appears **and** a parseable resistance is found. Lines tagged DNP, DNF, “do not populate”, “exclude”, and similar are skipped by default; enable **Include DNP / DNF / excluded lines** to count those values too. For KiCad schematics, symbols with `(in_bom no)` are skipped unless that same option is enabled. Zero-ohm links / jumpers are ignored.
+
+When a **Footprint** column is present (e.g. from a KiCad schematic), duplicate list entries are collapsed only when value, tolerance, series, and footprint all match—so two identical resistances in different packages stay as two inputs.
+
+**Excel workbooks** with several sheets: the importer scores the first rows of each sheet for BOM-like headers (e.g. Value, Designator, R1…) and uses the best-scoring sheet instead of always the first tab—so a cover sheet or empty first tab does not hide the BOM.
+
+Imported values are written in **RKM-style** notation for the input box (e.g. `22R`, `4R7`, `330R`, `4K7`, `0R091`). **Tolerance in brackets** is only added when it differs from the default for that value’s E-series (so a plain 1% part line does not force `(1%)` on every value).
+
 ## Usage
 
 ### Voltage Divider
 
-1. Enter your available resistor values as comma-separated numbers (e.g., `10,220,470,1000,2k2,1M`)
+1. Enter your available resistor values as comma-separated numbers (e.g., `10,220,470,1000,2k2,1M`), or import them from a BOM as described above
 2. Enter your supply voltage (V)
 3. Enter your target output voltage (V)
 4. Click "Calculate Combinations"

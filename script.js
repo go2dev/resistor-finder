@@ -1132,6 +1132,16 @@ calculateBtn.addEventListener('click', calculateAndDisplayResults);
 overshootSwitch.addEventListener('change', calculateAndDisplayResults);
 document.getElementById('sortBy').addEventListener('change', calculateAndDisplayResults);
 
+if (window.BomParser && resistorValuesInput) {
+    window.BomParser.initResistorBomDropZone({
+        input: resistorValuesInput,
+        onApplied: () => {
+            invalidateCache();
+            calculateAndDisplayResults().catch(err => console.error(err));
+        }
+    });
+}
+
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
 const appVersionEl = document.getElementById('appVersion');

@@ -251,6 +251,54 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.resistor-input-bom-wrap {
+    border: 1px dashed var(--input-border);
+    border-radius: var(--squircle-radius-sm);
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.35rem;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.resistor-input-bom-wrap.bom-dragover {
+    border-color: var(--input-focus-border);
+    background-color: var(--bg-secondary);
+}
+
+.resistor-input-bom-wrap #resistorValues {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.bom-drop-hint {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.45rem;
+    line-height: 1.35;
+}
+
+.bom-dnp-row {
+    margin-bottom: 0.35rem;
+}
+
+.bom-dnp-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.bom-status {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    min-height: 1.2em;
+}
+
+.bom-status.bom-status-error {
+    color: var(--error-text);
+}
+
 .input-section #calculateBtn {
     margin-top: 0.75rem;
 }

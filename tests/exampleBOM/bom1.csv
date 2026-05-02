@@ -1,0 +1,53 @@
+Qty,Part Designators,Value,Manufacturer,Part number,Package/FootPrint,Mount,Description, Notes
+,LED1,Red,Lite-on/generic,"LTST-C170KRKT
+",CHIPLED_0805,SMT,Indicator LED ,"Red LEDs specified, green or yellow also OK. Any 0805 size LED with a matching voltage and forward current should also work"
+,LED_DATA,Red,Lite-on/generic,"LTST-C170KRKT
+",CHIPLED_0805,SMT,Indicator LED ,"Red LEDs specified, green or yellow also OK. Any 0805 size LED with a matching voltage and forward current should also work"
+, LED_ID0,Red,Lite-on/generic,"LTST-C170KRKT
+",CHIPLED_0805,SMT,Indicator LED ,"Red LEDs specified, green or yellow also OK. Any 0805 size LED with a matching voltage and forward current should also work"
+,LED_ID1,Red,Lite-on/generic,"LTST-C170KRKT
+",CHIPLED_0805,SMT,Indicator LED ,"Red LEDs specified, green or yellow also OK. Any 0805 size LED with a matching voltage and forward current should also work"
+,LED_ID2,Red,Lite-on/generic,"LTST-C170KRKT
+",CHIPLED_0805,SMT,Indicator LED ,"Red LEDs specified, green or yellow also OK. Any 0805 size LED with a matching voltage and forward current should also work"
+,R1,33R,TE/generic,CRG0805F33R,R0805,SMT,Current limit resistor ,Increase this value is the LEDs are too bright - any generic 33R 0805 resistor will work here
+,R6,33R,TE/generic,CRG0805F33R,R0805,SMT,Current limit resistor ,Increase this value is the LEDs are too bright - any generic 33R 0805 resistor will work here
+,R7,33R,TE/generic,CRG0805F33R,R0805,SMT,Current limit resistor ,Increase this value is the LEDs are too bright - any generic 33R 0805 resistor will work here
+,R8,33R,TE/generic,CRG0805F33R,R0805,SMT,Current limit resistor ,Increase this value is the LEDs are too bright - any generic 33R 0805 resistor will work here
+,R9,33R,TE/generic,CRG0805F33R,R0805,SMT,Current limit resistor ,Increase this value is the LEDs are too bright - any generic 33R 0805 resistor will work here
+,R2,4K7,TE/generic,CRG0805F4K7,R0805,SMT,Pull down resistor,Any generic 4K7 0805 resistor will work here
+,L1,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L2,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L3,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L4,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L5,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L6,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L7,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L8,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L41,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L42,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L43,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L44,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L45,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L46,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L47,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,L48,75R,Würth Elektronik,WE-7427927170 ,WE-CBF_0402,SMT,SMD EMI Suppression Ferrite Beads,
+,CM1,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM2,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM3,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM4,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM22,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM23,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM24,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,CM25,0u166H,Würth Elektronik,WE-744231121,WE-CNSW_0805,SMT,SMD Common Mode Noise Suppressor WE_CNSW,
+,C2,100nF,KYOCERA/generic,06033G104ZAT2A,C0603,SMT,"CAPACITOR, European symbol",Any 100nF 0603 capacitor will work here
+,C39,100nF,KYOCERA/generic,06033G104ZAT2A,C0603,SMT,"CAPACITOR, European symbol",Any 100nF 0603 capacitor will work here
+,C1,10nF,KYOCERA/generic,06035C103MAT2A,C0603,SMT,"CAPACITOR, European symbol",Any 10nF 0603 capacitor will work here
+,C3,10nF,KYOCERA/generic,06035C103MAT2A,C0603,SMT,"CAPACITOR, European symbol",Any 10nF 0603 capacitor will work here
+,U1,n/a,Texas Instruments,DS90C031,SOIC16,SMT,LVDS QUAD DRIVER DS90C031B,"There are many part numbers for this device with the variations relating to the delivery size and delivery packaging - all variations are electrically equivalent so any of them can be used here: DS90C031BTMX/NOPB, DS90C031TMX/NOPB, DS90C031BTM/NOPB, DS90C031TM/NOPB, DS90C031BTM, DS90C031TM, DS90C031BTMX"
+,U2,n/a,Texas Instruments,DS90C031,SOIC16,SMT,LVDS QUAD DRIVER DS90C031B,"There are many part numbers for this device with the variations relating to the delivery size and delivery packaging - all variations are electrically equivalent so any of them can be used here: DS90C031BTMX/NOPB, DS90C031TMX/NOPB, DS90C031BTM/NOPB, DS90C031TM/NOPB, DS90C031BTM, DS90C031TM, DS90C031BTMX"
+,X1,n/a,Molex,85543-7001,MOLEX_85543-5001,SMT,SMT shielded RJ45 socket RA - 8 ckt,
+,X3,n/a,Molex,85543-7001,MOLEX_85543-5001,SMT,SMT shielded RJ45 socket RA - 8 ckt,
+,SRV05-4(2),n/a,Semtech,SRV05-4.TCT,SOT23-6L,SMT,"Semtech SRV05-4.TCT, Uni-Directional TVS Diode Array",
+,SRV05-4(2)1,n/a,Semtech,SRV05-4.TCT,SOT23-6L,SMT,"Semtech SRV05-4.TCT, Uni-Directional TVS Diode Array",
+,SRV05-4(4)2,n/a,Semtech,SRV05-4.TCT,SOT23-6L,SMT,"Semtech SRV05-4.TCT, Uni-Directional TVS Diode Array",
+,SRV05-4(4)3,n/a,Semtech,SRV05-4.TCT,SOT23-6L,SMT,"Semtech SRV05-4.TCT, Uni-Directional TVS Diode Array",
