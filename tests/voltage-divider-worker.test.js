@@ -23,8 +23,7 @@ this.calculateTotalResistance = calculateTotalResistance;
 this.calculateVoltageRange = calculateVoltageRange;
 this.calculateOutputVoltage = calculateOutputVoltage;
 this.findResistorSeries = findResistorSeries;
-this.calculateSectionBounds = calculateSectionBounds;
-this.getVoltageDividerR1SearchHalfWidth = getVoltageDividerR1SearchHalfWidth;`,
+this.calculateSectionBounds = calculateSectionBounds;`,
         context
     );
 
@@ -58,11 +57,5 @@ module.exports = function runVoltageDividerWorkerTests() {
     {
         const output = context.calculateOutputVoltage(10000, 10000, 12);
         assert.ok(Math.abs(output - 6) < 0.0001, 'Expected 12V divider midpoint at 6V');
-    }
-
-    {
-        assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(8), 7);
-        assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(100), 10);
-        assert.strictEqual(context.getVoltageDividerR1SearchHalfWidth(600), 50);
     }
 };

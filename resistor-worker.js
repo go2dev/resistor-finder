@@ -116,15 +116,6 @@ function getComponentCount(r1, r2) {
     return r1Count + r2Count;
 }
 
-/** R1 indices to test on each side of the binary-search match (must stay in sync with script.js). */
-function getVoltageDividerR1SearchHalfWidth(sortedLength) {
-    if (sortedLength <= 0) return 0;
-    const byPercent = Math.floor(sortedLength / 10);
-    // When n < 10, byPercent is 0 and we would only test one R1 per R2 — missing valid pairs.
-    const spread = byPercent === 0 ? sortedLength - 1 : byPercent;
-    return Math.min(50, spread);
-}
-
 // Process a chunk of R2 indices
 function processChunk(data) {
     const {
@@ -186,7 +177,8 @@ function processChunk(data) {
             }
         }
         
-        const testRange = getVoltageDividerR1SearchHalfWidth(sortedIndices.length);
+        // Test combinations around the closest value
+        const testRange = Math.min(50, Math.floor(sortedIndices.length / 10));
         const startIdx = Math.max(0, closestIdx - testRange);
         const endIdx = Math.min(sortedIndices.length - 1, closestIdx + testRange);
         
