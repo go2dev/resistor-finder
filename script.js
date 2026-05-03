@@ -3307,82 +3307,14 @@ function downloadDiagram(index, r1Value, r2Value, outputVoltage, isAttenuator = 
         if (rangeValue) annotations.push(`Real world Vout range: ${rangeValue}`);
     }
 
-    // Convert SVG to PNG with scaling and white background
-    convertSVGtoPNG(svgElement, filename, 2, annotations); // 2x scaling for better quality
-}
-
-// Function to convert SVG to PNG with scaling and white background
-function convertSVGtoPNG(svgElement, filename, scale = 2, annotations = []) {
-    // Clone the SVG to avoid modifying the original
-    const svgClone = svgElement.cloneNode(true);
-    
-    // Get original dimensions
-    const originalWidth = svgElement.viewBox?.baseVal?.width || 300;
-    const originalHeight = svgElement.viewBox?.baseVal?.height || 220;
-    const scaledWidth = originalWidth * scale;
-    const scaledHeight = originalHeight * scale;
-    const annotationHeight = annotations.length ? (annotations.length * 22 + 12) * scale : 0;
-    
-    // Set explicit dimensions on the clone
-    svgClone.setAttribute('width', scaledWidth);
-    svgClone.setAttribute('height', scaledHeight);
-    
-    // Create a canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = scaledWidth;
-    canvas.height = scaledHeight + annotationHeight;
-    const ctx = canvas.getContext('2d');
-    
-    // Fill with white background
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, scaledWidth, scaledHeight + annotationHeight);
-    
-    // Convert SVG to data URL
-    const svgData = new XMLSerializer().serializeToString(svgClone);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-    
-    // Create an image element and load the SVG
-    const img = new Image();
-    img.onload = function() {
-        // Draw the image on the canvas
-        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
-
-        if (annotations.length) {
-            ctx.fillStyle = '#000000';
-            ctx.font = `${12 * scale}px Arial`;
-            let textY = scaledHeight + (18 * scale);
-            annotations.forEach(line => {
-                ctx.fillText(line, 12 * scale, textY);
-                textY += 18 * scale;
-            });
-        }
-        
-        // Convert canvas to PNG blob
-        canvas.toBlob(function(blob) {
-            // Create download link
-            const downloadUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = filename;
-            
-            // Trigger download
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            
-            // Clean up URLs
-            URL.revokeObjectURL(downloadUrl);
-            URL.revokeObjectURL(svgUrl);
-        }, 'image/png');
-    };
-    
-    img.onerror = function() {
-        console.error('Failed to load SVG for conversion');
-        URL.revokeObjectURL(svgUrl);
-    };
-    
-    img.src = svgUrl;
+    if (window.DiagramExport?.exportSvgToPng) {
+        window.DiagramExport.exportSvgToPng(svgElement, filename, {
+            scale: 2,
+            annotations
+        });
+        return;
+    }
+    console.error('Diagram export module not loaded');
 }
 
 const autofillBtn = document.getElementById('autofillBtn');

@@ -1158,71 +1158,14 @@ function downloadTargetDiagram(index) {
     const sanitizedCombo = comboLabel.replace(/[^\w]+/g, '-').slice(0, 40);
     const filename = `target-${targetValue}-${formattedTotal}-${sanitizedCombo}.png`;
 
-    convertSVGtoPNG(svgElement, filename, 2, []);
-}
-
-function convertSVGtoPNG(svgElement, filename, scale = 2, extraLines = []) {
-    const svgClone = svgElement.cloneNode(true);
-    const originalWidth = svgElement.viewBox?.baseVal?.width || 300;
-    const originalHeight = svgElement.viewBox?.baseVal?.height || 160;
-    const lineHeight = 16;
-    const padding = 16;
-    const extraBottomPadding = extraLines.length ? 8 : 0;
-    const extraHeight = extraLines.length
-        ? padding + lineHeight * extraLines.length + extraBottomPadding
-        : 0;
-    const updatedHeight = originalHeight + extraHeight;
-    const scaledWidth = originalWidth * scale;
-    const scaledHeight = updatedHeight * scale;
-
-    svgClone.setAttribute('width', scaledWidth);
-    svgClone.setAttribute('height', scaledHeight);
-    svgClone.setAttribute('viewBox', `0 0 ${originalWidth} ${updatedHeight}`);
-
-    if (extraLines.length) {
-        extraLines.forEach((line, index) => {
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', padding);
-            text.setAttribute('y', originalHeight + padding + lineHeight * (index + 1));
-            text.setAttribute('font-size', '12px');
-            text.textContent = line;
-            svgClone.appendChild(text);
+    if (window.DiagramExport?.exportSvgToPng) {
+        window.DiagramExport.exportSvgToPng(svgElement, filename, {
+            scale: 2,
+            extraLines: []
         });
+        return;
     }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = scaledWidth;
-    canvas.height = scaledHeight;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, scaledWidth, scaledHeight);
-
-    const svgData = new XMLSerializer().serializeToString(svgClone);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    img.onload = function() {
-        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
-        canvas.toBlob(function(blob) {
-            const downloadUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement('a');
-            downloadLink.href = downloadUrl;
-            downloadLink.download = filename;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            URL.revokeObjectURL(downloadUrl);
-            URL.revokeObjectURL(svgUrl);
-        }, 'image/png');
-    };
-
-    img.onerror = function() {
-        URL.revokeObjectURL(svgUrl);
-    };
-
-    img.src = svgUrl;
+    console.error('DiagramExport module is unavailable');
 }
 
 async function toggleResistorValue(element) {
