@@ -5,6 +5,8 @@
         topNav.innerHTML = `
             <div class="top-nav">
                 <a href="index.html" class="nav-link ${page === 'voltage-divider' ? 'active' : ''}">Voltage Divider</a>
+                <a href="interactive-divider.html" class="nav-link ${page === 'interactive-divider' ? 'active' : ''}">Interactive Divider</a>
+                <a href="balanced-attenuator.html" class="nav-link ${page === 'balanced-attenuator' ? 'active' : ''}">Balanced Attenuator</a>
                 <a href="target-resistance.html" class="nav-link ${page === 'target-resistance' ? 'active' : ''}">Target Resistance</a>
                 <a href="readme.html" target="_blank" class="nav-link">Documentation</a>
             </div>
@@ -158,6 +160,9 @@
                                 ? `<br>JLC catalog tolerance: ${meta.tolerances.map(t => `${t}%`).join(', ')}`
                                 : '';
                         const jlcBasicClass = isJlc ? ' jlc-basic' : '';
+                        const jlcBasicCaption = isJlc
+                            ? '<span class="jlc-basic-caption">JLC Basics</span>'
+                            : '';
                         const debugInfo = (globalThis?.DEBUG_RESISTOR_FINDER && conv.debug)
                             ? `<br>Input: ${conv.input}<br>Std: ${conv.debug.standardSeries ?? '—'} | Tol: ${conv.debug.toleranceSeries ?? '—'} | Snap: ${conv.debug.snapped ? 'yes' : 'no'}<br>Value: ${conv.debug.parsedValueBeforeSnap ?? '—'} → ${conv.debug.parsedValueAfterSnap ?? '—'}`
                             : '';
@@ -170,7 +175,10 @@
                              data-key="${conv.key || ''}"
                              data-index="${index}"
                              onclick="${onClickHandler}(this).catch(console.error)">
-                            <span class="formatted">${conv.formatted}</span>
+                            <div class="parsed-value-box-content">
+                                <span class="formatted">${conv.formatted}</span>
+                                ${jlcBasicCaption}
+                            </div>
                             <span class="box-tooltip">${conv.value} Ω<br>${seriesLabel}<br>Tolerance: ${toleranceValue}${powerLine}${jlcListLine}${jlcPkgLine}${jlcTolLine}${debugInfo}</span>
                         </div>
                     `;

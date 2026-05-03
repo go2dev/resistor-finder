@@ -20,7 +20,6 @@ function runTest() {
     assert.strictEqual(ResistorUtils.isJlcBasicResistance(ResistorUtils.parseResistorValue('100m')), true, '100m token');
     assert.strictEqual(ResistorUtils.isJlcBasicResistance(0), false);
     assert.strictEqual(ResistorUtils.isJlcBasicResistance(NaN), false);
-
     const meta = ResistorUtils.getJlcBasicMeta(10000);
     assert.ok(meta);
     assert.strictEqual(meta.detailSource, 'lut');
