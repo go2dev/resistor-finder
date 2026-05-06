@@ -46,6 +46,7 @@ There is no linter configured for this project. No ESLint, Prettier, or similar 
 
 ### Key gotchas
 
+- **SvelteKit static assets**: files under **`app/static/`** are served under **`paths.base`** (e.g. **`app/static/data/jlc_basic_resistors_embedded.json`** → **`/app/data/jlc_basic_resistors_embedded.json`**). The repo-root **`data/`** copy is still used by the legacy static site; **`scripts/fetch_jlc_basic_embedded.py`** writes both locations when regenerating.
 - The `nuis/` directory contains a vendored copy of noUiSlider — do not delete or modify it.
 - Font Awesome and `marked.js` are loaded from CDN; they are not required for core calculator functionality.
 - Web Workers (`resistor-worker.js`, `target-resistance-worker.js`) handle computation in background threads.

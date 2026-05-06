@@ -3,15 +3,20 @@
 Regenerate data/jlc_basic_resistors_embedded.json from jlcsearch (same merge
 logic as jlc-basic-catalog.js: is_basic page + per-package queries).
 
+Also mirrors the same file to app/static/data/ so SvelteKit dev/build serves it at
+/app/data/jlc_basic_resistors_embedded.json (paths.base).
+
 Requires: curl
 """
 import json
+import shutil
 import subprocess
 import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "jlc_basic_resistors_embedded.json"
+APP_STATIC_OUT = ROOT / "app" / "static" / "data" / "jlc_basic_resistors_embedded.json"
 UA = "resistor-finder/1.0 (https://github.com/go2dev/resistor-finder; embedded data)"
 
 PACKAGES = ["0402", "0603", "0805", "1206", "1210", "2010", "2512", "0201", "01005"]
@@ -70,6 +75,10 @@ def main() -> None:
     with OUT.open("w", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"))
     print("wrote", OUT, "rows", len(rows))
+
+    APP_STATIC_OUT.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(OUT, APP_STATIC_OUT)
+    print("copied to", APP_STATIC_OUT)
 
 
 if __name__ == "__main__":
