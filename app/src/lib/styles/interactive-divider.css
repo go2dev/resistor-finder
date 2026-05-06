@@ -1,0 +1,209 @@
+/* Ported from repo-root styles.css — uses app design tokens */
+
+.interactive-divider-layout {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.5rem;
+	align-items: flex-start;
+	margin-top: 1rem;
+}
+
+.interactive-diagram-wrap {
+	flex: 1 1 320px;
+	min-width: 280px;
+	overflow: auto;
+	padding: 0.5rem;
+	border-radius: var(--radius-md);
+	background: var(--color-muted);
+	border: 1px solid var(--color-border);
+}
+
+.interactive-diagram-wrap svg {
+	display: block;
+	margin: 0 auto;
+	max-width: 100%;
+	height: auto;
+}
+
+.interactive-divider-side {
+	flex: 1 1 280px;
+	min-width: 260px;
+}
+
+.interactive-results .interactive-results-table {
+	width: 100%;
+}
+
+.result-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-bottom: 1rem;
+	font-size: 0.875rem;
+}
+
+.result-table td {
+	padding: 0.25rem 0.5rem;
+	vertical-align: top;
+	border-bottom: 1px solid var(--color-border);
+	white-space: nowrap;
+}
+
+.result-table td:first-child {
+	font-weight: 500;
+	width: 35%;
+	color: var(--color-card-foreground);
+}
+
+.result-table td:last-child {
+	width: 65%;
+}
+
+.result-table tr:last-child td {
+	border-bottom: none;
+}
+
+.result-warning {
+	margin-top: 0.75rem;
+	padding: 0.5rem 0.65rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid rgb(var(--warning) / 0.45);
+	background: rgb(var(--warning) / 0.12);
+	color: var(--color-card-foreground);
+	font-size: 0.8125rem;
+}
+
+.interactive-parse-options {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
+.divider-hit-series {
+	cursor: row-resize;
+}
+
+.divider-hit-bus {
+	cursor: help;
+}
+
+.divider-hit[data-hit='resistor'] {
+	cursor: pointer;
+}
+
+.interactive-svg-tooltip {
+	position: fixed;
+	z-index: 2000;
+	max-width: 280px;
+	padding: 8px 10px;
+	font-size: 12px;
+	line-height: 1.35;
+	white-space: pre-wrap;
+	border-radius: 6px;
+	border: 1px solid var(--color-border);
+	box-shadow: var(--shadow-soft);
+	color: var(--color-card-foreground);
+	background: var(--color-card);
+	pointer-events: none;
+}
+
+.interactive-svg-tooltip.series-e192 {
+	background-color: #ffe2ff;
+}
+
+.interactive-svg-tooltip.series-e96 {
+	background-color: #e2e2ff;
+}
+
+.interactive-svg-tooltip.series-e48 {
+	background-color: #e2ffff;
+}
+
+.interactive-svg-tooltip.series-e24 {
+	background-color: #e2ffe2;
+}
+
+[data-theme='dark'] .interactive-svg-tooltip.series-e192 {
+	background-color: #4a2a4a;
+}
+
+[data-theme='dark'] .interactive-svg-tooltip.series-e96 {
+	background-color: #2a2a4a;
+}
+
+[data-theme='dark'] .interactive-svg-tooltip.series-e48 {
+	background-color: #2a3a4a;
+}
+
+[data-theme='dark'] .interactive-svg-tooltip.series-e24 {
+	background-color: #2a4a3a;
+}
+
+.interactive-touch-hint {
+	font-size: 0.85rem;
+	color: var(--color-muted-foreground);
+	margin-top: 0.75rem;
+}
+
+.interactive-dialog {
+	position: fixed;
+	inset: 0;
+	z-index: 3000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgb(0 0 0 / 0.45);
+}
+
+.interactive-dialog[hidden] {
+	display: none;
+}
+
+.interactive-dialog-inner {
+	background: var(--color-card);
+	color: var(--color-card-foreground);
+	padding: 1.25rem;
+	border-radius: var(--radius-md);
+	min-width: min(92vw, 380px);
+	box-shadow: var(--shadow-soft);
+	border: 1px solid var(--color-border);
+}
+
+.interactive-dialog-inner h3 {
+	margin-top: 0;
+}
+
+.interactive-dialog-input {
+	width: 100%;
+	margin: 0.5rem 0 1rem;
+	padding: 0.5rem;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-background);
+	color: var(--color-card-foreground);
+}
+
+.interactive-dialog-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.interactive-dialog-actions button {
+	padding: 0.45rem 0.85rem;
+	border-radius: var(--radius-sm);
+	border: none;
+	cursor: pointer;
+	background: var(--color-primary);
+	color: var(--color-primary-foreground);
+}
+
+.interactive-dialog-actions button:hover {
+	filter: brightness(0.95);
+}
+
+.interactive-dialog-actions button:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}

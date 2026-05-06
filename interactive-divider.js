@@ -1,4 +1,4 @@
-(() => {
+function initRfInteractiveDivider() {
     const diagramMount = document.getElementById('interactiveDividerDiagram');
     const supplyInput = document.getElementById('interactiveSupplyVoltage');
     const snapCheckbox = document.getElementById('interactiveSnapToSeries');
@@ -377,4 +377,6 @@
     if (snapSeriesSelect) snapSeriesSelect.addEventListener('change', updateAll);
 
     updateAll();
-})();
+}
+
+globalThis.__rfInitInteractiveDivider = initRfInteractiveDivider;

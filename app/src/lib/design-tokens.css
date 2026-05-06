@@ -24,6 +24,9 @@
 	--color-primary: rgb(var(--primary));
 	--color-primary-foreground: rgb(var(--primary-foreground));
 	--shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+	/* Legacy schematic / interactive divider reads `--text-color` for SVG stroke */
+	--text-color: var(--color-foreground);
 }
 
 [data-theme='dark'] {
@@ -49,4 +52,6 @@
 	--color-primary: rgb(var(--primary));
 	--color-primary-foreground: rgb(var(--primary-foreground));
 	--shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.35);
+
+	--text-color: var(--color-foreground);
 }
