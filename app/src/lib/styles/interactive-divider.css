@@ -14,8 +14,8 @@
 	overflow: auto;
 	padding: 0.5rem;
 	border-radius: var(--radius-md);
-	background: var(--color-muted);
-	border: 1px solid var(--color-border);
+	background: var(--wt-color-muted);
+	border: 1px solid var(--wt-color-border);
 }
 
 .interactive-diagram-wrap svg {
@@ -44,14 +44,14 @@
 .result-table td {
 	padding: 0.25rem 0.5rem;
 	vertical-align: top;
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--wt-color-border);
 	white-space: nowrap;
 }
 
 .result-table td:first-child {
 	font-weight: 500;
 	width: 35%;
-	color: var(--color-card-foreground);
+	color: var(--wt-color-ink);
 }
 
 .result-table td:last-child {
@@ -68,7 +68,7 @@
 	border-radius: var(--radius-sm);
 	border: 1px solid rgb(var(--warning) / 0.45);
 	background: rgb(var(--warning) / 0.12);
-	color: var(--color-card-foreground);
+	color: var(--wt-color-ink);
 	font-size: 0.8125rem;
 }
 
@@ -101,10 +101,10 @@
 	line-height: 1.35;
 	white-space: pre-wrap;
 	border-radius: 6px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--wt-color-border);
 	box-shadow: var(--shadow-soft);
-	color: var(--color-card-foreground);
-	background: var(--color-card);
+	color: var(--wt-color-ink);
+	background: var(--wt-color-surface);
 	pointer-events: none;
 }
 
@@ -142,7 +142,7 @@
 
 .interactive-touch-hint {
 	font-size: 0.85rem;
-	color: var(--color-muted-foreground);
+	color: var(--wt-color-muted-fg);
 	margin-top: 0.75rem;
 }
 
@@ -161,13 +161,13 @@
 }
 
 .interactive-dialog-inner {
-	background: var(--color-card);
-	color: var(--color-card-foreground);
+	background: var(--wt-color-surface);
+	color: var(--wt-color-ink);
 	padding: 1.25rem;
 	border-radius: var(--radius-md);
 	min-width: min(92vw, 380px);
 	box-shadow: var(--shadow-soft);
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--wt-color-border);
 }
 
 .interactive-dialog-inner h3 {
@@ -178,10 +178,10 @@
 	width: 100%;
 	margin: 0.5rem 0 1rem;
 	padding: 0.5rem;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--wt-color-border);
 	border-radius: var(--radius-sm);
-	background: var(--color-background);
-	color: var(--color-card-foreground);
+	background: var(--wt-color-canvas);
+	color: var(--wt-color-ink);
 }
 
 .interactive-dialog-actions {
@@ -195,8 +195,8 @@
 	border-radius: var(--radius-sm);
 	border: none;
 	cursor: pointer;
-	background: var(--color-primary);
-	color: var(--color-primary-foreground);
+	background: var(--wt-color-brand-design);
+	color: var(--wt-color-white);
 }
 
 .interactive-dialog-actions button:hover {

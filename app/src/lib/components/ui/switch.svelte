@@ -24,8 +24,8 @@
 		}
 	}}
 	class={cn(
-		'relative inline-flex h-6 w-11 items-center rounded-full border border-[var(--color-border)] px-0.5 transition-colors',
-		checked ? 'bg-[var(--color-primary)] border-[var(--color-primary)]' : 'bg-[var(--color-border)]',
+		'relative inline-flex h-6 w-11 items-center rounded-full border border-wt-border px-0.5 transition-colors',
+		checked ? 'border-wt-brand-design bg-wt-brand-design' : 'bg-wt-border',
 		disabled && 'cursor-not-allowed opacity-50',
 		className
 	)}

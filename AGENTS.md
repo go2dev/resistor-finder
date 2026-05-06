@@ -6,7 +6,7 @@ This is a static client-side web application (Voltage Divider Resistor Calculato
 
 There is also an optional **SvelteKit UI** under the `app/` directory (`paths.base` = `/app`). Run it with `npm install` and `npm run dev` inside `app/` (Node/npm required). It shares legacy logic via adapters (e.g. repo-root `schematic.js`). Deploy legacy at `/` and copy `app/build/` assets under `/app` when serving both together.
 
-The SvelteKit app uses **Tailwind CSS v4** with **`@tailwindcss/vite`**, **`@go2dev/wt-theme@^0.1.2`** from the **public npm registry**, and global imports in `app/src/routes/layout.css` (`tailwindcss` → `theme.css` → `tailwind.theme.css` → `utilities.css`). Existing routes still consume **`--color-*`** aliases wired from **`--wt-*`** in `app/src/lib/design-tokens.css`. See **`docs/wt-theme-integration-todo.md`** for optional follow-ups (`bg-wt-*` utilities, `.wt-*` classes, `tokens.json`).
+The SvelteKit app uses **Tailwind CSS v4** with **`@tailwindcss/vite`**, **`@go2dev/wt-theme@^0.1.2`** from the **public npm registry**, and global imports in `app/src/routes/layout.css` (`tailwindcss` → `theme.css` → `tailwind.theme.css` → `utilities.css`). UI markup prefers **`bg-wt-canvas`**, **`text-wt-body`**, **`border-wt-border`**, **`bg-wt-brand-design`**, etc.; **`app/src/lib/design-tokens.css`** keeps **`--color-*`** / schematic **`--text-color`** for legacy extracted CSS and mirrors **`--wt-*`** in **`[data-theme='dark']`**. Typed tokens: **`app/src/lib/wt-theme-tokens.ts`**. See **`docs/wt-theme-integration-todo.md`** for the integration checklist.
 
 ### Running the legacy application
 

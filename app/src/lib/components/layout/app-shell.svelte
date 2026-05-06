@@ -4,6 +4,7 @@
 	import { SlidersHorizontal, Sigma, SquareChartGantt, Sun, Moon, Zap } from 'lucide-svelte';
 	import type { AppMode } from '$lib/stores/app-state';
 	import { appTheme, modeLabels, modeRoutes } from '$lib/stores/app-state';
+	import { wtThemeTokens } from '$lib/wt-theme-tokens';
 	import { cn } from '$lib/utils';
 
 	let { children } = $props();
@@ -48,18 +49,19 @@
 	}
 </script>
 
-<div class="min-h-screen bg-[var(--color-background)] text-[var(--color-foreground)]">
+<div class="min-h-screen bg-wt-canvas text-wt-body">
 	<div class="mx-auto max-w-6xl px-4 py-8">
-		<header class="mb-6 flex items-center justify-between gap-4">
-			<div>
-				<h1 class="text-2xl font-semibold tracking-tight">Resistor Finder</h1>
-				<p class="text-sm text-[var(--color-muted-foreground)]">
-					SvelteKit UI under <code class="text-xs">{base || '/'}</code> · legacy static pages unchanged at repo root
+		<header class="@container mb-6 flex items-center justify-between gap-4">
+			<div class="min-w-0 space-y-1">
+				<h1 class="wt-revamp-hero-title font-semibold tracking-tight">Resistor Finder</h1>
+				<p class="wt-revamp-hero-tagline text-wt-muted-fg">
+					SvelteKit UI under <code class="text-xs">{base || '/'}</code> · legacy static pages unchanged at repo root ·
+					wt-theme v{wtThemeTokens.meta.version}
 				</p>
 			</div>
 			<button
 				type="button"
-				class="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] shadow-[var(--shadow-soft)] hover:bg-[var(--color-muted)]"
+				class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-wt-border bg-wt-surface shadow-sm hover:bg-wt-muted"
 				onclick={toggleTheme}
 				aria-label="Toggle theme"
 			>
@@ -80,10 +82,10 @@
 						data-sveltekit-preload-data="hover"
 						aria-current={activeMode === link.id ? 'page' : undefined}
 						class={cn(
-							'inline-flex items-center gap-2 rounded-[var(--radius-md)] border px-3 py-2 text-sm transition-colors',
+							'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
 							activeMode === link.id
-								? 'border-transparent bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-								: 'border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-card-foreground)] hover:bg-[var(--color-muted)]'
+								? 'border-transparent bg-wt-brand-design text-wt-white'
+								: 'border-wt-border bg-wt-surface text-wt-ink hover:bg-wt-muted'
 						)}
 					>
 						<Icon class="h-4 w-4" />
@@ -93,7 +95,9 @@
 			</div>
 		</nav>
 
-		<main class="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-[var(--shadow-soft)]">
+		<main
+			class="wt-corner-squircle rounded-xl border border-wt-border bg-wt-surface p-6 shadow-sm"
+		>
 			{@render children?.()}
 		</main>
 	</div>

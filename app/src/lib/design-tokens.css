@@ -1,7 +1,7 @@
 /*
- * Compatibility shim: routes/components still use `--color-*`, `--radius-*`, legacy schematic `--text-color`,
- * etc. Light theme aligns semantic colors with `@go2dev/wt-theme` (`--wt-*`). Dark theme overrides remain local
- * until wt-theme ships dark tokens.
+ * Compatibility shim: legacy schematic/calculator CSS still uses `--color-*`, `--radius-*`, `--text-color`,
+ * etc. Light theme aligns semantic colors with `@go2dev/wt-theme` (`--wt-*`). Dark theme mirrors `--color-*` onto
+ * `--wt-*` so Tailwind `bg-wt-canvas`, `text-wt-body`, etc. track `[data-theme='dark']`.
  */
 :root {
 	--radius-lg: max(12px, calc(var(--wt-radius-box) * 0.5));
@@ -42,6 +42,11 @@
 	--warning-border: rgb(var(--warning) / 0.55);
 	--warning-bg: rgb(var(--warning) / 0.15);
 	--warning-text: var(--color-card-foreground);
+
+	/* Aliases for Tailwind `bg-wt-*` / `text-wt-*` utilities (updated in dark mode below) */
+	--wt-color-muted: var(--color-muted);
+	--wt-color-muted-fg: var(--color-muted-foreground);
+	--wt-color-border: var(--color-border);
 }
 
 [data-theme='dark'] {
@@ -83,4 +88,18 @@
 	--warning-border: rgb(var(--warning) / 0.55);
 	--warning-bg: rgb(var(--warning) / 0.15);
 	--warning-text: var(--color-card-foreground);
+
+	--wt-color-canvas: rgb(var(--bg));
+	--wt-color-surface: rgb(var(--surface));
+	--wt-color-body: rgb(var(--fg));
+	--wt-color-ink: rgb(var(--fg));
+	--wt-color-shadow: #000000;
+	--wt-color-shell-stroke: rgb(var(--border));
+	--wt-color-media-placeholder: rgb(var(--muted));
+	--wt-color-white: rgb(var(--primary-foreground));
+	--wt-color-brand-design: rgb(var(--primary-from-theme));
+
+	--wt-color-muted: rgb(var(--surface-2));
+	--wt-color-muted-fg: rgb(var(--muted));
+	--wt-color-border: rgb(var(--border));
 }

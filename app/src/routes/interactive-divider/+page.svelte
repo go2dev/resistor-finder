@@ -25,7 +25,7 @@
 <section class="space-y-4">
 	<div>
 		<h2 class="text-xl font-semibold tracking-tight">Interactive Divider</h2>
-		<p class="text-sm text-[var(--color-muted-foreground)]">
+		<p class="text-sm text-wt-muted-fg">
 			Legacy schematic editing (tap resistors, series strips, parallel buses) via repo-root
 			<code class="text-xs">interactive-divider.js</code>
 			and <code class="text-xs">schematic.js</code>. Supply is swept here; V<sub>out</sub> follows your divider.
@@ -35,7 +35,7 @@
 	<ModePanel mode="interactive-divider" />
 
 	{#if bootError}
-		<div class="rounded-[var(--radius-md)] border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-800">
+		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-800">
 			Could not start interactive engine: {bootError}
 		</div>
 	{/if}
@@ -53,19 +53,19 @@
 						value="5"
 						step="0.1"
 						min="0.001"
-						class="h-9 w-44 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 text-sm"
+						class="h-9 w-44 rounded-lg border border-wt-border bg-wt-canvas px-3 text-sm"
 					/>
 				</div>
 			</div>
 			<div class="option-group interactive-parse-options">
 				<label class="flex cursor-pointer items-center gap-2 text-sm" for="interactiveSnapToSeries">
-					<input type="checkbox" id="interactiveSnapToSeries" class="h-4 w-4 accent-[var(--color-primary)]" />
+					<input type="checkbox" id="interactiveSnapToSeries" class="h-4 w-4 accent-wt-brand-design" />
 					<span>Snap input to E-series</span>
 				</label>
-				<label class="text-sm text-[var(--color-muted-foreground)]" for="interactiveSnapSeries">Series</label>
+				<label class="text-sm text-wt-muted-fg" for="interactiveSnapSeries">Series</label>
 				<select
 					id="interactiveSnapSeries"
-					class="h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-2 text-sm"
+					class="h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm"
 				>
 					<option value="E24" selected>E24</option>
 					<option value="E48">E48</option>

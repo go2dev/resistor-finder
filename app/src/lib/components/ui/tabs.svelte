@@ -20,7 +20,7 @@
 <div class={cn('w-full', className)}>
 	<div
 		role="tablist"
-		class="inline-flex h-10 items-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)] p-1"
+		class="inline-flex h-10 items-center rounded-lg border border-wt-border bg-wt-muted p-1"
 	>
 		{#each tabs as tab}
 			<button
@@ -28,10 +28,10 @@
 				aria-selected={value === tab.value}
 				onclick={() => onValueChange?.(tab.value)}
 				class={cn(
-					'inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium transition-all',
+					'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all',
 					value === tab.value
-						? 'bg-[var(--color-card)] text-[var(--color-card-foreground)] shadow-[var(--shadow-soft)]'
-						: 'text-[var(--color-muted-foreground)]'
+						? 'bg-wt-surface text-wt-ink shadow-sm'
+						: 'text-wt-muted-fg'
 				)}
 			>
 				{tab.label}

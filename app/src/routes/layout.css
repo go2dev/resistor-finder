@@ -8,9 +8,14 @@
 
 @import '$lib/design-tokens.css';
 
+@theme inline {
+	--color-wt-muted: var(--wt-color-muted);
+	--color-wt-muted-fg: var(--wt-color-muted-fg);
+	--color-wt-border: var(--wt-color-border);
+}
+
 body {
-	background: var(--color-background);
-	color: var(--color-foreground);
+	@apply bg-wt-canvas text-wt-body;
 	font-family:
 		Inter,
 		-apple-system,

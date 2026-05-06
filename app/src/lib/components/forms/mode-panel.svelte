@@ -43,13 +43,13 @@
 
 <section class="space-y-5">
 	<header class="space-y-1">
-		<h2 class="text-xl font-semibold text-[var(--color-card-foreground)]">{modeLabels[mode]}</h2>
-		<p class="text-sm text-[var(--color-muted-foreground)]">{modeDescriptions[mode]}</p>
+		<h2 class="text-xl font-semibold text-wt-ink">{modeLabels[mode]}</h2>
+		<p class="text-sm text-wt-muted-fg">{modeDescriptions[mode]}</p>
 	</header>
 
 	<div class="grid gap-4 md:grid-cols-2">
 		<div class="space-y-2">
-			<label for="mode-primary-input" class="text-sm font-medium text-[var(--color-card-foreground)]">
+			<label for="mode-primary-input" class="text-sm font-medium text-wt-ink">
 				{mode === 'target-resistance' ? 'Target Resistance' : 'Supply Voltage'}
 			</label>
 			<Input
@@ -61,7 +61,7 @@
 		</div>
 		{#if showTargetInput}
 			<div class="space-y-2">
-				<label for="mode-target-input" class="text-sm font-medium text-[var(--color-card-foreground)]">
+				<label for="mode-target-input" class="text-sm font-medium text-wt-ink">
 					{mode === 'balanced-attenuator' ? 'Target attenuation (dB)' : 'Target Voltage'}
 				</label>
 				<Input id="mode-target-input" type="number" value={mode === 'balanced-attenuator' ? '3.6' : '3.3'} step="0.1" />
@@ -69,22 +69,22 @@
 		{/if}
 	</div>
 
-	<div class="grid gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)] p-4 md:grid-cols-2">
+	<div class="grid gap-3 rounded-lg border border-wt-border bg-wt-muted p-4 md:grid-cols-2">
 		<div class="flex items-center justify-between gap-3">
 			<div class="space-y-1">
-				<p class="text-sm font-medium text-[var(--color-card-foreground)]">Allow overshoot</p>
-				<p class="text-xs text-[var(--color-muted-foreground)]">
+				<p class="text-sm font-medium text-wt-ink">Allow overshoot</p>
+				<p class="text-xs text-wt-muted-fg">
 					Include results that can exceed target constraints when useful.
 				</p>
 			</div>
 			<Switch checked={enableOvershoot} onToggle={(next: boolean) => (enableOvershoot = next)} />
 		</div>
 		<div class="space-y-2">
-			<label for="mode-sort-input" class="text-sm font-medium text-[var(--color-card-foreground)]">Sort by</label>
+			<label for="mode-sort-input" class="text-sm font-medium text-wt-ink">Sort by</label>
 			<select
 				id="mode-sort-input"
 				bind:value={sortBy}
-				class="inline-flex h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-card-foreground)] shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+				class="inline-flex h-10 w-full rounded-lg border border-wt-border bg-wt-surface px-3 text-sm text-wt-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>

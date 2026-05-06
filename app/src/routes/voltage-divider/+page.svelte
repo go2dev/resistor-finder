@@ -335,7 +335,7 @@
 <section class="space-y-6">
 	<div class="space-y-1">
 		<h2 class="text-xl font-semibold tracking-tight">Voltage Divider</h2>
-		<p class="text-sm text-[var(--color-muted-foreground)]">
+		<p class="text-sm text-wt-muted-fg">
 			Legacy parsing via <code class="text-xs">resistor-utils.js</code> + <code class="text-xs">jlc-basic-catalog.js</code>,
 			parallel <code class="text-xs">resistor-worker.js</code> search, per-result supply sliders, power/package sizing — parity with static UI (histogram filter comes later).
 		</p>
@@ -346,14 +346,14 @@
 			<label for="resistor-values" class="text-sm font-medium">Available resistor values</label>
 			<Input id="resistor-values" bind:value={resistorValues} />
 			{#if parseSummary.total > 0}
-				<p class="text-xs text-[var(--color-muted-foreground)]">
+				<p class="text-xs text-wt-muted-fg">
 					Active pool: {parseSummary.total} value{parseSummary.total === 1 ? '' : 's'}
 					{#if parseSummary.jlc > 0}
 						· {parseSummary.jlc} on JLC PCB Basics list (embedded LUT)
 					{/if}
 				</p>
 			{/if}
-			<div class="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)]/50 p-3">
+			<div class="flex flex-col gap-3 rounded-lg border border-wt-border bg-wt-muted/50 p-3">
 				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex flex-wrap items-center gap-2">
 						<Switch checked={snapToSeries} onToggle={(next: boolean) => (snapToSeries = next)} />
@@ -363,13 +363,13 @@
 					<select
 						id="snap-series"
 						bind:value={snapSeriesPick}
-						class="inline-flex h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-2 text-sm text-[var(--color-card-foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+						class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 					>
 						{#each seriesOptions as s}
 							<option value={s}>{s}</option>
 						{/each}
 					</select>
-					<span class="text-xs text-[var(--color-muted-foreground)]">
+					<span class="text-xs text-wt-muted-fg">
 						Uses tolerance-aware snapping when brackets specify tolerance (legacy behaviour).
 					</span>
 				</div>
@@ -378,19 +378,19 @@
 						Autofill decade values
 					</Button>
 					<div class="flex flex-wrap items-center gap-2">
-						<span class="text-xs font-medium text-[var(--color-muted-foreground)]">Decade</span>
+						<span class="text-xs font-medium text-wt-muted-fg">Decade</span>
 						<select
 							bind:value={autofillDecade}
-							class="inline-flex h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-2 text-sm text-[var(--color-card-foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+							class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each decadeOptions as d}
 								<option value={d.value}>{d.label}</option>
 							{/each}
 						</select>
-						<span class="text-xs font-medium text-[var(--color-muted-foreground)]">Series</span>
+						<span class="text-xs font-medium text-wt-muted-fg">Series</span>
 						<select
 							bind:value={snapSeriesPick}
-							class="inline-flex h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-2 text-sm text-[var(--color-card-foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+							class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each seriesOptions as s}
 								<option value={s}>{s}</option>
@@ -413,11 +413,11 @@
 		</div>
 	</div>
 
-	<div class="grid gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)] p-4 md:grid-cols-2">
+	<div class="grid gap-3 rounded-lg border border-wt-border bg-wt-muted p-4 md:grid-cols-2">
 		<div class="flex items-center justify-between gap-3">
 			<div class="space-y-1">
 				<p class="text-sm font-medium">Allow overshoot</p>
-				<p class="text-xs text-[var(--color-muted-foreground)]">Keep solutions above target voltage.</p>
+				<p class="text-xs text-wt-muted-fg">Keep solutions above target voltage.</p>
 			</div>
 			<Switch checked={allowOvershoot} onToggle={(next: boolean) => (allowOvershoot = next)} />
 		</div>
@@ -426,7 +426,7 @@
 			<select
 				id="sort-by"
 				bind:value={sortBy}
-				class="inline-flex h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-card-foreground)] shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+				class="inline-flex h-10 w-full rounded-lg border border-wt-border bg-wt-surface px-3 text-sm text-wt-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>
@@ -437,16 +437,16 @@
 
 	{#if allResults.length > 0}
 		{@const resistanceBand = parseTotalResistanceRange()}
-		<div class="space-y-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)]/60 p-4">
+		<div class="space-y-3 rounded-lg border border-wt-border bg-wt-muted/60 p-4">
 			<div class="space-y-1">
 				<p class="text-sm font-medium">Total resistance filter</p>
-				<p class="text-xs text-[var(--color-muted-foreground)]">
+				<p class="text-xs text-wt-muted-fg">
 					Scroll or pinch on the histogram to zoom; drag to pan. Use the slider handles to set the band — same widget as the static voltage divider page.
 				</p>
 			</div>
 			<div bind:this={histogramMountEl} class="zoom-range-filter min-h-[180px] w-full"></div>
 			{#if resistanceBand}
-				<p class="text-xs tabular-nums text-[var(--color-muted-foreground)]">
+				<p class="text-xs tabular-nums text-wt-muted-fg">
 					Active band:
 					{formatResistorValue(resistanceBand.minR)} → {formatResistorValue(resistanceBand.maxR)}
 				</p>
@@ -459,19 +459,19 @@
 			{calculating ? 'Calculating…' : 'Calculate combinations'}
 		</Button>
 		{#if usedWorkers && workerStats}
-			<p class="text-xs text-[var(--color-muted-foreground)]">
+			<p class="text-xs text-wt-muted-fg">
 				Legacy worker · {workerStats.comboCount.toLocaleString()} combo definitions · {workerStats.workerCount} worker{workerStats.workerCount === 1 ? '' : 's'} · {workerStats.durationMs}
 				ms
 			</p>
 		{:else}
-			<p class="text-xs text-[var(--color-muted-foreground)]">
+			<p class="text-xs text-wt-muted-fg">
 				Sync search · networks {fallbackStats.networkCount.toLocaleString()} · pairs {fallbackStats.networksTested.toLocaleString()}
 			</p>
 		{/if}
 	</div>
 
 	{#if errors.length > 0}
-		<div class="rounded-[var(--radius-md)] border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-700">
+		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-700">
 			<ul class="list-disc space-y-1 pl-4">
 				{#each errors as error}
 					<li>{error}</li>
@@ -481,7 +481,7 @@
 	{/if}
 
 	{#if warnings.length > 0}
-		<div class="rounded-[var(--radius-md)] border border-amber-400/50 bg-amber-100/80 p-4 text-sm text-amber-700">
+		<div class="rounded-lg border border-amber-400/50 bg-amber-100/80 p-4 text-sm text-amber-700">
 			<ul class="list-disc space-y-1 pl-4">
 				{#each warnings as warning}
 					<li>{warning}</li>
@@ -492,13 +492,13 @@
 
 	<ResultsPanel title="Top results">
 		{#if allResults.length === 0}
-			<p class="text-sm text-[var(--color-muted-foreground)]">No results yet. Run a calculation to see combinations.</p>
+			<p class="text-sm text-wt-muted-fg">No results yet. Run a calculation to see combinations.</p>
 		{:else}
-			<p class="mb-3 text-xs text-[var(--color-muted-foreground)]">
+			<p class="mb-3 text-xs text-wt-muted-fg">
 				{allResults.length.toLocaleString()} raw matches · showing top {Math.min(5, displayResults.length)} in resistance band ({sortBy} sort)
 			</p>
 			{#if displayResults.length === 0}
-				<p class="text-sm text-[var(--color-muted-foreground)]">
+				<p class="text-sm text-wt-muted-fg">
 					No results in this resistance band — widen min/max or recalculate.
 				</p>
 			{:else}
@@ -513,21 +513,21 @@
 						{@const liveOut =
 							(result.bottom.total / (result.top.total + result.bottom.total)) * sliderSupply}
 						{@const liveRange = calculateDividerVoltageRangeForSupply(result, sliderSupply)}
-						<article class="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+						<article class="rounded-lg border border-wt-border bg-wt-surface p-4">
 							<div class="space-y-3">
-								<div class="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2">
+								<div class="space-y-2 rounded-md border border-wt-border bg-wt-muted/40 px-3 py-2">
 									<label
 										for={cardSupplyRangeId}
-										class="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--color-card-foreground)]"
+										class="flex flex-wrap items-center gap-2 text-sm font-medium text-wt-ink"
 									>
 										Supply voltage (this result)
 										<span class="tabular-nums">{sliderSupply.toFixed(1)}</span>
-										<span class="font-normal text-[var(--color-muted-foreground)]">V</span>
+										<span class="font-normal text-wt-muted-fg">V</span>
 									</label>
 									<input
 										id={cardSupplyRangeId}
 										type="range"
-										class="w-full accent-[var(--color-primary)]"
+										class="w-full accent-wt-brand-design"
 										min={0}
 										max={maxSupply}
 										step={0.1}
@@ -537,7 +537,7 @@
 											cardSupplyByKey = { ...cardSupplyByKey, [cardKey]: v };
 										}}
 									/>
-									<p class="text-xs text-[var(--color-muted-foreground)]">
+									<p class="text-xs text-wt-muted-fg">
 										Range 0–{maxSupply.toFixed(1)} V (legacy slider span). Error vs target still uses the supply from Calculate ({baseSupply.toFixed(1)} V).
 									</p>
 								</div>
@@ -564,7 +564,7 @@
 								</div>
 							</div>
 							{#if power.warnings.length > 0}
-								<div class="mt-2 rounded-[var(--radius-sm)] border border-amber-400/40 bg-amber-50/90 px-3 py-2 text-xs text-amber-900">
+								<div class="mt-2 rounded-md border border-amber-400/40 bg-amber-50/90 px-3 py-2 text-xs text-amber-900">
 									Power warning: {power.warnings.join(', ')}
 								</div>
 							{/if}

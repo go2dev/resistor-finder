@@ -43,7 +43,7 @@
 }
 
 .ba-legacy .slider {
-	background-color: var(--color-muted-foreground);
+	background-color: var(--wt-color-muted-fg);
 	opacity: 0.35;
 	bottom: 0;
 	cursor: pointer;

@@ -29,10 +29,10 @@
 
 <section class="ba-legacy space-y-4">
 	<div class="space-y-2">
-		<h2 class="text-xl font-semibold tracking-tight text-[var(--color-card-foreground)]">
+		<h2 class="text-xl font-semibold tracking-tight text-wt-ink">
 			Balanced Attenuator
 		</h2>
-		<p class="text-sm text-[var(--color-muted-foreground)]">
+		<p class="text-sm text-wt-muted-fg">
 			U-pad / L-pad search via legacy <code class="text-xs">script.js</code>,
 			<code class="text-xs">attenuator-engine.js</code>, and <code class="text-xs">schematic.js</code> — identical DOM ids to
 			<code class="text-xs">balanced-attenuator.html</code>.
@@ -40,7 +40,7 @@
 	</div>
 
 	{#if bootError}
-		<div class="rounded-[var(--radius-md)] border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-800">
+		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-800">
 			Could not boot attenuator engine: {bootError}
 		</div>
 	{/if}
@@ -101,14 +101,14 @@
 			<button
 				type="button"
 				id="calculateBtn"
-				class="inline-flex max-w-md items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-3 text-sm font-medium text-[var(--color-primary-foreground)] shadow-sm hover:opacity-95"
+				class="inline-flex max-w-md items-center justify-center rounded-lg bg-wt-brand-design px-4 py-3 text-sm font-medium text-wt-white shadow-sm hover:opacity-95"
 			>
 				Calculate combinations
 			</button>
 		</div>
 
 		<div class="options-section">
-			<p class="mb-2 text-sm font-medium text-[var(--text-color)]">Options</p>
+			<p class="mb-2 text-sm font-medium text-wt-body">Options</p>
 			<div class="options-box">
 				<div class="option-group">
 					<div class="theme-switch-wrapper">
