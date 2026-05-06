@@ -1,0 +1,175 @@
+/* Legacy-calculator layout for balanced attenuator (token-mapped). */
+
+.ba-legacy .input-section #calculateBtn {
+	margin-top: 0.75rem;
+}
+
+.ba-legacy .options-section label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+	color: var(--text-color);
+}
+
+.ba-legacy .options-box {
+	background-color: var(--result-bg);
+	border-radius: var(--squircle-radius-sm);
+	border: 1px solid var(--input-border);
+	padding: 0.8rem;
+	padding-bottom: 2rem;
+}
+
+.ba-legacy .option-group {
+	margin-bottom: 0.5rem;
+}
+
+.ba-legacy .theme-switch-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	min-height: 24px;
+}
+
+.ba-legacy .theme-switch {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	position: relative;
+	width: 44px;
+}
+
+.ba-legacy .theme-switch input {
+	display: none;
+}
+
+.ba-legacy .slider {
+	background-color: var(--color-muted-foreground);
+	opacity: 0.35;
+	bottom: 0;
+	cursor: pointer;
+	left: 0;
+	position: absolute;
+	right: 0;
+	top: 0;
+	transition: 0.4s;
+}
+
+.ba-legacy .slider:before {
+	background-color: #fff;
+	bottom: 2px;
+	content: '';
+	height: 20px;
+	left: 2px;
+	position: absolute;
+	transition: 0.4s;
+	width: 20px;
+}
+
+.ba-legacy input:checked + .slider {
+	background-color: var(--button-bg);
+	opacity: 1;
+}
+
+.ba-legacy input:checked + .slider:before {
+	transform: translateX(20px);
+}
+
+.ba-legacy .slider.round {
+	border-radius: 24px;
+}
+
+.ba-legacy .slider.round:before {
+	border-radius: 50%;
+}
+
+.ba-legacy .theme-label {
+	color: var(--text-color);
+	display: flex;
+	align-items: center;
+	height: 24px;
+	font-size: 0.9rem;
+}
+
+.ba-legacy .sort-select {
+	width: 100%;
+	max-width: 520px;
+	padding: 0.55rem 0.65rem;
+	border: 1px solid var(--input-border);
+	border-radius: var(--squircle-radius-sm);
+	background: var(--input-bg);
+	color: var(--text-color);
+	font-size: 0.9rem;
+}
+
+.ba-legacy .field-hint {
+	display: block;
+	font-size: 0.85rem;
+	color: var(--text-secondary);
+	margin-top: 0.35rem;
+	line-height: 1.35;
+}
+
+.ba-legacy .upad-inputs .input-group {
+	margin-bottom: 0.75rem;
+}
+
+.ba-legacy label {
+	display: block;
+	margin-bottom: 0.35rem;
+	font-weight: 500;
+	color: var(--text-color);
+	font-size: 0.9rem;
+}
+
+.ba-legacy .results-container {
+	margin-top: 1rem;
+	padding: 1rem;
+	border: 1px solid var(--input-border);
+	border-radius: var(--squircle-radius-sm);
+	min-height: 100px;
+	background: var(--container-bg);
+}
+
+.ba-legacy .loading-spinner {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+	background-color: var(--bg-color);
+	padding: 2rem;
+	border-radius: 10px;
+	box-shadow: var(--shadow-soft);
+	z-index: 1000;
+	min-width: 280px;
+	border: 1px solid var(--input-border);
+}
+
+.ba-legacy .spinner {
+	width: 50px;
+	height: 50px;
+	margin: 0 auto 1rem;
+	border: 3px solid var(--input-border);
+	border-top-color: var(--accent-color);
+	border-radius: 50%;
+	animation: ba-spin 1s linear infinite;
+}
+
+@keyframes ba-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.ba-legacy .loading-spinner p {
+	margin: 0.5rem 0;
+	color: var(--text-color);
+}
+
+.ba-legacy .progress-text {
+	font-size: 0.9rem;
+	color: var(--text-secondary);
+}

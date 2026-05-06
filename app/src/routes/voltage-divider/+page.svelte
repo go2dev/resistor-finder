@@ -1,6 +1,9 @@
 <script lang="ts">
+	import '$lib/styles/zoom-range-filter.css';
+
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import nouisliderCssUrl from '$legacy/nuis/nouislider.css?url';
 	import Button from '$lib/components/ui/button.svelte';
 	import VoltageDividerDiagram from '$lib/components/diagrams/voltage-divider-diagram.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
@@ -22,6 +25,11 @@
 		type SortBy
 	} from '$lib/domain/voltage-divider';
 	import { computeVoltageDividerViaLegacyWorkers } from '$lib/workers/voltage-divider-worker-client';
+	import {
+		createZoomableHistogramFilter,
+		ensureZoomableHistogramDepsLoaded,
+		type ZoomableHistogramApi
+	} from '$lib/adapters/zoomable-range-filter-browser';
 
 	let resistorValues = $state('1k, 2.2k, 3.3k, 4.7k, 10k, 22k');
 	let supplyVoltage = $state('5');
@@ -47,6 +55,12 @@
 
 	let filterMinStr = $state('0');
 	let filterMaxStr = $state('0');
+
+	let histogramMountEl: HTMLElement | null = $state(null);
+	let histogramBootGeneration = 0;
+	let zoomHistogramApi: ZoomableHistogramApi | null = null;
+
+	const histogramDomainSig = $derived(allResults.map((r) => r.totalResistance).join(','));
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'error', label: 'Lowest error' },
@@ -97,6 +111,60 @@
 	function dividerCardKey(r: DividerResult): string {
 		return `${r.top.label}|${r.bottom.label}|${r.totalResistance}`;
 	}
+
+	$effect(() => {
+		if (!browser) return;
+
+		const sig = histogramDomainSig;
+		const mountEl = histogramMountEl;
+
+		if (!sig || !mountEl || allResults.length === 0) {
+			histogramBootGeneration += 1;
+			zoomHistogramApi?.destroy();
+			zoomHistogramApi = null;
+			return;
+		}
+
+		const generation = ++histogramBootGeneration;
+		const numericResults = allResults.map((r, i) => ({
+			id: `r-${i}-${r.totalResistance}`,
+			value: r.totalResistance
+		}));
+
+		void (async () => {
+			try {
+				await ensureResistorUtilsLoaded();
+				await ensureZoomableHistogramDepsLoaded();
+				if (generation !== histogramBootGeneration) return;
+
+				zoomHistogramApi?.destroy();
+				zoomHistogramApi = null;
+
+				const imin = parseFloat(filterMinStr);
+				const imax = parseFloat(filterMaxStr);
+				const rangeOk = Number.isFinite(imin) && Number.isFinite(imax) && imin <= imax;
+
+				zoomHistogramApi = createZoomableHistogramFilter(mountEl, {
+					results: numericResults,
+					...(rangeOk ? { initialFilterMin: imin, initialFilterMax: imax } : {}),
+					formatValue: (v: number) => formatResistorValue(v),
+					showHistogram: true,
+					onFilterChange(range: { filterMin: number; filterMax: number }) {
+						filterMinStr = String(range.filterMin);
+						filterMaxStr = String(range.filterMax);
+					}
+				});
+			} catch (e) {
+				console.warn('[voltage-divider] histogram filter failed', e);
+			}
+		})();
+
+		return () => {
+			histogramBootGeneration += 1;
+			zoomHistogramApi?.destroy();
+			zoomHistogramApi = null;
+		};
+	});
 
 	function boundsFromTotals(results: DividerResult[]) {
 		if (!results.length) return { min: 0, max: 0 };
@@ -260,6 +328,10 @@
 	onMount(() => void calculate());
 </script>
 
+<svelte:head>
+	<link rel="stylesheet" href={nouisliderCssUrl} />
+</svelte:head>
+
 <section class="space-y-6">
 	<div class="space-y-1">
 		<h2 class="text-xl font-semibold tracking-tight">Voltage Divider</h2>
@@ -364,23 +436,20 @@
 	</div>
 
 	{#if allResults.length > 0}
-		<div class="grid gap-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)]/60 p-4 md:grid-cols-2">
-			<div class="space-y-2 md:col-span-2">
-				<p class="text-sm font-medium">Total resistance filter (Ω)</p>
+		{@const resistanceBand = parseTotalResistanceRange()}
+		<div class="space-y-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-muted)]/60 p-4">
+			<div class="space-y-1">
+				<p class="text-sm font-medium">Total resistance filter</p>
 				<p class="text-xs text-[var(--color-muted-foreground)]">
-					Narrow by equivalent divider resistance before top-five sorting (parity with legacy range slider behaviour).
+					Scroll or pinch on the histogram to zoom; drag to pan. Use the slider handles to set the band — same widget as the static voltage divider page.
 				</p>
 			</div>
-			<div class="space-y-2">
-				<label for="filter-min" class="text-sm font-medium">Minimum Ω</label>
-				<Input id="filter-min" type="number" step="any" bind:value={filterMinStr} />
-			</div>
-			<div class="space-y-2">
-				<label for="filter-max" class="text-sm font-medium">Maximum Ω</label>
-				<Input id="filter-max" type="number" step="any" bind:value={filterMaxStr} />
-			</div>
-			{#if parseTotalResistanceRange() === null}
-				<p class="text-xs text-red-600 md:col-span-2">Enter numeric min/max with min ≤ max to filter results.</p>
+			<div bind:this={histogramMountEl} class="zoom-range-filter min-h-[180px] w-full"></div>
+			{#if resistanceBand}
+				<p class="text-xs tabular-nums text-[var(--color-muted-foreground)]">
+					Active band:
+					{formatResistorValue(resistanceBand.minR)} → {formatResistorValue(resistanceBand.maxR)}
+				</p>
 			{/if}
 		</div>
 	{/if}

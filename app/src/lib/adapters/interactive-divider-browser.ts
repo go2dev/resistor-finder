@@ -42,6 +42,10 @@ export async function mountInteractiveDividerLegacy(): Promise<void> {
 	await ensureSchematicLoaded();
 	await ensureInteractiveDividerScriptLoaded();
 
-	const w = window as Window & { __rfInitInteractiveDivider?: () => void };
+	const w = window as Window & {
+		__rfInitInteractiveDivider?: () => void;
+		__rfWireCalculatorDomListeners?: () => void;
+	};
+	w.__rfWireCalculatorDomListeners?.();
 	w.__rfInitInteractiveDivider?.();
 }

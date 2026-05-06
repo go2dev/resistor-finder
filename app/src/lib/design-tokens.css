@@ -27,6 +27,25 @@
 
 	/* Legacy schematic / interactive divider reads `--text-color` for SVG stroke */
 	--text-color: var(--color-foreground);
+
+	/* Legacy calculator pages (`script.js`, zoom filter, common-ui) */
+	--accent-color: var(--color-primary);
+	--bg-color: var(--color-background);
+	--squircle-radius: var(--radius-lg);
+	--squircle-radius-sm: var(--radius-sm);
+	--input-border: var(--color-border);
+	--input-bg: var(--color-background);
+	--input-focus-border: var(--color-primary);
+	--button-bg: var(--color-primary);
+	--button-hover: color-mix(in oklab, var(--color-primary) 90%, black);
+	--container-bg: var(--color-card);
+	--result-bg: var(--color-muted);
+	--text-secondary: var(--color-muted-foreground);
+	--shadow-color: rgb(0 0 0 / 0.12);
+	--error-border: rgb(var(--danger));
+	--warning-border: rgb(var(--warning) / 0.55);
+	--warning-bg: rgb(var(--warning) / 0.15);
+	--warning-text: var(--color-card-foreground);
 }
 
 [data-theme='dark'] {
@@ -54,4 +73,22 @@
 	--shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.35);
 
 	--text-color: var(--color-foreground);
+
+	--accent-color: var(--color-primary);
+	--bg-color: var(--color-background);
+	--squircle-radius: var(--radius-lg);
+	--squircle-radius-sm: var(--radius-sm);
+	--input-border: var(--color-border);
+	--input-bg: var(--color-background);
+	--input-focus-border: var(--color-primary);
+	--button-bg: var(--color-primary);
+	--button-hover: color-mix(in oklab, var(--color-primary) 88%, white);
+	--container-bg: var(--color-card);
+	--result-bg: var(--color-muted);
+	--text-secondary: var(--color-muted-foreground);
+	--shadow-color: rgb(0 0 0 / 0.45);
+	--error-border: rgb(var(--danger));
+	--warning-border: rgb(var(--warning) / 0.55);
+	--warning-bg: rgb(var(--warning) / 0.15);
+	--warning-text: var(--color-card-foreground);
 }

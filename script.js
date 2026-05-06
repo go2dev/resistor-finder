@@ -1737,40 +1737,46 @@ class ResistorCalculator {
     }
 }
 
-// DOM Elements
-const resistorValuesInput = document.getElementById('resistorValues');
-const supplyVoltageInput = document.getElementById('supplyVoltage');
-const targetVoltageInput = document.getElementById('targetVoltage');
-const calculateBtn = document.getElementById('calculateBtn');
-const resultsContainer = document.getElementById('results');
-const overshootSwitch = document.getElementById('overshoot');
+/** Fresh DOM lookups so SPA route remounts stay wired after `script.js` is loaded once. */
+const RfDom = {
+    get resistorValues() {
+        return document.getElementById('resistorValues');
+    },
+    get supplyVoltage() {
+        return document.getElementById('supplyVoltage');
+    },
+    get targetVoltage() {
+        return document.getElementById('targetVoltage');
+    },
+    get calculateBtn() {
+        return document.getElementById('calculateBtn');
+    },
+    get results() {
+        return document.getElementById('results');
+    },
+    get overshoot() {
+        return document.getElementById('overshoot');
+    }
+};
 
-// Legacy functions removed - now using nogui slider
-
-// Event Listeners for supply voltage
-if (supplyVoltageInput) {
-    supplyVoltageInput.addEventListener('input', () => {
-        invalidateCache(); // Cache is invalid when supply voltage changes
-        calculateAndDisplayResults();
-    });
-}
-
-function wireBalancedAttenuatorListeners() {
+function wireBalancedAttenuatorListeners(signal) {
     if (!isBalancedAttenuatorPage()) return;
+    const listenerOpts = signal ? { signal } : undefined;
     ['attenuatorType', 'upadAttenuationDb', 'upadZLoad', 'upadZInTarget', 'upadZOutTarget', 'upadMinPowerW'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', () => {
-                if (id === 'attenuatorType') updateAttenuatorTypeHint();
+        if (!el) {
+            return;
+        }
+        el.addEventListener('change', () => {
+            if (id === 'attenuatorType') updateAttenuatorTypeHint();
+            invalidateCache();
+            calculateAndDisplayResults();
+        }, listenerOpts);
+        if (id !== 'attenuatorType') {
+            el.addEventListener('input', () => {
                 invalidateCache();
                 calculateAndDisplayResults();
-            });
-            if (id !== 'attenuatorType') {
-                el.addEventListener('input', () => {
-                    invalidateCache();
-                    calculateAndDisplayResults();
-                });
-            }
+            }, listenerOpts);
         }
     });
     updateAttenuatorTypeHint();
@@ -1784,7 +1790,69 @@ function updateAttenuatorTypeHint() {
     hint.textContent = meta?.description || '';
 }
 
-wireBalancedAttenuatorListeners();
+let rfCalcDomWireAbort = null;
+
+function wireRfCalculatorDomListeners() {
+    if (typeof AbortController === 'undefined') {
+        return;
+    }
+    if (rfCalcDomWireAbort) {
+        rfCalcDomWireAbort.abort();
+    }
+    rfCalcDomWireAbort = new AbortController();
+    const signal = rfCalcDomWireAbort.signal;
+
+    const supply = RfDom.supplyVoltage;
+    if (supply) {
+        supply.addEventListener('input', () => {
+            invalidateCache();
+            calculateAndDisplayResults();
+        }, { signal });
+    }
+
+    const btn = RfDom.calculateBtn;
+    if (btn) {
+        btn.addEventListener('click', () => void calculateAndDisplayResults(), { signal });
+    }
+
+    const overshoot = RfDom.overshoot;
+    if (overshoot) {
+        overshoot.addEventListener('change', () => void calculateAndDisplayResults(), { signal });
+    }
+
+    const sortBy = document.getElementById('sortBy');
+    if (sortBy) {
+        sortBy.addEventListener('change', () => void calculateAndDisplayResults(), { signal });
+    }
+
+    wireBalancedAttenuatorListeners(signal);
+
+    const rv = RfDom.resistorValues;
+    const autofillBtn = document.getElementById('autofillBtn');
+    if (autofillBtn && rv) {
+        autofillBtn.addEventListener('click', () => {
+            const multiplier = parseFloat(document.getElementById('autofillRange').value);
+            const seriesSelect = document.getElementById('autofillSeries');
+            const selectedSeries = seriesSelect ? seriesSelect.value : 'E24';
+            const seriesValues = ResistorUtils.series[selectedSeries] || ResistorUtils.series.E24;
+            const formattedValues = seriesValues.map(value => {
+                const scaledValue = value * multiplier;
+                const formatted = ResistorUtils.formatResistorValue(scaledValue);
+                return formatted.replace('Ω', 'R');
+            });
+            rv.value = formattedValues.join(', ');
+            calculateAndDisplayResults();
+        }, { signal });
+    }
+
+    const autofillJlcBtn = document.getElementById('autofillJlcBtn');
+    if (autofillJlcBtn && rv) {
+        autofillJlcBtn.addEventListener('click', () => {
+            rv.value = ResistorUtils.luts.JLC_BASIC.join(', ');
+            calculateAndDisplayResults();
+        }, { signal });
+    }
+}
 
 // Loading spinner helper functions
 function showLoadingSpinner() {
@@ -1826,7 +1894,7 @@ function updateLoadingProgress(processed, total) {
 
 // Function to perform calculation and update results
 async function calculateAndDisplayResults() {
-    if (!resistorValuesInput || !resultsContainer) return;
+    if (!RfDom.resistorValues || !RfDom.results) return;
     const calculator = new ResistorCalculator();
     const errors = [];
     const warnings = [];
@@ -1840,7 +1908,7 @@ async function calculateAndDisplayResults() {
     let upadMinPowerFloorW = NaN;
     
     // Parse and validate resistor values
-    const resistorInputsRaw = resistorValuesInput.value.split(',').map(v => v.trim());
+    const resistorInputsRaw = RfDom.resistorValues.value.split(',').map(v => v.trim());
     const uniqueInputMap = new Map();
     const resistorInputs = [];
     resistorInputsRaw.forEach(input => {
@@ -1853,7 +1921,7 @@ async function calculateAndDisplayResults() {
         resistorInputs.push(input);
     });
     if (resistorInputs.length !== resistorInputsRaw.filter(Boolean).length) {
-        resistorValuesInput.value = resistorInputs.join(', ');
+        RfDom.resistorValues.value = resistorInputs.join(', ');
     }
     const validResistors = [];
     
@@ -1926,7 +1994,7 @@ async function calculateAndDisplayResults() {
     });
 
     // Validate supply voltage
-    const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+    const supplyResult = getNumericInputValue(RfDom.supplyVoltage, 'Supply Voltage');
     if (!supplyResult.valid) {
         errors.push(supplyResult.error);
     } else {
@@ -1987,12 +2055,12 @@ async function calculateAndDisplayResults() {
             const ratio = dbToVoltageRatio(upadTargetDb);
             calculator.targetVoltage = ratio * calculator.supplyVoltage;
             calculator.upadZLoad = upadZLoad;
-            if (targetVoltageInput) {
-                targetVoltageInput.value = String(calculator.targetVoltage);
+            if (RfDom.targetVoltage) {
+                RfDom.targetVoltage.value = String(calculator.targetVoltage);
             }
         }
     } else {
-        const targetResult = getNumericInputValue(targetVoltageInput, 'Target Voltage');
+        const targetResult = getNumericInputValue(RfDom.targetVoltage, 'Target Voltage');
         if (!targetResult.valid) {
             errors.push(targetResult.error);
         } else if (calculator.supplyVoltage && targetResult.value > calculator.supplyVoltage) {
@@ -2002,8 +2070,8 @@ async function calculateAndDisplayResults() {
         }
     }
 
-    // Set overshoot option
-    calculator.allowOvershoot = overshootSwitch.checked;
+    // Set overshoot option (optional checkbox — absent on some embedded pages)
+    calculator.allowOvershoot = RfDom.overshoot ? RfDom.overshoot.checked : true;
 
     const activeResistors = validResistors.filter(resistor => resistor.active !== false);
 
@@ -2029,12 +2097,12 @@ async function calculateAndDisplayResults() {
             });
         }
 
-    resultsContainer.innerHTML = output;
+    RfDom.results.innerHTML = output;
     activeStateCache = new Map(
         calculator.calculationStats.inputConversions.map(conv => [conv.key, conv.active])
     );
     if (window.CommonUI?.normalizeParsedValueWidths) {
-        requestAnimationFrame(() => window.CommonUI.normalizeParsedValueWidths(resultsContainer));
+        requestAnimationFrame(() => window.CommonUI.normalizeParsedValueWidths(RfDom.results));
     }
         return;
     }
@@ -2240,7 +2308,7 @@ async function calculateAndDisplayResults() {
                 </div>
             </div>`;
 
-    resultsContainer.innerHTML = output;
+    RfDom.results.innerHTML = output;
     logDividerDebug('Results updated', {
         allResults: allResults.length,
         displayResults: displayResults.length,
@@ -2270,17 +2338,7 @@ async function calculateAndDisplayResults() {
     initializeResultCardSliders(displayResults, calculator);
 }
 
-// Event Listeners
-if (calculateBtn) {
-    calculateBtn.addEventListener('click', calculateAndDisplayResults);
-}
-if (overshootSwitch) {
-    overshootSwitch.addEventListener('change', calculateAndDisplayResults);
-}
-const sortByEl = document.getElementById('sortBy');
-if (sortByEl) {
-    sortByEl.addEventListener('change', calculateAndDisplayResults);
-}
+// Primary calculator DOM listeners live in wireRfCalculatorDomListeners()
 
 // Theme Switcher
 const toggleSwitch = document.getElementById('checkbox');
@@ -2450,7 +2508,7 @@ function updateResultsDisplay(displayResults) {
     if (!resultsSection) return;
 
     const calculator = new ResistorCalculator();
-    const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+    const supplyResult = getNumericInputValue(RfDom.supplyVoltage, 'Supply Voltage');
     calculator.supplyVoltage = supplyResult.valid ? supplyResult.value : 0;
 
     if (isBalancedAttenuatorPage()) {
@@ -2461,7 +2519,7 @@ function updateResultsDisplay(displayResults) {
             calculator.targetVoltage = dbToVoltageRatio(dbParsed) * calculator.supplyVoltage;
         }
     } else {
-        const targetResult = getNumericInputValue(targetVoltageInput, 'Target Voltage');
+        const targetResult = getNumericInputValue(RfDom.targetVoltage, 'Target Voltage');
         calculator.targetVoltage = targetResult.valid ? targetResult.value : 0;
     }
 
@@ -2591,7 +2649,7 @@ function applyResistanceFilterToResultsUI(minVal, maxVal) {
         const result = filteredResults[idx];
         if (result) {
             const diagOpts = getAttenuatorDiagramOptions();
-            const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+            const supplyResult = getNumericInputValue(RfDom.supplyVoltage, 'Supply Voltage');
             const supplyV = supplyResult.valid ? supplyResult.value : 0;
             renderResultDiagram(
                 diagramContainer,
@@ -3192,7 +3250,7 @@ function initializeResultCardSliders(displayResults, calculator) {
             slider.noUiSlider.destroy();
         }
 
-        const supplyResult = getNumericInputValue(supplyVoltageInput, 'Supply Voltage');
+        const supplyResult = getNumericInputValue(RfDom.supplyVoltage, 'Supply Voltage');
         const baseSupply = supplyResult.valid ? supplyResult.value : calculator.supplyVoltage;
         const sliderSupply = Number.isFinite(baseSupply) && baseSupply > 0 ? baseSupply : 0.1;
 
@@ -3317,34 +3375,10 @@ function downloadDiagram(index, r1Value, r2Value, outputVoltage, isAttenuator = 
     console.error('Diagram export module not loaded');
 }
 
-const autofillBtn = document.getElementById('autofillBtn');
-if (autofillBtn && resistorValuesInput) {
-    autofillBtn.addEventListener('click', () => {
-        // Get the multiplier from the dropdown
-        const multiplier = parseFloat(document.getElementById('autofillRange').value);
-        // Get the selected series from the dropdown
-        const seriesSelect = document.getElementById('autofillSeries');
-        const selectedSeries = seriesSelect ? seriesSelect.value : 'E24';
-        // Get the values for the selected series, fallback to E24 if not found
-        const seriesValues = ResistorUtils.series[selectedSeries] || ResistorUtils.series.E24;
-        const formattedValues = seriesValues.map(value => {
-            const scaledValue = value * multiplier;
-            // Use custom formatter for autofill that uses "R" instead of "Ω"
-            const formatted = ResistorUtils.formatResistorValue(scaledValue);
-            return formatted.replace('Ω', 'R');
-        });
-        resistorValuesInput.value = formattedValues.join(', ');
-        calculateAndDisplayResults();
-    });
-}
+wireRfCalculatorDomListeners();
 
-const autofillJlcBtn = document.getElementById('autofillJlcBtn');
-if (autofillJlcBtn && resistorValuesInput) {
-    autofillJlcBtn.addEventListener('click', () => {
-        resistorValuesInput.value = ResistorUtils.luts.JLC_BASIC.join(', ');
-        calculateAndDisplayResults();
-    });
-}
+globalThis.__rfWireCalculatorDomListeners = wireRfCalculatorDomListeners;
+globalThis.calculateAndDisplayResults = calculateAndDisplayResults;
 
 globalThis.ResistorCalculator = ResistorCalculator;
 globalThis.getNumericInputValue = getNumericInputValue;
