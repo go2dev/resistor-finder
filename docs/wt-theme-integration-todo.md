@@ -5,15 +5,15 @@
 | Item | State |
 |------|--------|
 | GitHub Packages scope in `app/.npmrc` | Done (`@go2dev` → `npm.pkg.github.com`, token via `${NODE_AUTH_TOKEN}`). |
-| `package.json` dependency | `@go2dev/wt-theme` declared at `^0.1.0`. |
-| `npm install` / lockfile | **Blocked** until a machine or CI sets `NODE_AUTH_TOKEN` (PAT with `read:packages`, plus `repo` if the package is private). Until then, `cd app && npm install` will **401** on `@go2dev/wt-theme`. **Escape hatch for local work without the package:** temporarily remove the `@go2dev/wt-theme` line from `app/package.json`, run `npm install`, then restore the line when you have a token (and run install again to refresh the lockfile). |
+| `package.json` dependency | `@go2dev/wt-theme` at `^0.1.1`. |
+| `npm install` / lockfile | **GitHub Packages requires authentication for `npm install` even when the package is public** — use any valid GitHub token with `read:packages` (or `GITHUB_TOKEN` in Actions) via `${NODE_AUTH_TOKEN}` in `app/.npmrc` or `~/.npmrc`. This environment may still **401** without a token. **Escape hatch:** temporarily remove the `@go2dev/wt-theme` line from `app/package.json`, run `npm install`, restore when you can authenticate (then refresh the lockfile). |
 | CSS wired into `app/src/routes/layout.css` | **Not done** — waiting on successful install + Tailwind upgrade decision (below). |
 | Tailwind | App is on **Tailwind v3** (`tailwindcss` ^3.4.x). The theme ships **`tailwind.theme.css`** using Tailwind **v4** `@theme inline` — full utility parity (`bg-wt-*`, etc.) needs **v4** (see Vite + SvelteKit Tailwind v4 docs). |
 
 ## Install (local)
 
 ```bash
-export NODE_AUTH_TOKEN=ghp_xxx   # PAT with read:packages
+export NODE_AUTH_TOKEN=ghp_xxx   # PAT with read:packages (required by GH Packages npm registry even for public packages)
 cd app && npm install
 ```
 

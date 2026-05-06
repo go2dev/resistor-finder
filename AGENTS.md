@@ -6,7 +6,7 @@ This is a static client-side web application (Voltage Divider Resistor Calculato
 
 There is also an optional **SvelteKit UI** under the `app/` directory (`paths.base` = `/app`). Run it with `npm install` and `npm run dev` inside `app/` (Node/npm required). It shares legacy logic via adapters (e.g. repo-root `schematic.js`). Deploy legacy at `/` and copy `app/build/` assets under `/app` when serving both together.
 
-The app declares **`@go2dev/wt-theme`** (Whatever Together design tokens) from **GitHub Packages**. `app/.npmrc` scopes `@go2dev` to `https://npm.pkg.github.com` and uses `${NODE_AUTH_TOKEN}` — set a PAT locally or in CI (`read:packages`). Until that token is available, `npm install` in `app/` may fail on the private package. Integration steps (Tailwind v4, CSS import order, replacing `design-tokens.css`) are tracked in **`docs/wt-theme-integration-todo.md`**.
+The app declares **`@go2dev/wt-theme`** (Whatever Together design tokens) from **GitHub Packages**. `app/.npmrc` scopes `@go2dev` to `https://npm.pkg.github.com` and uses `${NODE_AUTH_TOKEN}`. **npm installs from GitHub Packages still require a token even if the package is public** — set `NODE_AUTH_TOKEN` (PAT with `read:packages` or CI `GITHUB_TOKEN` where allowed). Integration steps (Tailwind v4, CSS import order, replacing `design-tokens.css`) are in **`docs/wt-theme-integration-todo.md`**.
 
 ### Running the legacy application
 
