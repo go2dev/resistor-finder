@@ -77,7 +77,7 @@
 					Include results that can exceed target constraints when useful.
 				</p>
 			</div>
-			<Switch checked={enableOvershoot} onToggle={(next) => (enableOvershoot = next)} />
+			<Switch checked={enableOvershoot} onToggle={(next: boolean) => (enableOvershoot = next)} />
 		</div>
 		<div class="space-y-2">
 			<label for="mode-sort-input" class="text-sm font-medium text-[var(--color-card-foreground)]">Sort by</label>

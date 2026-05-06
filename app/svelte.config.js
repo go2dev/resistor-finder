@@ -1,4 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import adapter from '@sveltejs/adapter-static';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '..');
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -7,6 +12,12 @@ const config = {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
 	kit: {
+		paths: {
+			base: '/app'
+		},
+		alias: {
+			$legacy: repoRoot
+		},
 		adapter: adapter({
 			pages: 'build',
 			assets: 'build',

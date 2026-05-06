@@ -1,7 +1,12 @@
+import { base } from '$app/paths';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = ({ url }) => {
-	const pathname = url.pathname;
+	let pathname = url.pathname;
+	if (base && pathname.startsWith(base)) {
+		pathname = pathname.slice(base.length) || '/';
+	}
+
 	let mode: 'voltage-divider' | 'interactive-divider' | 'balanced-attenuator' | 'target-resistance' =
 		'voltage-divider';
 

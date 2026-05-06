@@ -2,9 +2,11 @@
 
 ## Cursor Cloud specific instructions
 
-This is a static client-side web application (Voltage Divider Resistor Calculator) with no build step, no `package.json`, and no npm dependencies. All libraries are vendored.
+This is a static client-side web application (Voltage Divider Resistor Calculator). Legacy calculator pages live at the repo root (`index.html`, `target-resistance.html`, etc.) and stay **build-step-free**: vendored scripts only.
 
-### Running the application
+There is also an optional **SvelteKit UI** under the `app/` directory (`paths.base` = `/app`). Run it with `npm install` and `npm run dev` inside `app/` (Node/npm required). It shares legacy logic via adapters (e.g. repo-root `schematic.js`). Deploy legacy at `/` and copy `app/build/` assets under `/app` when serving both together.
+
+### Running the legacy application
 
 Serve the static files with any HTTP server. The app **cannot** be opened via `file://` due to Web Worker same-origin restrictions.
 
@@ -13,6 +15,14 @@ python3 -m http.server 8000
 ```
 
 Then open `http://localhost:8000/` for the Voltage Divider page, or `http://localhost:8000/target-resistance.html` for the Target Resistance page.
+
+### Running the framework UI (`app/`)
+
+```bash
+cd app && npm install && npm run dev
+```
+
+Then open the printed URL (SvelteKit app routes live under `/app/`, e.g. `http://localhost:5173/app/voltage-divider`).
 
 ### Running tests
 

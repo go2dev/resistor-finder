@@ -20,6 +20,10 @@ export type DividerResult = {
 	error: number;
 	totalResistance: number;
 	componentCount: number;
+	/** Present when computed via legacy worker (E-series tolerances) */
+	voltageRange?: { min: number; max: number };
+	/** Worker combo trees for power dissipation / rated-power warnings */
+	legacySections?: { r1: unknown; r2: unknown };
 };
 
 export type DividerComputeInput = {
@@ -28,13 +32,12 @@ export type DividerComputeInput = {
 	targetVoltage: number;
 	allowOvershoot: boolean;
 	sortBy: SortBy;
-	maxResults?: number;
 };
 
 const MAX_INPUT_RESISTORS = 30;
 
-export function sanitizeInputResistors(input: ParsedResistor[]): {
-	resistors: ParsedResistor[];
+export function sanitizeInputResistors<T extends ParsedResistor>(input: T[]): {
+	resistors: T[];
 	warnings: string[];
 } {
 	if (input.length <= MAX_INPUT_RESISTORS) {
@@ -86,7 +89,7 @@ export function generateNetworks(resistors: ParsedResistor[]): Network[] {
 	return networks;
 }
 
-function sortResults(results: DividerResult[], sortBy: SortBy): DividerResult[] {
+export function sortDividerResults(results: DividerResult[], sortBy: SortBy): DividerResult[] {
 	const sorted = [...results];
 	if (sortBy === 'components') {
 		sorted.sort((a, b) => {
@@ -107,6 +110,18 @@ function sortResults(results: DividerResult[], sortBy: SortBy): DividerResult[] 
 	return sorted;
 }
 
+export function filterSortLimitDividerResults(
+	results: DividerResult[],
+	opts: { minR: number; maxR: number; sortBy: SortBy; limit: number }
+): DividerResult[] {
+	const filtered = results.filter(
+		(r) => r.totalResistance >= opts.minR && r.totalResistance <= opts.maxR
+	);
+	const sorted = sortDividerResults(filtered, opts.sortBy);
+	return sorted.slice(0, opts.limit);
+}
+
+/** Exhaustive main-thread search (no tolerance voltage range). Used when Workers are unavailable. */
 export function computeDividerResults(input: DividerComputeInput): {
 	results: DividerResult[];
 	networksTested: number;
@@ -114,7 +129,6 @@ export function computeDividerResults(input: DividerComputeInput): {
 } {
 	const networks = generateNetworks(input.resistors);
 	const results: DividerResult[] = [];
-	const maxResults = input.maxResults ?? 10;
 
 	for (const top of networks) {
 		for (const bottom of networks) {
@@ -134,7 +148,7 @@ export function computeDividerResults(input: DividerComputeInput): {
 		}
 	}
 
-	const sorted = sortResults(results, input.sortBy).slice(0, maxResults);
+	const sorted = sortDividerResults(results, input.sortBy);
 	return {
 		results: sorted,
 		networksTested: networks.length * networks.length,
