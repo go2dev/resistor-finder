@@ -1,7 +1,12 @@
+@import 'tailwindcss';
+@import '@go2dev/wt-theme/theme.css';
+@import '@go2dev/wt-theme/tailwind.theme.css';
+@import '@go2dev/wt-theme/utilities.css';
+
+/* Match prior `[data-theme="dark"]` + Tailwind `dark:` variants used implicitly via arbitrary colors */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @import '$lib/design-tokens.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 body {
 	background: var(--color-background);
