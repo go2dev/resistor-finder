@@ -35,5 +35,5 @@
 			'block h-5 w-5 rounded-full bg-white transition-transform',
 			checked ? 'translate-x-5' : 'translate-x-0'
 		)}
-	/>
+	></span>
 </button>
