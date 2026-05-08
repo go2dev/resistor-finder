@@ -36,6 +36,27 @@
 			chunkCount?: number;
 		};
 	};
+	type ParsedValueChip = {
+		id: string;
+		value: number;
+		formatted: string;
+		active: boolean;
+	};
+	type CalcStats = {
+		inputCount: number;
+		activeCount: number;
+		filteredCount: number;
+		filteredByHeuristic: boolean;
+		removedByHeuristic: number;
+		workerUsed: boolean;
+		workerCount: number;
+		maxParallel: number;
+		maxSeriesBlocks: number;
+		maxBlocks: number;
+		maxCombos: number;
+		resultCount: number;
+		errorFilterFallback: boolean;
+	};
 
 	const LIMITS = {
 		maxParallel: 10,
@@ -52,6 +73,8 @@
 	let warnings = $state<string[]>([]);
 	let errors = $state<string[]>([]);
 	let calculating = $state(false);
+	let parsedValues = $state<ParsedValueChip[]>([]);
+	let calcStats = $state<CalcStats | null>(null);
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'error', label: 'Lowest error (ohms / %)' },
@@ -369,7 +392,23 @@
 				return;
 			}
 
-			let values = sanitized.resistors.map((r) => r.value);
+			const nextParsedValues: ParsedValueChip[] = sanitized.resistors.map((r, idx) => {
+				const existing = parsedValues.find((p) => p.id === `${r.input}-${idx}`);
+				return {
+					id: `${r.input}-${idx}`,
+					value: r.value,
+					formatted: r.formatted || formatResistorValue(r.value),
+					active: existing?.active ?? true
+				};
+			});
+			parsedValues = nextParsedValues;
+
+			let values = nextParsedValues.filter((v) => v.active).map((v) => v.value);
+			if (values.length === 0) {
+				nextErrors.push('At least one parsed value must be active.');
+				return;
+			}
+			const originalCount = values.length;
 			if (values.length > LIMITS.maxInputResistors) {
 				values = values
 					.map((value) => ({ value, diff: Math.abs(value - target) }))
@@ -396,7 +435,9 @@
 				rawResults = generateCombinationsSync(values, target, sortBy, effectiveLimits);
 			}
 
-			rawResults = applyErrorCutoff(rawResults, 20);
+			const withinCutoff = rawResults.filter((r) => Number.isFinite(r.errorPercent) && Math.abs(r.errorPercent) <= 20);
+			const cutoffFallback = withinCutoff.length === 0 && rawResults.length > 0;
+			rawResults = withinCutoff.length ? withinCutoff : rawResults;
 			results = mapRawToView(rawResults);
 			if (!rawResults.length) {
 				nextWarnings.push('No combinations found within current search limits.');
@@ -408,6 +449,21 @@
 			} else {
 				nextWarnings.push('Single-thread search used for this input size.');
 			}
+			calcStats = {
+				inputCount: sanitized.resistors.length,
+				activeCount: originalCount,
+				filteredCount: values.length,
+				filteredByHeuristic: originalCount !== values.length,
+				removedByHeuristic: Math.max(0, originalCount - values.length),
+				workerUsed: workerCount > 0,
+				workerCount,
+				maxParallel: effectiveLimits.maxParallel,
+				maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
+				maxBlocks: effectiveLimits.maxBlocks,
+				maxCombos: effectiveLimits.maxCombos,
+				resultCount: results.length,
+				errorFilterFallback: cutoffFallback
+			};
 		} finally {
 			warnings = nextWarnings;
 			errors = nextErrors;
@@ -419,6 +475,10 @@
 		if (!results.length) return;
 		results = sortResults(results, sortBy);
 	});
+
+	function toggleParsedValue(id: string) {
+		parsedValues = parsedValues.map((p) => (p.id === id ? { ...p, active: !p.active } : p));
+	}
 </script>
 
 <section class="space-y-5">
@@ -457,6 +517,23 @@
 			{calculating ? 'Calculating…' : 'Find closest matches'}
 		</Button>
 	</div>
+
+	{#if parsedValues.length > 0}
+		<div class="space-y-2">
+			<p class="text-sm wt-text-ui">Parsed values (click to include/exclude)</p>
+			<div class="flex flex-wrap gap-2">
+				{#each parsedValues as parsed}
+					<button
+						type="button"
+						class="wt-affordance-pill-ghost px-3 py-1 text-xs wt-text-ui {parsed.active ? 'bg-wt-surface text-wt-ink' : 'bg-wt-muted text-wt-muted-fg opacity-70'}"
+						onclick={() => toggleParsedValue(parsed.id)}
+					>
+						{parsed.formatted}
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if errors.length > 0}
 		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-700">
@@ -503,4 +580,28 @@
 			</div>
 		{/if}
 	</ResultsPanel>
+
+	{#if calcStats}
+		<ResultsPanel title="Calculation stats">
+			<div class="grid gap-1 text-sm">
+				<p><span class="wt-text-ui">Inputs:</span> {calcStats.inputCount} total, {calcStats.activeCount} active</p>
+				<p>
+					<span class="wt-text-ui">Filtered inputs used:</span> {calcStats.filteredCount}
+					{#if calcStats.filteredByHeuristic}
+						(reduced by {calcStats.removedByHeuristic}, cap {LIMITS.maxInputResistors})
+					{/if}
+				</p>
+				<p>
+					<span class="wt-text-ui">Limits:</span>
+					parallel {calcStats.maxParallel}, series blocks {calcStats.maxSeriesBlocks}, block cap {calcStats.maxBlocks}, combo cap {calcStats.maxCombos.toLocaleString()}
+				</p>
+				<p>
+					<span class="wt-text-ui">Worker used:</span>
+					{calcStats.workerUsed ? `yes (${calcStats.workerCount})` : 'no'}
+				</p>
+				<p><span class="wt-text-ui">Displayed results:</span> {calcStats.resultCount}</p>
+				<p><span class="wt-text-ui">20% cutoff fallback:</span> {calcStats.errorFilterFallback ? 'yes' : 'no'}</p>
+			</div>
+		</ResultsPanel>
+	{/if}
 </section>

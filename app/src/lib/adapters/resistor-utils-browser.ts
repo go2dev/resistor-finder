@@ -13,7 +13,24 @@ export function ensureResistorUtilsLoaded(): Promise<void> {
 			const s = document.createElement('script');
 			s.src = resistorUtilsUrl;
 			s.async = true;
-			s.onload = () => resolve();
+			s.onload = () => {
+				// Some environments report onload before global assignment; wait briefly.
+				let attempts = 0;
+				const maxAttempts = 40;
+				const tick = () => {
+					if ((window as Window & { ResistorUtils?: unknown }).ResistorUtils) {
+						resolve();
+						return;
+					}
+					attempts += 1;
+					if (attempts >= maxAttempts) {
+						reject(new Error('resistor-utils.js loaded but ResistorUtils global not found'));
+						return;
+					}
+					setTimeout(tick, 25);
+				};
+				tick();
+			};
 			s.onerror = () => reject(new Error('Failed to load resistor-utils.js'));
 			document.head.appendChild(s);
 		});
