@@ -24,7 +24,7 @@
 
 <section class="space-y-4">
 	<div>
-		<h2 class="text-xl font-semibold tracking-tight">Interactive Divider</h2>
+		<h2 class="text-xl wt-text-heading tracking-tight">Interactive Divider</h2>
 		<p class="text-sm text-wt-muted-fg">
 			Legacy schematic editing (tap resistors, series strips, parallel buses) via repo-root
 			<code class="text-xs">interactive-divider.js</code>
@@ -44,7 +44,7 @@
 		<div class="input-section interactive-divider-inputs">
 			<div class="voltage-inputs flex flex-wrap gap-4">
 				<div class="input-group flex flex-col gap-1">
-					<label for="interactiveSupplyVoltage" class="text-sm font-medium"
+					<label for="interactiveSupplyVoltage" class="text-sm wt-text-ui"
 						>Supply voltage (V<sub>supply</sub>)</label
 					>
 					<input
@@ -53,7 +53,7 @@
 						value="5"
 						step="0.1"
 						min="0.001"
-						class="h-9 w-44 rounded-lg border border-wt-border bg-wt-canvas px-3 text-sm"
+						class="wt-shell-inner wt-no-floating-shadow h-9 w-44 rounded-wt-box bg-wt-canvas px-3 text-sm wt-text-body"
 					/>
 				</div>
 			</div>
@@ -65,7 +65,7 @@
 				<label class="text-sm text-wt-muted-fg" for="interactiveSnapSeries">Series</label>
 				<select
 					id="interactiveSnapSeries"
-					class="h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm"
+					class="wt-shell-inner wt-no-floating-shadow h-9 rounded-wt-box bg-wt-surface px-2 text-sm wt-text-body"
 				>
 					<option value="E24" selected>E24</option>
 					<option value="E48">E48</option>
@@ -83,7 +83,7 @@
 			aria-label="Voltage divider schematic"
 		></div>
 		<div class="interactive-divider-side">
-			<h3 class="mb-2 text-lg font-semibold">Calculated output</h3>
+			<h3 class="mb-2 text-lg wt-text-heading">Calculated output</h3>
 			<div id="interactiveDividerResults" class="results-container interactive-results"></div>
 		</div>
 	</div>

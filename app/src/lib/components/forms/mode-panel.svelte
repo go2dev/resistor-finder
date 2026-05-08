@@ -43,13 +43,13 @@
 
 <section class="space-y-5">
 	<header class="space-y-1">
-		<h2 class="text-xl font-semibold text-wt-ink">{modeLabels[mode]}</h2>
-		<p class="text-sm text-wt-muted-fg">{modeDescriptions[mode]}</p>
+		<h2 class="wt-text-heading text-xl text-wt-ink">{modeLabels[mode]}</h2>
+		<p class="wt-text-body text-sm text-wt-muted-fg">{modeDescriptions[mode]}</p>
 	</header>
 
 	<div class="grid gap-4 md:grid-cols-2">
 		<div class="space-y-2">
-			<label for="mode-primary-input" class="text-sm font-medium text-wt-ink">
+			<label for="mode-primary-input" class="wt-text-ui text-sm text-wt-ink">
 				{mode === 'target-resistance' ? 'Target Resistance' : 'Supply Voltage'}
 			</label>
 			<Input
@@ -61,7 +61,7 @@
 		</div>
 		{#if showTargetInput}
 			<div class="space-y-2">
-				<label for="mode-target-input" class="text-sm font-medium text-wt-ink">
+				<label for="mode-target-input" class="wt-text-ui text-sm text-wt-ink">
 					{mode === 'balanced-attenuator' ? 'Target attenuation (dB)' : 'Target Voltage'}
 				</label>
 				<Input id="mode-target-input" type="number" value={mode === 'balanced-attenuator' ? '3.6' : '3.3'} step="0.1" />
@@ -69,22 +69,22 @@
 		{/if}
 	</div>
 
-	<div class="grid gap-3 rounded-lg border border-wt-border bg-wt-muted p-4 md:grid-cols-2">
+	<div class="wt-shell-inner wt-no-floating-shadow grid gap-3 rounded-wt-box bg-wt-muted p-4 md:grid-cols-2">
 		<div class="flex items-center justify-between gap-3">
 			<div class="space-y-1">
-				<p class="text-sm font-medium text-wt-ink">Allow overshoot</p>
-				<p class="text-xs text-wt-muted-fg">
+				<p class="wt-text-ui text-sm text-wt-ink">Allow overshoot</p>
+				<p class="wt-text-body text-xs text-wt-muted-fg">
 					Include results that can exceed target constraints when useful.
 				</p>
 			</div>
 			<Switch checked={enableOvershoot} onToggle={(next: boolean) => (enableOvershoot = next)} />
 		</div>
 		<div class="space-y-2">
-			<label for="mode-sort-input" class="text-sm font-medium text-wt-ink">Sort by</label>
+			<label for="mode-sort-input" class="wt-text-ui text-sm text-wt-ink">Sort by</label>
 			<select
 				id="mode-sort-input"
 				bind:value={sortBy}
-				class="inline-flex h-10 w-full rounded-lg border border-wt-border bg-wt-surface px-3 text-sm text-wt-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+				class="wt-shell-inner wt-no-floating-shadow inline-flex h-10 w-full rounded-wt-box bg-wt-surface px-3 text-sm wt-text-ui text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>

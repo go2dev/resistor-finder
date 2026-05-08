@@ -3,17 +3,17 @@
 	import { cn } from '$lib/utils';
 
 	const buttonVariants = cva(
-		'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas',
+		'wt-affordance-pill inline-flex items-center justify-center text-sm wt-text-ui transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas',
 		{
 			variants: {
 				variant: {
 					default: 'bg-wt-brand-design text-wt-white hover:opacity-90',
 					outline:
-						'border border-wt-border bg-wt-surface text-wt-ink hover:bg-wt-muted'
+						'wt-affordance-pill-ghost bg-wt-surface text-wt-ink hover:bg-wt-muted'
 				},
 				size: {
 					default: 'h-10 px-4 py-2',
-					sm: 'h-9 rounded-md px-3',
+					sm: 'h-9 px-3',
 					lg: 'h-11 px-8'
 				}
 			},

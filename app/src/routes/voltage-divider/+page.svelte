@@ -334,7 +334,7 @@
 
 <section class="space-y-6">
 	<div class="space-y-1">
-		<h2 class="text-xl font-semibold tracking-tight">Voltage Divider</h2>
+		<h2 class="text-xl wt-text-heading tracking-tight">Voltage Divider</h2>
 		<p class="text-sm text-wt-muted-fg">
 			Legacy parsing via <code class="text-xs">resistor-utils.js</code> + <code class="text-xs">jlc-basic-catalog.js</code>,
 			parallel <code class="text-xs">resistor-worker.js</code> search, per-result supply sliders, power/package sizing — parity with static UI (histogram filter comes later).
@@ -343,7 +343,7 @@
 
 	<div class="grid gap-4 md:grid-cols-2">
 		<div class="space-y-2 md:col-span-2">
-			<label for="resistor-values" class="text-sm font-medium">Available resistor values</label>
+			<label for="resistor-values" class="text-sm wt-text-ui">Available resistor values</label>
 			<Input id="resistor-values" bind:value={resistorValues} />
 			{#if parseSummary.total > 0}
 				<p class="text-xs text-wt-muted-fg">
@@ -353,17 +353,17 @@
 					{/if}
 				</p>
 			{/if}
-			<div class="flex flex-col gap-3 rounded-lg border border-wt-border bg-wt-muted/50 p-3">
+			<div class="flex flex-col gap-3 wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-muted/50 p-3">
 				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex flex-wrap items-center gap-2">
 						<Switch checked={snapToSeries} onToggle={(next: boolean) => (snapToSeries = next)} />
-						<span class="text-sm font-medium">Snap to E-series</span>
+						<span class="text-sm wt-text-ui">Snap to E-series</span>
 					</div>
 					<label class="sr-only" for="snap-series">Series for snap</label>
 					<select
 						id="snap-series"
 						bind:value={snapSeriesPick}
-						class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 					>
 						{#each seriesOptions as s}
 							<option value={s}>{s}</option>
@@ -378,19 +378,19 @@
 						Autofill decade values
 					</Button>
 					<div class="flex flex-wrap items-center gap-2">
-						<span class="text-xs font-medium text-wt-muted-fg">Decade</span>
+						<span class="text-xs wt-text-ui text-wt-muted-fg">Decade</span>
 						<select
 							bind:value={autofillDecade}
-							class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+							class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each decadeOptions as d}
 								<option value={d.value}>{d.label}</option>
 							{/each}
 						</select>
-						<span class="text-xs font-medium text-wt-muted-fg">Series</span>
+						<span class="text-xs wt-text-ui text-wt-muted-fg">Series</span>
 						<select
 							bind:value={snapSeriesPick}
-							class="inline-flex h-9 rounded-lg border border-wt-border bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+							class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each seriesOptions as s}
 								<option value={s}>{s}</option>
@@ -404,29 +404,29 @@
 			</div>
 		</div>
 		<div class="space-y-2">
-			<label for="supply-voltage" class="text-sm font-medium">Supply voltage (V)</label>
+			<label for="supply-voltage" class="text-sm wt-text-ui">Supply voltage (V)</label>
 			<Input id="supply-voltage" type="number" step="0.1" bind:value={supplyVoltage} />
 		</div>
 		<div class="space-y-2">
-			<label for="target-voltage" class="text-sm font-medium">Target voltage (V)</label>
+			<label for="target-voltage" class="text-sm wt-text-ui">Target voltage (V)</label>
 			<Input id="target-voltage" type="number" step="0.1" bind:value={targetVoltage} />
 		</div>
 	</div>
 
-	<div class="grid gap-3 rounded-lg border border-wt-border bg-wt-muted p-4 md:grid-cols-2">
+	<div class="wt-shell-inner wt-no-floating-shadow grid gap-3 rounded-wt-box bg-wt-muted p-4 md:grid-cols-2">
 		<div class="flex items-center justify-between gap-3">
 			<div class="space-y-1">
-				<p class="text-sm font-medium">Allow overshoot</p>
+				<p class="text-sm wt-text-ui">Allow overshoot</p>
 				<p class="text-xs text-wt-muted-fg">Keep solutions above target voltage.</p>
 			</div>
 			<Switch checked={allowOvershoot} onToggle={(next: boolean) => (allowOvershoot = next)} />
 		</div>
 		<div class="space-y-2">
-			<label for="sort-by" class="text-sm font-medium">Sort by</label>
+			<label for="sort-by" class="text-sm wt-text-ui">Sort by</label>
 			<select
 				id="sort-by"
 				bind:value={sortBy}
-				class="inline-flex h-10 w-full rounded-lg border border-wt-border bg-wt-surface px-3 text-sm text-wt-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+				class="inline-flex h-10 w-full rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-3 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>
@@ -437,9 +437,9 @@
 
 	{#if allResults.length > 0}
 		{@const resistanceBand = parseTotalResistanceRange()}
-		<div class="space-y-3 rounded-lg border border-wt-border bg-wt-muted/60 p-4">
+		<div class="wt-shell-inner wt-no-floating-shadow space-y-3 rounded-wt-box bg-wt-muted/60 p-4">
 			<div class="space-y-1">
-				<p class="text-sm font-medium">Total resistance filter</p>
+				<p class="text-sm wt-text-ui">Total resistance filter</p>
 				<p class="text-xs text-wt-muted-fg">
 					Scroll or pinch on the histogram to zoom; drag to pan. Use the slider handles to set the band — same widget as the static voltage divider page.
 				</p>
@@ -513,12 +513,12 @@
 						{@const liveOut =
 							(result.bottom.total / (result.top.total + result.bottom.total)) * sliderSupply}
 						{@const liveRange = calculateDividerVoltageRangeForSupply(result, sliderSupply)}
-						<article class="rounded-lg border border-wt-border bg-wt-surface p-4">
+						<article class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface p-4">
 							<div class="space-y-3">
-								<div class="space-y-2 rounded-md border border-wt-border bg-wt-muted/40 px-3 py-2">
+								<div class="wt-shell-inner wt-no-floating-shadow space-y-2 rounded-wt-box bg-wt-muted/40 px-3 py-2">
 									<label
 										for={cardSupplyRangeId}
-										class="flex flex-wrap items-center gap-2 text-sm font-medium text-wt-ink"
+										class="flex flex-wrap items-center gap-2 text-sm wt-text-ui text-wt-ink"
 									>
 										Supply voltage (this result)
 										<span class="tabular-nums">{sliderSupply.toFixed(1)}</span>
@@ -542,23 +542,23 @@
 									</p>
 								</div>
 								<div class="grid gap-1 text-sm md:grid-cols-2">
-								<p><span class="font-medium">R_TOP:</span> {result.top.label} = {formatResistorValue(result.top.total)}</p>
-								<p><span class="font-medium">R_BOT:</span> {result.bottom.label} = {formatResistorValue(result.bottom.total)}</p>
-								<p><span class="font-medium">R_TOP:R_BOT ratio</span> {power.ratioText}</p>
-								<p><span class="font-medium">Nominal output:</span> {liveOut.toFixed(3)} V</p>
-								<p><span class="font-medium">Error (vs target @ calculate supply):</span> {result.error > 0 ? '+' : ''}{result.error.toFixed(3)} V</p>
-								<p><span class="font-medium">Total resistance:</span> {formatResistorValue(result.totalResistance)}</p>
-								<p><span class="font-medium">Components:</span> {result.componentCount}</p>
+								<p><span class="wt-text-ui">R_TOP:</span> {result.top.label} = {formatResistorValue(result.top.total)}</p>
+								<p><span class="wt-text-ui">R_BOT:</span> {result.bottom.label} = {formatResistorValue(result.bottom.total)}</p>
+								<p><span class="wt-text-ui">R_TOP:R_BOT ratio</span> {power.ratioText}</p>
+								<p><span class="wt-text-ui">Nominal output:</span> {liveOut.toFixed(3)} V</p>
+								<p><span class="wt-text-ui">Error (vs target @ calculate supply):</span> {result.error > 0 ? '+' : ''}{result.error.toFixed(3)} V</p>
+								<p><span class="wt-text-ui">Total resistance:</span> {formatResistorValue(result.totalResistance)}</p>
+								<p><span class="wt-text-ui">Components:</span> {result.componentCount}</p>
 									<p class="md:col-span-2">
-										<span class="font-medium">Real-world Vout range:</span>
+										<span class="wt-text-ui">Real-world Vout range:</span>
 										{liveRange.min.toFixed(2)} V → {liveRange.max.toFixed(2)} V
 									</p>
 								<p class="md:col-span-2">
-									<span class="font-medium">Power dissipation:</span>
+									<span class="wt-text-ui">Power dissipation:</span>
 									R_TOP {power.powerTopLabel}, R_BOT {power.powerBotLabel}, total {power.totalPowerLabel}
 								</p>
 								<p class="md:col-span-2">
-									<span class="font-medium">Min package recommendation:</span>
+									<span class="wt-text-ui">Min package recommendation:</span>
 									{power.packageLine}
 								</p>
 								</div>

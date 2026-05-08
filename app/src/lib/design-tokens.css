@@ -19,7 +19,7 @@
 	--color-border: color-mix(in oklab, var(--wt-color-shell-stroke) 18%, var(--wt-color-canvas));
 	--color-primary: var(--wt-color-brand-design);
 	--color-primary-foreground: var(--wt-color-white);
-	--shadow-soft: 0 1px 2px 0 color-mix(in oklab, var(--wt-color-shadow) 8%, transparent);
+	--shadow-soft: none;
 
 	/* Legacy schematic / interactive divider SVG stroke */
 	--text-color: var(--color-foreground);
@@ -46,7 +46,7 @@
 	/* Aliases for Tailwind `bg-wt-*` / `text-wt-*` utilities (updated in dark mode below) */
 	--wt-color-muted: var(--color-muted);
 	--wt-color-muted-fg: var(--color-muted-foreground);
-	--wt-color-border: var(--color-border);
+	--wt-color-border: var(--wt-color-shell-stroke);
 }
 
 [data-theme='dark'] {
@@ -56,7 +56,7 @@
 	--surface: 39 39 42;
 	--surface-2: 55 55 59;
 	--border: 82 82 91;
-	--primary-from-theme: 96 165 250;
+	--primary-from-theme: 128 195 207;
 	--primary-foreground: 17 24 39;
 	--warning: 251 191 36;
 	--danger: 248 113 113;
@@ -70,7 +70,7 @@
 	--color-border: rgb(var(--border));
 	--color-primary: rgb(var(--primary-from-theme));
 	--color-primary-foreground: rgb(var(--primary-foreground));
-	--shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.35);
+	--shadow-soft: none;
 
 	--text-color: var(--color-foreground);
 	--accent-color: var(--color-primary);
@@ -94,12 +94,12 @@
 	--wt-color-body: rgb(var(--fg));
 	--wt-color-ink: rgb(var(--fg));
 	--wt-color-shadow: #000000;
-	--wt-color-shell-stroke: rgb(var(--border));
+	--wt-color-shell-stroke: #000000;
 	--wt-color-media-placeholder: rgb(var(--muted));
 	--wt-color-white: rgb(var(--primary-foreground));
 	--wt-color-brand-design: rgb(var(--primary-from-theme));
 
 	--wt-color-muted: rgb(var(--surface-2));
 	--wt-color-muted-fg: rgb(var(--muted));
-	--wt-color-border: rgb(var(--border));
+	--wt-color-border: var(--wt-color-shell-stroke);
 }

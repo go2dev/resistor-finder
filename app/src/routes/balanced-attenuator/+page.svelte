@@ -29,7 +29,7 @@
 
 <section class="ba-legacy space-y-4">
 	<div class="space-y-2">
-		<h2 class="text-xl font-semibold tracking-tight text-wt-ink">
+		<h2 class="text-xl wt-text-heading tracking-tight text-wt-ink">
 			Balanced Attenuator
 		</h2>
 		<p class="text-sm text-wt-muted-fg">
@@ -101,14 +101,14 @@
 			<button
 				type="button"
 				id="calculateBtn"
-				class="inline-flex max-w-md items-center justify-center rounded-lg bg-wt-brand-design px-4 py-3 text-sm font-medium text-wt-white shadow-sm hover:opacity-95"
+				class="wt-affordance-pill inline-flex max-w-md items-center justify-center bg-wt-brand-design px-4 py-3 text-sm wt-text-ui text-wt-white hover:opacity-95"
 			>
 				Calculate combinations
 			</button>
 		</div>
 
 		<div class="options-section">
-			<p class="mb-2 text-sm font-medium text-wt-body">Options</p>
+			<p class="mb-2 text-sm wt-text-ui text-wt-body">Options</p>
 			<div class="options-box">
 				<div class="option-group">
 					<div class="theme-switch-wrapper">

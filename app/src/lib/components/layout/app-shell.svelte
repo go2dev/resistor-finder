@@ -53,15 +53,15 @@
 	<div class="mx-auto max-w-6xl px-4 py-8">
 		<header class="@container mb-6 flex items-center justify-between gap-4">
 			<div class="min-w-0 space-y-1">
-				<h1 class="wt-revamp-hero-title font-semibold tracking-tight">Resistor Finder</h1>
-				<p class="wt-revamp-hero-tagline text-wt-muted-fg">
+				<h1 class="wt-revamp-hero-title wt-text-heading tracking-tight">Resistor Finder</h1>
+				<p class="wt-revamp-hero-tagline wt-text-body text-wt-muted-fg">
 					SvelteKit UI under <code class="text-xs">{base || '/'}</code> · legacy static pages unchanged at repo root ·
 					wt-theme v{wtThemeTokens.meta.version}
 				</p>
 			</div>
 			<button
 				type="button"
-				class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-wt-border bg-wt-surface shadow-sm hover:bg-wt-muted"
+				class="wt-affordance-pill-ghost wt-no-floating-shadow inline-flex h-10 w-10 shrink-0 items-center justify-center bg-wt-surface hover:bg-wt-muted"
 				onclick={toggleTheme}
 				aria-label="Toggle theme"
 			>
@@ -82,10 +82,10 @@
 						data-sveltekit-preload-data="hover"
 						aria-current={activeMode === link.id ? 'page' : undefined}
 						class={cn(
-							'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+							'wt-affordance-pill-ghost wt-no-floating-shadow inline-flex items-center gap-2 px-3 py-2 text-sm wt-text-ui transition-colors',
 							activeMode === link.id
-								? 'border-transparent bg-wt-brand-design text-wt-white'
-								: 'border-wt-border bg-wt-surface text-wt-ink hover:bg-wt-muted'
+								? 'bg-wt-brand-design text-wt-white'
+								: 'bg-wt-surface text-wt-ink hover:bg-wt-muted'
 						)}
 					>
 						<Icon class="h-4 w-4" />
@@ -95,9 +95,7 @@
 			</div>
 		</nav>
 
-		<main
-			class="wt-corner-squircle rounded-xl border border-wt-border bg-wt-surface p-6 shadow-sm"
-		>
+		<main class="wt-corner-squircle wt-shell-root rounded-wt-box p-6">
 			{@render children?.()}
 		</main>
 	</div>
