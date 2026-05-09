@@ -107,14 +107,23 @@
 		return 'bg-amber-500';
 	}
 
+	function seriesTooltipToneClass(series: string | null | undefined): string {
+		if (series === 'E192') return 'bg-fuchsia-100';
+		if (series === 'E96') return 'bg-sky-100';
+		if (series === 'E48') return 'bg-emerald-100';
+		return 'bg-amber-100';
+	}
+
 	function chipTooltipText(chip: ParsedValueChip): string {
 		const parts = [
 			`Parsed: ${chip.label}`,
 			`Series: ${chip.series ?? 'unknown'}`,
-			`Tolerance: ${chip.tolerance != null ? `±${chip.tolerance}%` : 'unknown'}`,
-			`JLC Basic: ${chip.isJlcBasic ? 'yes' : 'no'}`,
-			`Source: ${chip.source ?? 'n/a'}`
+			`Tolerance: ${chip.tolerance != null ? `±${chip.tolerance}%` : 'unknown'}`
 		];
+		if (chip.isJlcBasic) parts.splice(3, 0, 'JLC Basic');
+		if (chip.source && chip.source !== 'value') {
+			parts.push(`Value from ${chip.source} (${chip.resistor.input})`);
+		}
 		return parts.join('\n');
 	}
 
@@ -508,29 +517,6 @@
 					</Button>
 				</div>
 			</div>
-			{#if parsedValueChips.length > 0}
-				<div class="space-y-2">
-					<p class="text-xs wt-text-ui text-wt-muted-fg">
-						Parsed values (click to include/exclude instantly)
-					</p>
-					<div class="flex flex-wrap gap-2">
-						{#each parsedValueChips as chip (chip.id)}
-							<button
-								type="button"
-								class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {chip.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg opacity-60 line-through'}"
-								onclick={() => toggleParsedValue(chip.id)}
-							>
-								<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(chip.series)}"></span>
-								{chip.label}
-								<span class="text-[10px] opacity-75">{chip.series ?? 'E?'}</span>
-								<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border bg-wt-surface p-2 text-[11px] text-wt-ink shadow-wt-fab group-hover:block group-focus-visible:block">
-									{chipTooltipText(chip)}
-								</span>
-							</button>
-						{/each}
-					</div>
-				</div>
-			{/if}
 		</div>
 		<div class="space-y-2">
 			<label for="supply-voltage" class="text-sm wt-text-ui">Supply voltage (V)</label>
@@ -622,6 +608,30 @@
 			</p>
 		{/if}
 	</div>
+
+	{#if parsedValueChips.length > 0}
+		<div class="space-y-2">
+			<p class="text-xs wt-text-ui text-wt-muted-fg">
+				Parsed values (click to include/exclude instantly)
+			</p>
+			<div class="flex flex-wrap gap-2">
+				{#each parsedValueChips as chip (chip.id)}
+					<button
+						type="button"
+						class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {chip.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg line-through'}"
+						style={chip.isJlcBasic ? 'border-radius: 0.6rem;' : undefined}
+						onclick={() => toggleParsedValue(chip.id)}
+					>
+						<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(chip.series)}"></span>
+						{chip.label}
+						<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-40 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border p-3 text-[11px] text-wt-ink {seriesTooltipToneClass(chip.series)} group-hover:block group-focus-visible:block">
+							{chipTooltipText(chip)}
+						</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if errors.length > 0}
 		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-700">

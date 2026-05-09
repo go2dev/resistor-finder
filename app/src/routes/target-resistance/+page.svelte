@@ -116,16 +116,23 @@
 		return 'bg-amber-500';
 	}
 
+	function seriesTooltipToneClass(series: string | null | undefined): string {
+		if (series === 'E192') return 'bg-fuchsia-100';
+		if (series === 'E96') return 'bg-sky-100';
+		if (series === 'E48') return 'bg-emerald-100';
+		return 'bg-amber-100';
+	}
+
 	function chipTooltipText(chip: ParsedValueChip): string {
 		const parts = [
 			`Input: ${chip.input}`,
 			`Parsed: ${chip.formatted}`,
 			`Series: ${chip.series ?? 'unknown'}`,
-			`Tolerance: ±${chip.tolerancePct}%`,
-			`JLC Basic: ${chip.isJlcBasic ? 'yes' : 'no'}`
+			`Tolerance: ±${chip.tolerancePct}%`
 		];
+		if (chip.isJlcBasic) parts.push('JLC Basic');
 		if (chip.powerCode) parts.push(`Power code: ${chip.powerCode}`);
-		if (chip.source) parts.push(`Source: ${chip.source}`);
+		if (chip.source && chip.source !== 'value') parts.push(`Value from ${chip.source} (${chip.input})`);
 		return parts.join('\n');
 	}
 
@@ -745,13 +752,13 @@
 				{#each parsedValues as parsed (parsed.id)}
 					<button
 						type="button"
-						class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {parsed.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg opacity-60 line-through'}"
+						class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {parsed.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg line-through'}"
+						style={parsed.isJlcBasic ? 'border-radius: 0.6rem;' : undefined}
 						onclick={() => toggleParsedValue(parsed.id)}
 					>
 						<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(parsed.series)}"></span>
 						{parsed.formatted}
-						<span class="text-[10px] opacity-75">{parsed.series ?? 'E?'}</span>
-						<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border bg-wt-surface p-2 text-[11px] text-wt-ink shadow-wt-fab group-hover:block group-focus-visible:block">
+						<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-40 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border p-3 text-[11px] text-wt-ink {seriesTooltipToneClass(parsed.series)} group-hover:block group-focus-visible:block">
 							{chipTooltipText(parsed)}
 						</span>
 					</button>
