@@ -117,15 +117,16 @@
 	}
 
 	function chipTooltipText(chip: ParsedValueChip): string {
+		const parsedLine =
+			chip.source && chip.source !== 'value'
+				? `Parsed: ${chip.label} from ${chip.source} (${chip.resistor.input})`
+				: `Parsed: ${chip.label}`;
 		const parts = [
-			`Parsed: ${chip.label}`,
+			parsedLine,
 			`Series: ${chip.series ?? 'unknown'}`,
 			`Tolerance: ${chip.tolerance != null ? `±${chip.tolerance}%` : 'unknown'}`
 		];
 		if (chip.isJlcBasic) parts.splice(3, 0, 'JLC Basic');
-		if (chip.source && chip.source !== 'value') {
-			parts.push(`Value from ${chip.source} (${chip.resistor.input})`);
-		}
 		return parts.join('\n');
 	}
 
