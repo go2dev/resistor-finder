@@ -33,7 +33,9 @@
 		type ZoomableHistogramApi
 	} from '$lib/adapters/zoomable-range-filter-browser';
 
-	let resistorValues = $state('1k, 2.2k, 3.3k, 4.7k, 10k, 22k');
+	let resistorValues = $state(
+		'1k, 2.2k, 3.3k, 4.7k, 10k, 22k, 5K11, 96C, EB1041, 100R(0.1%), 220R(5%), 4k7, 49R9, 73k2(10%), 0R, 8M2'
+	);
 	let supplyVoltage = $state('5');
 	let targetVoltage = $state('3.3');
 	let allowOvershoot = $state(true);
