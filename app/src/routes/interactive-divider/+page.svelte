@@ -2,7 +2,7 @@
 	import '$lib/styles/interactive-divider.css';
 
 	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import ModePanel from '$lib/components/forms/mode-panel.svelte';
 	import { mountInteractiveDividerLegacy } from '$lib/adapters/interactive-divider-browser';
 
@@ -19,6 +19,12 @@
 				bootError = e instanceof Error ? e.message : String(e);
 			}
 		})();
+	});
+
+	onDestroy(() => {
+		if (typeof document !== 'undefined') {
+			delete document.body.dataset.page;
+		}
 	});
 </script>
 

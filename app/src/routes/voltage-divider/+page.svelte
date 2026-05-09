@@ -2,6 +2,7 @@
 	import '$lib/styles/zoom-range-filter.css';
 
 	import { browser } from '$app/environment';
+	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import nouisliderCssUrl from '$legacy/nuis/nouislider.css?url';
 	import Button from '$lib/components/ui/button.svelte';
@@ -17,6 +18,7 @@
 	} from '$lib/domain/divider-power';
 	import { parseRichResistorInputs } from '$lib/domain/parse-rich-resistors';
 	import { formatResistorValue } from '$lib/domain/resistor';
+	import type { ParsedResistor } from '$lib/domain/resistor';
 	import {
 		computeDividerResults,
 		filterSortLimitDividerResults,
@@ -52,6 +54,17 @@
 	let diagramTarget = $state(3.3);
 
 	let parseSummary = $state({ total: 0, jlc: 0 });
+	type ParsedValueChip = {
+		id: string;
+		label: string;
+		active: boolean;
+		resistor: ParsedResistor;
+		series?: string | null;
+		tolerance?: number | null;
+		isJlcBasic?: boolean;
+		source?: string;
+	};
+	let parsedValueChips = $state<ParsedValueChip[]>([]);
 
 	let filterMinStr = $state('0');
 	let filterMaxStr = $state('0');
@@ -82,6 +95,48 @@
 		{ value: '10000000', label: '10MΩ' },
 		{ value: '100000000', label: '100MΩ' }
 	];
+	const E24_FALLBACK = [
+		1, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2, 2.2, 2.4, 2.7, 3, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1,
+		5.6, 6.2, 6.8, 7.5, 8.2, 9.1
+	];
+
+	function seriesToneClass(series: string | null | undefined): string {
+		if (series === 'E192') return 'bg-fuchsia-500';
+		if (series === 'E96') return 'bg-sky-500';
+		if (series === 'E48') return 'bg-emerald-500';
+		return 'bg-amber-500';
+	}
+
+	function chipTooltipText(chip: ParsedValueChip): string {
+		const parts = [
+			`Parsed: ${chip.label}`,
+			`Series: ${chip.series ?? 'unknown'}`,
+			`Tolerance: ${chip.tolerance != null ? `±${chip.tolerance}%` : 'unknown'}`,
+			`JLC Basic: ${chip.isJlcBasic ? 'yes' : 'no'}`,
+			`Source: ${chip.source ?? 'n/a'}`
+		];
+		return parts.join('\n');
+	}
+
+	function pushUiWarning(message: string) {
+		if (!warnings.includes(message)) {
+			warnings = [...warnings, message];
+		}
+	}
+
+	async function loadJlcFallbackList(): Promise<string[]> {
+		const resp = await fetch(`${base}/data/jlc_basic_resistors_embedded.json`);
+		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+		const payload = (await resp.json()) as { rows?: Array<{ resistance?: number }> };
+		const values = new Set<number>();
+		for (const row of payload.rows ?? []) {
+			const ohms = Number(row.resistance);
+			if (Number.isFinite(ohms) && ohms >= 0) values.add(ohms);
+		}
+		return [...values]
+			.sort((a, b) => a - b)
+			.map((v) => formatResistorValue(v).replace(/Ω/g, 'R'));
+	}
 
 	function parseTotalResistanceRange(): { minR: number; maxR: number } | null {
 		const minR = parseFloat(filterMinStr);
@@ -181,13 +236,18 @@
 		try {
 			await ensureResistorUtilsLoaded();
 			const Ru = getResistorUtils();
-			if (!Ru) return;
+			if (!Ru) throw new Error('ResistorUtils unavailable');
 			const mult = Number(autofillDecade);
 			const seriesArr = Ru.series[snapSeriesPick] ?? Ru.series.E24;
 			const formatted = seriesArr.map((v: number) => Ru.formatResistorValue(v * mult).replace(/Ω/g, 'R'));
 			resistorValues = formatted.join(', ');
-		} catch (e) {
-			console.warn(e);
+		} catch {
+			const mult = Number(autofillDecade);
+			const formatted = E24_FALLBACK.map((v) =>
+				formatResistorValue(v * mult).replace(/Ω/g, 'R')
+			);
+			resistorValues = formatted.join(', ');
+			pushUiWarning('Autofill used local E24 fallback values (legacy parser not ready yet).');
 		}
 	}
 
@@ -195,10 +255,17 @@
 		try {
 			await ensureResistorUtilsLoaded();
 			const Ru = getResistorUtils();
-			if (!Ru?.luts?.JLC_BASIC?.length) return;
+			if (!Ru?.luts?.JLC_BASIC?.length) throw new Error('JLC LUT unavailable');
 			resistorValues = Ru.luts.JLC_BASIC.join(', ');
-		} catch (e) {
-			console.warn(e);
+		} catch {
+			try {
+				const fallback = await loadJlcFallbackList();
+				if (fallback.length === 0) throw new Error('Fallback JLC list empty');
+				resistorValues = fallback.join(', ');
+				pushUiWarning('Autofill JLC used embedded JSON fallback list.');
+			} catch {
+				pushUiWarning('Autofill JLC failed: no JLC source currently available.');
+			}
 		}
 	}
 
@@ -223,11 +290,40 @@
 			snapSeries: snapSeriesPick
 		});
 		nextWarnings.push(...richParse.warnings);
-		const sanitized = sanitizeInputResistors(richParse.resistors);
+		const chips = richParse.resistors.map((r, idx) => {
+			const Ru = getResistorUtils();
+			let resolvedSeries = r.series ?? null;
+			if (!resolvedSeries && r.tolerance != null) {
+				resolvedSeries = Ru?.getSeriesForTolerance?.(r.tolerance) ?? null;
+			}
+			if (!resolvedSeries) {
+				resolvedSeries = Ru?.findResistorSeries?.(r.value) ?? null;
+			}
+			const resolvedTolerance =
+				r.tolerance ??
+				(resolvedSeries && Ru?.resistorTolerances?.[resolvedSeries] != null
+					? Ru.resistorTolerances[resolvedSeries]
+					: null);
+			const id = `${r.input}-${idx}`;
+			const existing = parsedValueChips.find((chip) => chip.id === id);
+			return {
+				id,
+				label: r.formatted,
+				active: existing?.active ?? true,
+				resistor: r,
+				series: resolvedSeries,
+				tolerance: resolvedTolerance,
+				isJlcBasic: r.isJlcBasic ?? false,
+				source: r.source
+			};
+		});
+		parsedValueChips = chips;
+		const activeResistors = chips.filter((chip) => chip.active).map((chip) => chip.resistor);
+		const sanitized = sanitizeInputResistors(activeResistors);
 		nextWarnings.push(...sanitized.warnings);
 
 		if (sanitized.resistors.length === 0) {
-			nextErrors.push('At least one valid resistor value is required.');
+			nextErrors.push('At least one active parsed resistor value is required.');
 		}
 
 		if (nextErrors.length > 0) {
@@ -235,6 +331,7 @@
 			warnings = nextWarnings;
 			allResults = [];
 			parseSummary = { total: 0, jlc: 0 };
+			parsedValueChips = chips;
 			calculating = false;
 			usedWorkers = false;
 			workerStats = null;
@@ -243,8 +340,8 @@
 		}
 
 		parseSummary = {
-			total: sanitized.resistors.length,
-			jlc: sanitized.resistors.filter((r) => r.isJlcBasic).length
+			total: activeResistors.length,
+			jlc: activeResistors.filter((r) => r.isJlcBasic).length
 		};
 
 		errors = [];
@@ -325,6 +422,15 @@
 		}
 	}
 
+	async function toggleParsedValue(id: string) {
+		parsedValueChips = parsedValueChips.map((chip) =>
+			chip.id === id ? { ...chip, active: !chip.active } : chip
+		);
+		if (!calculating) {
+			await calculate();
+		}
+	}
+
 	onMount(() => void calculate());
 </script>
 
@@ -337,7 +443,7 @@
 		<h2 class="text-xl wt-text-heading tracking-tight">Voltage Divider</h2>
 		<p class="text-sm text-wt-muted-fg">
 			Legacy parsing via <code class="text-xs">resistor-utils.js</code> + <code class="text-xs">jlc-basic-catalog.js</code>,
-			parallel <code class="text-xs">resistor-worker.js</code> search, per-result supply sliders, power/package sizing — parity with static UI (histogram filter comes later).
+			parallel <code class="text-xs">resistor-worker.js</code> search, per-result supply sliders, power/package sizing, and zoomable resistance histogram filtering.
 		</p>
 	</div>
 
@@ -402,6 +508,29 @@
 					</Button>
 				</div>
 			</div>
+			{#if parsedValueChips.length > 0}
+				<div class="space-y-2">
+					<p class="text-xs wt-text-ui text-wt-muted-fg">
+						Parsed values (click to include/exclude instantly)
+					</p>
+					<div class="flex flex-wrap gap-2">
+						{#each parsedValueChips as chip (chip.id)}
+							<button
+								type="button"
+								class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {chip.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg opacity-60 line-through'}"
+								onclick={() => toggleParsedValue(chip.id)}
+							>
+								<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(chip.series)}"></span>
+								{chip.label}
+								<span class="text-[10px] opacity-75">{chip.series ?? 'E?'}</span>
+								<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border bg-wt-surface p-2 text-[11px] text-wt-ink shadow-wt-fab group-hover:block group-focus-visible:block">
+									{chipTooltipText(chip)}
+								</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</div>
 		<div class="space-y-2">
 			<label for="supply-voltage" class="text-sm wt-text-ui">Supply voltage (V)</label>
@@ -445,6 +574,30 @@
 				</p>
 			</div>
 			<div bind:this={histogramMountEl} class="zoom-range-filter min-h-[180px] w-full"></div>
+			<div class="grid gap-2 md:grid-cols-2">
+				<div class="space-y-1">
+					<label for="vd-filter-min" class="text-xs wt-text-ui text-wt-muted-fg">Min total resistance</label>
+					<Input id="vd-filter-min" type="number" step="any" bind:value={filterMinStr} />
+				</div>
+				<div class="space-y-1">
+					<label for="vd-filter-max" class="text-xs wt-text-ui text-wt-muted-fg">Max total resistance</label>
+					<Input id="vd-filter-max" type="number" step="any" bind:value={filterMaxStr} />
+				</div>
+			</div>
+			<div>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={() => {
+						const { min, max } = boundsFromTotals(allResults);
+						filterMinStr = String(min);
+						filterMaxStr = String(max);
+					}}
+				>
+					Reset resistance band
+				</Button>
+			</div>
 			{#if resistanceBand}
 				<p class="text-xs tabular-nums text-wt-muted-fg">
 					Active band:

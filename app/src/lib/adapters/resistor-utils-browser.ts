@@ -2,11 +2,27 @@ import resistorUtilsUrl from '$legacy/resistor-utils.js?url';
 
 let loadPromise: Promise<void> | null = null;
 
+function resolveResistorUtilsGlobal(): unknown {
+	const w = window as Window & { ResistorUtils?: unknown };
+	if (w.ResistorUtils) return w.ResistorUtils;
+	try {
+		const fromLexical = new Function(
+			'return typeof ResistorUtils !== "undefined" ? ResistorUtils : undefined;'
+		)();
+		if (fromLexical) {
+			w.ResistorUtils = fromLexical;
+			return fromLexical;
+		}
+	} catch {
+		/* ignore */
+	}
+	return undefined;
+}
+
 export function ensureResistorUtilsLoaded(): Promise<void> {
 	if (typeof window === 'undefined') return Promise.resolve();
 
-	const w = window as Window & { ResistorUtils?: unknown };
-	if (w.ResistorUtils) return Promise.resolve();
+	if (resolveResistorUtilsGlobal()) return Promise.resolve();
 
 	if (!loadPromise) {
 		loadPromise = new Promise((resolve, reject) => {
@@ -16,9 +32,9 @@ export function ensureResistorUtilsLoaded(): Promise<void> {
 			s.onload = () => {
 				// Some environments report onload before global assignment; wait briefly.
 				let attempts = 0;
-				const maxAttempts = 40;
+				const maxAttempts = 200;
 				const tick = () => {
-					if ((window as Window & { ResistorUtils?: unknown }).ResistorUtils) {
+					if (resolveResistorUtilsGlobal()) {
 						resolve();
 						return;
 					}
@@ -60,11 +76,14 @@ export type LegacyResistorUtilsApi = {
 		tolerances: number[];
 		detailSource?: string;
 	} | null;
+	resistorTolerances: Record<string, number>;
+	getSeriesForTolerance?: (tolerance: number) => string | null;
+	findResistorSeries?: (value: number) => string | null;
 	series: Record<string, number[]>;
 	luts: { JLC_BASIC: string[] };
 };
 
 export function getResistorUtils(): LegacyResistorUtilsApi | undefined {
 	if (typeof window === 'undefined') return undefined;
-	return (window as Window & { ResistorUtils?: LegacyResistorUtilsApi }).ResistorUtils;
+	return resolveResistorUtilsGlobal() as LegacyResistorUtilsApi | undefined;
 }

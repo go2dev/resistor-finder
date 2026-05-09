@@ -1,46 +1,52 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import Button from '$lib/components/ui/button.svelte';
 	import Input from '$lib/components/ui/input.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
 	import { ensureResistorUtilsLoaded, getResistorUtils } from '$lib/adapters/resistor-utils-browser';
 	import { parseRichResistorInputs } from '$lib/domain/parse-rich-resistors';
-	import { sanitizeInputResistors } from '$lib/domain/voltage-divider';
 	import { formatResistorValue } from '$lib/domain/resistor';
 
+	type SortBy = 'error' | 'components' | 'totalResistanceAsc' | 'totalResistanceDesc';
+	type ParsedValueChip = {
+		id: string;
+		input: string;
+		value: number;
+		formatted: string;
+		tolerancePct: number;
+		series?: string | null;
+		powerCode?: string | null;
+		isJlcBasic?: boolean;
+		source?: string;
+		active: boolean;
+	};
+	type Block = {
+		id: string;
+		label: string;
+		total: number;
+		componentCount: number;
+		lower: number;
+		upper: number;
+		keys: string[];
+	};
+	type RawResult = {
+		signature: string;
+		label: string;
+		totalResistance: number;
+		error: number;
+		errorPercent: number;
+		componentCount: number;
+		rangeLower: number;
+		rangeUpper: number;
+		keys: string[];
+	};
 	type TargetResult = {
 		label: string;
 		total: number;
 		errorAbs: number;
 		errorPercent: number;
 		components: number;
-	};
-
-	type SortBy = 'error' | 'components' | 'totalResistanceAsc' | 'totalResistanceDesc';
-	type RawResult = {
-		combo: number[];
-		totalResistance: number;
-		error: number;
-		errorPercent: number;
-		componentCount: number;
-	};
-	type WorkerPayload = {
-		resistors: number[];
-		targetValue: number;
-		sortBy: SortBy;
-		options: {
-			maxParallel: number;
-			maxSeriesBlocks: number;
-			maxBlocks: number;
-			maxCombos: number;
-			chunkIndex?: number;
-			chunkCount?: number;
-		};
-	};
-	type ParsedValueChip = {
-		id: string;
-		value: number;
-		formatted: string;
-		active: boolean;
+		rangeText: string;
 	};
 	type CalcStats = {
 		inputCount: number;
@@ -54,10 +60,10 @@
 		maxSeriesBlocks: number;
 		maxBlocks: number;
 		maxCombos: number;
+		comboCount: number;
 		resultCount: number;
 		errorFilterFallback: boolean;
 	};
-
 	const LIMITS = {
 		maxParallel: 10,
 		maxSeriesBlocks: 10,
@@ -69,11 +75,15 @@
 	let resistorValues = $state('1k, 2.2k, 3.3k, 4.7k, 10k, 22k');
 	let targetResistance = $state('50k');
 	let sortBy = $state<SortBy>('error');
+	let snapToSeries = $state(false);
+	let snapSeriesPick = $state('E24');
+	let autofillDecade = $state('100');
+	let parsedValues = $state<ParsedValueChip[]>([]);
+	let allRawResults = $state<RawResult[]>([]);
 	let results = $state<TargetResult[]>([]);
 	let warnings = $state<string[]>([]);
 	let errors = $state<string[]>([]);
 	let calculating = $state(false);
-	let parsedValues = $state<ParsedValueChip[]>([]);
 	let calcStats = $state<CalcStats | null>(null);
 
 	const sortOptions: { value: SortBy; label: string }[] = [
@@ -82,23 +92,61 @@
 		{ value: 'totalResistanceAsc', label: 'Total resistance ascending' },
 		{ value: 'totalResistanceDesc', label: 'Total resistance descending' }
 	];
+	const seriesOptions = ['E24', 'E48', 'E96', 'E192'] as const;
+	const decadeOptions = [
+		{ value: '1', label: 'Ω' },
+		{ value: '10', label: '10Ω' },
+		{ value: '100', label: '100Ω' },
+		{ value: '1000', label: 'KΩ' },
+		{ value: '10000', label: '10KΩ' },
+		{ value: '100000', label: '100KΩ' },
+		{ value: '1000000', label: 'MΩ' },
+		{ value: '10000000', label: '10MΩ' },
+		{ value: '100000000', label: '100MΩ' }
+	];
+	const E24_FALLBACK = [
+		1, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2, 2.2, 2.4, 2.7, 3, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1,
+		5.6, 6.2, 6.8, 7.5, 8.2, 9.1
+	];
 
-	function sortResults(items: TargetResult[], mode: SortBy): TargetResult[] {
-		const copy = [...items];
-		copy.sort((a, b) => {
-			switch (mode) {
-				case 'components':
-					return a.components - b.components || a.errorAbs - b.errorAbs;
-				case 'totalResistanceAsc':
-					return a.total - b.total || a.errorAbs - b.errorAbs;
-				case 'totalResistanceDesc':
-					return b.total - a.total || a.errorAbs - b.errorAbs;
-				case 'error':
-				default:
-					return a.errorAbs - b.errorAbs || a.components - b.components;
-			}
-		});
-		return copy;
+	function seriesToneClass(series: string | null | undefined): string {
+		if (series === 'E192') return 'bg-fuchsia-500';
+		if (series === 'E96') return 'bg-sky-500';
+		if (series === 'E48') return 'bg-emerald-500';
+		return 'bg-amber-500';
+	}
+
+	function chipTooltipText(chip: ParsedValueChip): string {
+		const parts = [
+			`Input: ${chip.input}`,
+			`Parsed: ${chip.formatted}`,
+			`Series: ${chip.series ?? 'unknown'}`,
+			`Tolerance: ±${chip.tolerancePct}%`,
+			`JLC Basic: ${chip.isJlcBasic ? 'yes' : 'no'}`
+		];
+		if (chip.powerCode) parts.push(`Power code: ${chip.powerCode}`);
+		if (chip.source) parts.push(`Source: ${chip.source}`);
+		return parts.join('\n');
+	}
+
+	function pushUiWarning(message: string) {
+		if (!warnings.includes(message)) {
+			warnings = [...warnings, message];
+		}
+	}
+
+	async function loadJlcFallbackList(): Promise<string[]> {
+		const resp = await fetch(`${base}/data/jlc_basic_resistors_embedded.json`);
+		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+		const payload = (await resp.json()) as { rows?: Array<{ resistance?: number }> };
+		const values = new Set<number>();
+		for (const row of payload.rows ?? []) {
+			const ohms = Number(row.resistance);
+			if (Number.isFinite(ohms) && ohms >= 0) values.add(ohms);
+		}
+		return [...values]
+			.sort((a, b) => a - b)
+			.map((v) => formatResistorValue(v).replace(/Ω/g, 'R'));
 	}
 
 	function estimateComboCount(valueCount: number, comboSize: number, cap = Number.MAX_SAFE_INTEGER): number {
@@ -111,22 +159,12 @@
 		return total;
 	}
 
-	function getEffectiveLimits(valueCount: number): WorkerPayload['options'] {
+	function getEffectiveLimits(valueCount: number) {
 		if (valueCount <= 20) return { ...LIMITS };
 		if (valueCount <= 35) {
-			return {
-				maxParallel: Math.min(8, LIMITS.maxParallel),
-				maxSeriesBlocks: Math.min(8, LIMITS.maxSeriesBlocks),
-				maxBlocks: 1200,
-				maxCombos: 120000
-			};
+			return { maxParallel: 8, maxSeriesBlocks: 8, maxBlocks: 1200, maxCombos: 120000 };
 		}
-		return {
-			maxParallel: Math.min(6, LIMITS.maxParallel),
-			maxSeriesBlocks: Math.min(6, LIMITS.maxSeriesBlocks),
-			maxBlocks: 800,
-			maxCombos: 90000
-		};
+		return { maxParallel: 6, maxSeriesBlocks: 6, maxBlocks: 800, maxCombos: 90000 };
 	}
 
 	function getWorkerCount(resistorCount: number): number {
@@ -154,164 +192,220 @@
 		const seen = new Set<string>();
 		const out: RawResult[] = [];
 		for (const item of items) {
-			const norm = [...item.combo].sort((a, b) => a - b).join('|');
-			const key = `${norm}|${item.componentCount}`;
-			if (seen.has(key)) continue;
-			seen.add(key);
+			if (seen.has(item.signature)) continue;
+			seen.add(item.signature);
 			out.push(item);
 		}
 		return out;
 	}
 
-	function applyErrorCutoff(items: RawResult[], maxPercent = 20): RawResult[] {
-		const within = items.filter((r) => Number.isFinite(r.errorPercent) && Math.abs(r.errorPercent) <= maxPercent);
-		return within.length ? within : items;
-	}
-
 	function mapRawToView(items: RawResult[]): TargetResult[] {
 		return items.slice(0, 40).map((r) => ({
-			label: r.combo.map((v) => formatResistorValue(v)).join(' + '),
+			label: r.label,
 			total: r.totalResistance,
 			errorAbs: Math.abs(r.error),
 			errorPercent: Math.abs(r.errorPercent),
-			components: r.componentCount
+			components: r.componentCount,
+			rangeText: `${formatResistorValue(r.rangeLower)} → ${formatResistorValue(r.rangeUpper)}`
 		}));
 	}
 
-	function generateCombinationsSync(
-		resistors: number[],
-		targetValue: number,
-		sort: SortBy,
-		options: WorkerPayload['options']
-	): RawResult[] {
-		const blocks: number[] = [...resistors];
-		for (let size = 2; size <= options.maxParallel; size++) {
-			if (estimateComboCount(resistors.length, size, options.maxCombos * 3) > options.maxCombos * 3) break;
+	function filterRawByActiveKeys(items: RawResult[], activeKeys: Set<string>): RawResult[] {
+		if (!activeKeys.size) return [];
+		return items.filter((item) => item.keys.every((key) => activeKeys.has(key)));
+	}
+
+	function refreshVisibleResults() {
+		const activeKeys = new Set(parsedValues.filter((p) => p.active).map((p) => p.id));
+		const visible = filterRawByActiveKeys(sortRawResults(allRawResults, sortBy), activeKeys);
+		results = mapRawToView(visible);
+		if (calcStats) {
+			calcStats = { ...calcStats, activeCount: activeKeys.size, resultCount: results.length };
+		}
+	}
+
+	function buildBlocks(entries: ParsedValueChip[], target: number, maxParallel: number, maxBlocks: number): Block[] {
+		const blocks: Block[] = entries.map((e, i) => ({
+			id: `s-${i}`,
+			label: e.formatted,
+			total: e.value,
+			componentCount: 1,
+			lower: e.value * (1 - e.tolerancePct / 100),
+			upper: e.value * (1 + e.tolerancePct / 100),
+			keys: [e.id]
+		}));
+		for (let size = 2; size <= maxParallel; size++) {
+			if (estimateComboCount(entries.length, size, maxBlocks * 4) > maxBlocks * 4) break;
 			let queue: number[][] = [[]];
 			for (let d = 0; d < size; d++) {
 				const next: number[][] = [];
 				for (const prefix of queue) {
 					const start = prefix.length ? prefix[prefix.length - 1] : 0;
-					for (let i = start; i < resistors.length; i++) next.push([...prefix, i]);
+					for (let i = start; i < entries.length; i++) next.push([...prefix, i]);
 				}
 				queue = next;
 			}
 			for (const idxs of queue) {
-				const combo = idxs.map((i) => resistors[i]);
-				const reciprocal = combo.reduce((sum, v) => sum + 1 / v, 0);
-				blocks.push(1 / reciprocal);
+				const members = idxs.map((i) => entries[i]);
+				const reciprocal = members.reduce((sum, m) => sum + 1 / m.value, 0);
+				const total = 1 / reciprocal;
+				const lower = 1 / members.reduce((sum, m) => sum + 1 / (m.value * (1 - m.tolerancePct / 100)), 0);
+				const upper = 1 / members.reduce((sum, m) => sum + 1 / (m.value * (1 + m.tolerancePct / 100)), 0);
+				blocks.push({
+					id: `p-${idxs.join('-')}`,
+					label: `(${members.map((m) => m.formatted).join(' || ')})`,
+					total,
+					componentCount: members.length,
+					lower,
+					upper,
+					keys: members.map((m) => m.id)
+				});
 			}
 		}
 
-		const rankedBlocks = blocks
-			.map((v) => ({ value: v, diff: Math.abs(v - targetValue) }))
-			.sort((a, b) => a.diff - b.diff)
-			.slice(0, options.maxBlocks)
-			.map((e) => e.value);
+		const ranked = blocks
+			.map((b) => ({ block: b, diff: Math.abs(b.total - target) }))
+			.sort((a, b) => a.diff - b.diff);
+		const primary = ranked.slice(0, maxBlocks);
+		const extremes = ranked.slice(0, Math.min(5, ranked.length)).concat(ranked.slice(-5));
+		const unique = new Map<string, Block>();
+		for (const item of [...primary, ...extremes]) unique.set(item.block.id, item.block);
+		return [...unique.values()];
+	}
 
+	function generateSeriesCombosFromBlocks(
+		blocks: Block[],
+		targetValue: number,
+		sortByMode: SortBy,
+		opts: { maxSeriesBlocks: number; maxCombos: number; chunkIndex?: number; chunkCount?: number }
+	): RawResult[] {
+		const chunkIndex = opts.chunkIndex ?? 0;
+		const chunkCount = opts.chunkCount ?? 1;
+		const chunkSize = Math.ceil(blocks.length / chunkCount);
+		const firstStart = chunkIndex * chunkSize;
+		const firstEnd = Math.min(firstStart + chunkSize, blocks.length);
 		const out: RawResult[] = [];
 		let generated = 0;
-		for (let size = 1; size <= options.maxSeriesBlocks; size++) {
-			if (generated >= options.maxCombos) break;
-			let queue: number[][] = [[]];
-			for (let d = 0; d < size; d++) {
-				const next: number[][] = [];
-				for (const prefix of queue) {
-					const start = prefix.length ? prefix[prefix.length - 1] : 0;
-					for (let i = start; i < rankedBlocks.length; i++) next.push([...prefix, i]);
+
+		const pushCombo = (indices: number[]) => {
+			if (generated >= opts.maxCombos) return;
+			const chosen = indices.map((i) => blocks[i]);
+			const total = chosen.reduce((sum, b) => sum + b.total, 0);
+			const lower = chosen.reduce((sum, b) => sum + b.lower, 0);
+			const upper = chosen.reduce((sum, b) => sum + b.upper, 0);
+			const error = total - targetValue;
+			const label = chosen.map((b) => b.label).join(' + ');
+			const keys = Array.from(new Set(chosen.flatMap((b) => b.keys))).sort();
+			out.push({
+				signature: `${indices.join('|')}::${keys.join(',')}`,
+				label,
+				totalResistance: total,
+				error,
+				errorPercent: (error / targetValue) * 100,
+				componentCount: chosen.reduce((sum, b) => sum + b.componentCount, 0),
+				rangeLower: lower,
+				rangeUpper: upper,
+				keys
+			});
+			generated += 1;
+		};
+
+		for (let size = 1; size <= opts.maxSeriesBlocks; size++) {
+			if (generated >= opts.maxCombos) break;
+			for (let first = firstStart; first < firstEnd; first++) {
+				if (generated >= opts.maxCombos) break;
+				if (size === 1) {
+					pushCombo([first]);
+					continue;
 				}
-				queue = next;
-			}
-			for (const idxs of queue) {
-				if (generated >= options.maxCombos) break;
-				const combo = idxs.map((i) => rankedBlocks[i]);
-				const totalResistance = combo.reduce((sum, v) => sum + v, 0);
-				const error = totalResistance - targetValue;
-				out.push({
-					combo,
-					totalResistance,
-					error,
-					errorPercent: (error / targetValue) * 100,
-					componentCount: combo.length
-				});
-				generated += 1;
+				let queue: number[][] = [[first]];
+				for (let depth = 1; depth < size; depth++) {
+					const next: number[][] = [];
+					for (const prefix of queue) {
+						const start = prefix[prefix.length - 1];
+						for (let i = start; i < blocks.length; i++) next.push([...prefix, i]);
+					}
+					queue = next;
+				}
+				for (const combo of queue) {
+					if (generated >= opts.maxCombos) break;
+					pushCombo(combo);
+				}
 			}
 		}
-		return sortRawResults(dedupeRawResults(out), sort);
+
+		return sortRawResults(dedupeRawResults(out), sortByMode);
 	}
 
 	function buildWorkerScriptSource(): string {
 		return `
 		self.onmessage = (event) => {
-			const { resistors, targetValue, sortBy, options } = event.data;
-			const estimateComboCount = (valueCount, comboSize, cap = Number.MAX_SAFE_INTEGER) => {
-				if (comboSize <= 1) return valueCount;
-				let total = 1;
-				for (let i = 1; i <= comboSize; i++) {
-					total = (total * (valueCount + i - 1)) / i;
-					if (total > cap) return cap + 1;
-				}
-				return total;
-			};
-			const sortResults = (arr) => arr.sort((a, b) => {
-				if (sortBy === 'components') {
-					if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
-					return Math.abs(a.error) - Math.abs(b.error);
-				}
-				if (sortBy === 'totalResistanceAsc') return a.totalResistance - b.totalResistance;
-				if (sortBy === 'totalResistanceDesc') return b.totalResistance - a.totalResistance;
-				return Math.abs(a.error) - Math.abs(b.error);
-			});
-			const blocks = [...resistors];
-			for (let size = 2; size <= options.maxParallel; size++) {
-				if (estimateComboCount(resistors.length, size, options.maxCombos * 3) > options.maxCombos * 3) break;
-				let queue = [[]];
-				for (let d = 0; d < size; d++) {
-					const next = [];
-					for (const prefix of queue) {
-						const start = prefix.length ? prefix[prefix.length - 1] : 0;
-						for (let i = start; i < resistors.length; i++) next.push([...prefix, i]);
+			const { blocks, targetValue, sortBy, options } = event.data;
+			const sortRawResults = (items, mode) => {
+				const copy = [...items];
+				copy.sort((a, b) => {
+					if (mode === 'components') {
+						if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
+						return Math.abs(a.error) - Math.abs(b.error);
 					}
-					queue = next;
-				}
-				for (const idxs of queue) {
-					const combo = idxs.map((i) => resistors[i]);
-					const reciprocal = combo.reduce((sum, v) => sum + 1 / v, 0);
-					blocks.push(1 / reciprocal);
-				}
-			}
-			const ranked = blocks
-				.map((v) => ({ value: v, diff: Math.abs(v - targetValue) }))
-				.sort((a, b) => a.diff - b.diff)
-				.slice(0, options.maxBlocks)
-				.map((e) => e.value);
+					if (mode === 'totalResistanceAsc') return a.totalResistance - b.totalResistance;
+					if (mode === 'totalResistanceDesc') return b.totalResistance - a.totalResistance;
+					return Math.abs(a.error) - Math.abs(b.error);
+				});
+				return copy;
+			};
 			const chunkIndex = options.chunkIndex || 0;
 			const chunkCount = options.chunkCount || 1;
-			const chunkSize = Math.ceil(ranked.length / chunkCount);
-			const scoped = ranked.slice(chunkIndex * chunkSize, Math.min((chunkIndex + 1) * chunkSize, ranked.length));
+			const chunkSize = Math.ceil(blocks.length / chunkCount);
+			const firstStart = chunkIndex * chunkSize;
+			const firstEnd = Math.min(firstStart + chunkSize, blocks.length);
 			const out = [];
 			let generated = 0;
+			const pushCombo = (indices) => {
+				if (generated >= options.maxCombos) return;
+				const chosen = indices.map((i) => blocks[i]);
+				const total = chosen.reduce((sum, b) => sum + b.total, 0);
+				const lower = chosen.reduce((sum, b) => sum + b.lower, 0);
+				const upper = chosen.reduce((sum, b) => sum + b.upper, 0);
+				const error = total - targetValue;
+				const keys = Array.from(new Set(chosen.flatMap((b) => b.keys))).sort();
+				out.push({
+					signature: indices.join('|') + '::' + keys.join(','),
+					label: chosen.map((b) => b.label).join(' + '),
+					totalResistance: total,
+					error,
+					errorPercent: (error / targetValue) * 100,
+					componentCount: chosen.reduce((sum, b) => sum + b.componentCount, 0),
+					rangeLower: lower,
+					rangeUpper: upper,
+					keys
+				});
+				generated += 1;
+			};
 			for (let size = 1; size <= options.maxSeriesBlocks; size++) {
 				if (generated >= options.maxCombos) break;
-				let queue = [[]];
-				for (let d = 0; d < size; d++) {
-					const next = [];
-					for (const prefix of queue) {
-						const start = prefix.length ? prefix[prefix.length - 1] : 0;
-						for (let i = start; i < scoped.length; i++) next.push([...prefix, i]);
-					}
-					queue = next;
-				}
-				for (const idxs of queue) {
+				for (let first = firstStart; first < firstEnd; first++) {
 					if (generated >= options.maxCombos) break;
-					const combo = idxs.map((i) => scoped[i]);
-					const totalResistance = combo.reduce((sum, v) => sum + v, 0);
-					const error = totalResistance - targetValue;
-					out.push({ combo, totalResistance, error, errorPercent: (error / targetValue) * 100, componentCount: combo.length });
-					generated += 1;
+					if (size === 1) {
+						pushCombo([first]);
+						continue;
+					}
+					let queue = [[first]];
+					for (let depth = 1; depth < size; depth++) {
+						const next = [];
+						for (const prefix of queue) {
+							const start = prefix[prefix.length - 1];
+							for (let i = start; i < blocks.length; i++) next.push([...prefix, i]);
+						}
+						queue = next;
+					}
+					for (const combo of queue) {
+						if (generated >= options.maxCombos) break;
+						pushCombo(combo);
+					}
 				}
 			}
-			self.postMessage({ type: 'result', results: sortResults(out), chunkIndex });
+			self.postMessage({ type: 'result', results: sortRawResults(out, sortBy) });
 		};`;
 	}
 
@@ -320,7 +414,12 @@
 		return new Worker(URL.createObjectURL(blob));
 	}
 
-	function runWorker(payload: WorkerPayload): Promise<RawResult[]> {
+	function runWorker(payload: {
+		blocks: Block[];
+		targetValue: number;
+		sortBy: SortBy;
+		options: { maxSeriesBlocks: number; maxCombos: number; chunkIndex?: number; chunkCount?: number };
+	}): Promise<RawResult[]> {
 		return new Promise((resolve, reject) => {
 			const worker = createWorker();
 			worker.onmessage = (event) => {
@@ -339,29 +438,80 @@
 	}
 
 	async function computeWithWorkers(
-		resistors: number[],
+		blocks: Block[],
 		targetValue: number,
-		sort: SortBy,
-		options: WorkerPayload['options'],
+		sortByMode: SortBy,
+		maxSeriesBlocks: number,
+		maxCombos: number,
 		workerCount: number
 	): Promise<RawResult[]> {
 		if (workerCount <= 1) {
-			return runWorker({ resistors, targetValue, sortBy: sort, options });
+			return runWorker({ blocks, targetValue, sortBy: sortByMode, options: { maxSeriesBlocks, maxCombos } });
 		}
+		const maxCombosPerWorker = Math.ceil(maxCombos / workerCount);
 		const jobs = Array.from({ length: workerCount }, (_, chunkIndex) =>
 			runWorker({
-				resistors,
+				blocks,
 				targetValue,
-				sortBy: sort,
-				options: { ...options, chunkIndex, chunkCount: workerCount }
+				sortBy: sortByMode,
+				options: {
+					maxSeriesBlocks,
+					maxCombos: maxCombosPerWorker,
+					chunkIndex,
+					chunkCount: workerCount
+				}
 			})
 		);
 		const merged = (await Promise.all(jobs)).flat();
-		return sortRawResults(dedupeRawResults(merged), sort);
+		return sortRawResults(dedupeRawResults(merged), sortByMode);
+	}
+
+	async function autofillCommonSeries() {
+		try {
+			await ensureResistorUtilsLoaded();
+			const Ru = getResistorUtils();
+			if (!Ru) throw new Error('ResistorUtils unavailable');
+			const mult = Number(autofillDecade);
+			const seriesArr = Ru.series[snapSeriesPick] ?? Ru.series.E24;
+			const formatted = seriesArr.map((v: number) => Ru.formatResistorValue(v * mult).replace(/Ω/g, 'R'));
+			resistorValues = formatted.join(', ');
+		} catch {
+			const mult = Number(autofillDecade);
+			const formatted = E24_FALLBACK.map((v) =>
+				formatResistorValue(v * mult).replace(/Ω/g, 'R')
+			);
+			resistorValues = formatted.join(', ');
+			pushUiWarning('Autofill used local E24 fallback values (legacy parser not ready yet).');
+		}
+	}
+
+	async function autofillJlcBasics() {
+		try {
+			await ensureResistorUtilsLoaded();
+			const Ru = getResistorUtils();
+			if (!Ru?.luts?.JLC_BASIC?.length) throw new Error('JLC LUT unavailable');
+			resistorValues = Ru.luts.JLC_BASIC.join(', ');
+		} catch {
+			try {
+				const fallback = await loadJlcFallbackList();
+				if (fallback.length === 0) throw new Error('Fallback JLC list empty');
+				resistorValues = fallback.join(', ');
+				pushUiWarning('Autofill JLC used embedded JSON fallback list.');
+			} catch {
+				pushUiWarning('Autofill JLC failed: no JLC source currently available.');
+			}
+		}
+	}
+
+	function toggleParsedValue(id: string) {
+		parsedValues = parsedValues.map((p) => (p.id === id ? { ...p, active: !p.active } : p));
+		refreshVisibleResults();
 	}
 
 	async function calculate() {
 		calculating = true;
+		allRawResults = [];
+		results = [];
 		const nextWarnings: string[] = [];
 		const nextErrors: string[] = [];
 		try {
@@ -372,7 +522,10 @@
 				return;
 			}
 
-			const parsedTarget = Ru.parseResistorInput(targetResistance);
+			const parsedTarget = Ru.parseResistorInput(targetResistance, {
+				snapToSeries,
+				snapSeries: snapSeriesPick
+			});
 			const target = Number(parsedTarget?.value);
 			if (!Number.isFinite(target) || target <= 0) {
 				nextErrors.push('Target resistance must be a positive value (for example, 50k or 4k7(1%)).');
@@ -380,66 +533,101 @@
 			}
 
 			const richParse = await parseRichResistorInputs(resistorValues, {
-				snapToSeries: false,
-				snapSeries: 'E24'
+				snapToSeries,
+				snapSeries: snapSeriesPick
 			});
 			nextWarnings.push(...richParse.warnings);
-			const sanitized = sanitizeInputResistors(richParse.resistors);
-			nextWarnings.push(...sanitized.warnings);
 
-			if (sanitized.resistors.length === 0) {
+			if (richParse.resistors.length === 0) {
 				nextErrors.push('At least one valid resistor value is required.');
 				return;
 			}
 
-			const nextParsedValues: ParsedValueChip[] = sanitized.resistors.map((r, idx) => {
-				const existing = parsedValues.find((p) => p.id === `${r.input}-${idx}`);
+			const nextParsed = richParse.resistors.map((r, idx) => {
+				let resolvedSeries = r.series ?? null;
+				if (!resolvedSeries && r.tolerance != null) {
+					resolvedSeries = Ru.getSeriesForTolerance?.(r.tolerance) ?? null;
+				}
+				if (!resolvedSeries) {
+					resolvedSeries = Ru.findResistorSeries?.(r.value) ?? null;
+				}
+				const fallbackSeries =
+					resolvedSeries && Ru.resistorTolerances[resolvedSeries] != null
+						? Ru.resistorTolerances[resolvedSeries]
+						: 0;
+				const tolerancePct = r.tolerance ?? fallbackSeries;
+				const id = `${r.input}-${idx}`;
+				const existing = parsedValues.find((p) => p.id === id);
 				return {
-					id: `${r.input}-${idx}`,
+					id,
+					input: r.input,
 					value: r.value,
-					formatted: r.formatted || formatResistorValue(r.value),
+					formatted: r.formatted,
+					tolerancePct,
+					series: resolvedSeries,
+					powerCode: r.powerCode ?? null,
+					isJlcBasic: r.isJlcBasic ?? false,
+					source: r.source,
 					active: existing?.active ?? true
 				};
 			});
-			parsedValues = nextParsedValues;
+			parsedValues = nextParsed;
 
-			let values = nextParsedValues.filter((v) => v.active).map((v) => v.value);
-			if (values.length === 0) {
-				nextErrors.push('At least one parsed value must be active.');
+			const activeEntries = nextParsed.filter((p) => p.active);
+			if (nextParsed.length === 0) {
+				nextErrors.push('At least one parsed value is required.');
 				return;
 			}
-			const originalCount = values.length;
-			if (values.length > LIMITS.maxInputResistors) {
-				values = values
-					.map((value) => ({ value, diff: Math.abs(value - target) }))
+
+			const fullCountBeforeTrim = nextParsed.length;
+			let computeEntries = nextParsed;
+			if (computeEntries.length > LIMITS.maxInputResistors) {
+				computeEntries = computeEntries
+					.map((entry) => ({ entry, diff: Math.abs(entry.value - target) }))
 					.sort((a, b) => a.diff - b.diff)
 					.slice(0, LIMITS.maxInputResistors)
-					.map((entry) => entry.value);
+					.map((x) => x.entry);
 				nextWarnings.push(
-					`Input list trimmed to ${LIMITS.maxInputResistors} values for performance (legacy heuristic).`
+					`Input list trimmed to ${LIMITS.maxInputResistors} parsed values for performance (legacy heuristic).`
 				);
 			}
 
-			const effectiveLimits = getEffectiveLimits(values.length);
-			const workerCount = getWorkerCount(values.length);
-			let rawResults: RawResult[];
+			const effective = getEffectiveLimits(computeEntries.length);
+			const blocks = buildBlocks(computeEntries, target, effective.maxParallel, effective.maxBlocks);
+			const workerCount = getWorkerCount(computeEntries.length);
+			let raw: RawResult[] = [];
 			try {
-				rawResults =
+				raw =
 					workerCount > 0
-						? await computeWithWorkers(values, target, sortBy, effectiveLimits, workerCount)
-						: generateCombinationsSync(values, target, sortBy, effectiveLimits);
-			} catch (error) {
+						? await computeWithWorkers(
+								blocks,
+								target,
+								sortBy,
+								effective.maxSeriesBlocks,
+								effective.maxCombos,
+								workerCount
+							)
+						: generateSeriesCombosFromBlocks(blocks, target, sortBy, {
+								maxSeriesBlocks: effective.maxSeriesBlocks,
+								maxCombos: effective.maxCombos
+							});
+			} catch (e) {
 				nextWarnings.push(
-					`Worker calculation failed; fallback search used (${error instanceof Error ? error.message : String(error)}).`
+					`Worker calculation failed; fallback search used (${e instanceof Error ? e.message : String(e)}).`
 				);
-				rawResults = generateCombinationsSync(values, target, sortBy, effectiveLimits);
+				raw = generateSeriesCombosFromBlocks(blocks, target, sortBy, {
+					maxSeriesBlocks: effective.maxSeriesBlocks,
+					maxCombos: effective.maxCombos
+				});
 			}
 
-			const withinCutoff = rawResults.filter((r) => Number.isFinite(r.errorPercent) && Math.abs(r.errorPercent) <= 20);
-			const cutoffFallback = withinCutoff.length === 0 && rawResults.length > 0;
-			rawResults = withinCutoff.length ? withinCutoff : rawResults;
-			results = mapRawToView(rawResults);
-			if (!rawResults.length) {
+			const within = raw.filter((r) => Number.isFinite(r.errorPercent) && Math.abs(r.errorPercent) <= 20);
+			const cutoffFallback = within.length === 0 && raw.length > 0;
+			const filtered = within.length ? within : raw;
+			allRawResults = filtered;
+			refreshVisibleResults();
+
+			if (!filtered.length) {
 				nextWarnings.push('No combinations found within current search limits.');
 			}
 			if (workerCount > 0) {
@@ -449,19 +637,21 @@
 			} else {
 				nextWarnings.push('Single-thread search used for this input size.');
 			}
+
 			calcStats = {
-				inputCount: sanitized.resistors.length,
-				activeCount: originalCount,
-				filteredCount: values.length,
-				filteredByHeuristic: originalCount !== values.length,
-				removedByHeuristic: Math.max(0, originalCount - values.length),
+				inputCount: nextParsed.length,
+				activeCount: activeEntries.length,
+				filteredCount: computeEntries.length,
+				filteredByHeuristic: fullCountBeforeTrim !== computeEntries.length,
+				removedByHeuristic: Math.max(0, fullCountBeforeTrim - computeEntries.length),
 				workerUsed: workerCount > 0,
 				workerCount,
-				maxParallel: effectiveLimits.maxParallel,
-				maxSeriesBlocks: effectiveLimits.maxSeriesBlocks,
-				maxBlocks: effectiveLimits.maxBlocks,
-				maxCombos: effectiveLimits.maxCombos,
-				resultCount: results.length,
+				maxParallel: effective.maxParallel,
+				maxSeriesBlocks: effective.maxSeriesBlocks,
+				maxBlocks: effective.maxBlocks,
+				maxCombos: effective.maxCombos,
+				comboCount: filtered.length,
+				resultCount: mapRawToView(filterRawByActiveKeys(filtered, new Set(activeEntries.map((p) => p.id)))).length,
 				errorFilterFallback: cutoffFallback
 			};
 		} finally {
@@ -472,16 +662,13 @@
 	}
 
 	$effect(() => {
-		if (!results.length) return;
-		results = sortResults(results, sortBy);
+		void sortBy;
+		if (!allRawResults.length) return;
+		refreshVisibleResults();
 	});
-
-	function toggleParsedValue(id: string) {
-		parsedValues = parsedValues.map((p) => (p.id === id ? { ...p, active: !p.active } : p));
-	}
 </script>
 
-<section class="space-y-5">
+<section class="w-full space-y-6">
 	<div class="space-y-1">
 		<h2 class="text-xl wt-text-heading">Target Resistance</h2>
 		<p class="text-sm wt-text-body text-wt-muted-fg">
@@ -493,7 +680,36 @@
 		<div class="space-y-2 md:col-span-2">
 			<label for="tr-values" class="text-sm wt-text-ui">Available resistor values</label>
 			<Input id="tr-values" bind:value={resistorValues} />
+			<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+				<Button type="button" variant="outline" size="sm" onclick={() => void autofillCommonSeries()}>
+					Autofill decade values
+				</Button>
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-xs wt-text-ui text-wt-muted-fg">Decade</span>
+					<select
+						bind:value={autofillDecade}
+						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
+					>
+						{#each decadeOptions as d}
+							<option value={d.value}>{d.label}</option>
+						{/each}
+					</select>
+					<span class="text-xs wt-text-ui text-wt-muted-fg">Series</span>
+					<select
+						bind:value={snapSeriesPick}
+						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
+					>
+						{#each seriesOptions as s}
+							<option value={s}>{s}</option>
+						{/each}
+					</select>
+				</div>
+				<Button type="button" variant="outline" size="sm" onclick={() => void autofillJlcBasics()}>
+					Autofill JLC PCB Basics
+				</Button>
+			</div>
 		</div>
+
 		<div class="space-y-2">
 			<label for="tr-target" class="text-sm wt-text-ui">Target resistance</label>
 			<Input id="tr-target" bind:value={targetResistance} />
@@ -512,7 +728,11 @@
 		</div>
 	</div>
 
-	<div>
+	<div class="flex flex-wrap items-center gap-3">
+		<div class="flex items-center gap-2">
+			<input id="tr-snap" type="checkbox" checked={snapToSeries} onchange={(e) => (snapToSeries = (e.currentTarget as HTMLInputElement).checked)} class="h-4 w-4 accent-wt-brand-design" />
+			<label for="tr-snap" class="text-sm wt-text-ui">Snap parsed inputs to E-series</label>
+		</div>
 		<Button onclick={() => void calculate()} disabled={calculating}>
 			{calculating ? 'Calculating…' : 'Find closest matches'}
 		</Button>
@@ -520,15 +740,20 @@
 
 	{#if parsedValues.length > 0}
 		<div class="space-y-2">
-			<p class="text-sm wt-text-ui">Parsed values (click to include/exclude)</p>
+			<p class="text-sm wt-text-ui">Parsed values (click to include/exclude instantly)</p>
 			<div class="flex flex-wrap gap-2">
-				{#each parsedValues as parsed}
+				{#each parsedValues as parsed (parsed.id)}
 					<button
 						type="button"
-						class="wt-affordance-pill-ghost px-3 py-1 text-xs wt-text-ui {parsed.active ? 'bg-wt-surface text-wt-ink' : 'bg-wt-muted text-wt-muted-fg opacity-70'}"
+						class="group relative wt-affordance-pill-ghost inline-flex items-center gap-2 border-2 px-3 py-1 text-xs wt-text-ui transition-all {parsed.active ? 'border-wt-border bg-wt-surface text-wt-ink' : 'border-wt-border/60 bg-wt-muted text-wt-muted-fg opacity-60 line-through'}"
 						onclick={() => toggleParsedValue(parsed.id)}
 					>
+						<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(parsed.series)}"></span>
 						{parsed.formatted}
+						<span class="text-[10px] opacity-75">{parsed.series ?? 'E?'}</span>
+						<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border bg-wt-surface p-2 text-[11px] text-wt-ink shadow-wt-fab group-hover:block group-focus-visible:block">
+							{chipTooltipText(parsed)}
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -569,6 +794,7 @@
 							{formatResistorValue(result.total)} · error {formatResistorValue(result.errorAbs)} ({result.errorPercent.toFixed(2)}%) · {result.components}
 							component{result.components === 1 ? '' : 's'}
 						</p>
+						<p class="text-xs text-wt-muted-fg">Tolerance range: {result.rangeText}</p>
 						<div
 							class="mt-3 wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-muted/30 p-3 text-xs text-wt-muted-fg"
 							aria-label={`Diagram placeholder ${index + 1}`}
@@ -595,10 +821,8 @@
 					<span class="wt-text-ui">Limits:</span>
 					parallel {calcStats.maxParallel}, series blocks {calcStats.maxSeriesBlocks}, block cap {calcStats.maxBlocks}, combo cap {calcStats.maxCombos.toLocaleString()}
 				</p>
-				<p>
-					<span class="wt-text-ui">Worker used:</span>
-					{calcStats.workerUsed ? `yes (${calcStats.workerCount})` : 'no'}
-				</p>
+				<p><span class="wt-text-ui">Worker used:</span> {calcStats.workerUsed ? `yes (${calcStats.workerCount})` : 'no'}</p>
+				<p><span class="wt-text-ui">Generated combos:</span> {calcStats.comboCount.toLocaleString()}</p>
 				<p><span class="wt-text-ui">Displayed results:</span> {calcStats.resultCount}</p>
 				<p><span class="wt-text-ui">20% cutoff fallback:</span> {calcStats.errorFilterFallback ? 'yes' : 'no'}</p>
 			</div>

@@ -37,6 +37,10 @@ async function ensureInteractiveDividerScriptLoaded(): Promise<void> {
 
 /** Loads deps and attaches legacy interactive UI to the current DOM (call from onMount after markup exists). */
 export async function mountInteractiveDividerLegacy(): Promise<void> {
+	if (typeof document !== 'undefined') {
+		document.body.dataset.page = 'interactive-divider';
+	}
+
 	await ensureResistorUtilsLoaded();
 	await ensureLegacyMainScriptLoaded();
 	await ensureSchematicLoaded();
@@ -45,7 +49,11 @@ export async function mountInteractiveDividerLegacy(): Promise<void> {
 	const w = window as Window & {
 		__rfInitInteractiveDivider?: () => void;
 		__rfWireCalculatorDomListeners?: () => void;
+		__rfInteractiveDividerWired?: boolean;
 	};
-	w.__rfWireCalculatorDomListeners?.();
+	if (!w.__rfInteractiveDividerWired) {
+		w.__rfWireCalculatorDomListeners?.();
+		w.__rfInteractiveDividerWired = true;
+	}
 	w.__rfInitInteractiveDivider?.();
 }

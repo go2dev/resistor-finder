@@ -52,9 +52,13 @@ export async function mountBalancedAttenuatorLegacy(): Promise<void> {
 	const w = window as Window & {
 		__rfWireCalculatorDomListeners?: () => void;
 		calculateAndDisplayResults?: () => unknown | Promise<unknown>;
+		__rfBalancedAttenuatorWired?: boolean;
 	};
 
-	w.__rfWireCalculatorDomListeners?.();
+	if (!w.__rfBalancedAttenuatorWired) {
+		w.__rfWireCalculatorDomListeners?.();
+		w.__rfBalancedAttenuatorWired = true;
+	}
 
 	try {
 		type WC = Window & {
