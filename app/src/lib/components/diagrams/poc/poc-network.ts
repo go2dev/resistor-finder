@@ -49,6 +49,8 @@ export type DotGlyph = { x: number; y: number };
 export type NetworkLayout = {
 	resistors: ResistorGlyph[];
 	wires: WireGlyph[];
+	/** Multi-segment wire runs (SVG path data) — corners render as proper mitred joins */
+	paths: string[];
 	dots: DotGlyph[];
 	width: number;
 	height: number;
@@ -66,7 +68,7 @@ export function nodeHeight(node: NetNode): number {
 	return 2 * BUS_PAD + Math.max(...node.children.map(nodeHeight));
 }
 
-type Sink = Pick<NetworkLayout, 'resistors' | 'wires' | 'dots'>;
+type Sink = Pick<NetworkLayout, 'resistors' | 'wires' | 'paths' | 'dots'>;
 
 /**
  * Lay a node out on a vertical rail centred at cx, starting at y.
@@ -100,9 +102,11 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 		return cursor;
 	}
 
-	// parallel: entry stub, top bus, branch columns (with filler wire for
-	// shorter branches), bottom bus, exit stub
+	// parallel: entry/exit stubs on the rail, then one mitred corner-path per
+	// branch (bus segment + drop into the branch), with each branch vertically
+	// centred between the bus bars.
 	const height = nodeHeight(node);
+	const innerHeight = height - 2 * BUS_PAD;
 	const widths = node.children.map(nodeWidth);
 	const totalWidth = widths.reduce((s, w) => s + w, 0);
 	const busTop = y + BUS_PAD;
@@ -115,14 +119,21 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 		return branchCx;
 	});
 
-	sink.wires.push({ x1: branchXs[0], y1: busTop, x2: branchXs[branchXs.length - 1], y2: busTop });
-	sink.wires.push({ x1: branchXs[0], y1: busBottom, x2: branchXs[branchXs.length - 1], y2: busBottom });
+	// rail joins the bus bars — continuous with whatever sits above/below
+	sink.wires.push({ x1: cx, y1: y, x2: cx, y2: busTop });
+	sink.wires.push({ x1: cx, y1: busBottom, x2: cx, y2: y + height });
 	sink.dots.push({ x: cx, y: busTop }, { x: cx, y: busBottom });
 
 	node.children.forEach((child, i) => {
 		const bx = branchXs[i];
-		const end = layoutNode(child, bx, busTop, volts, `${idPrefix}.${i}`, sink);
-		if (end < busBottom) sink.wires.push({ x1: bx, y1: end, x2: bx, y2: busBottom });
+		const childHeight = nodeHeight(child);
+		const childTop = busTop + (innerHeight - childHeight) / 2;
+		const childBottom = childTop + childHeight;
+		// one path per branch: along the bus then turn into the branch —
+		// corners are real path joins, not two butt-capped lines
+		sink.paths.push(`M ${cx} ${busTop} L ${bx} ${busTop} L ${bx} ${childTop}`);
+		layoutNode(child, bx, childTop, volts, `${idPrefix}.${i}`, sink);
+		sink.paths.push(`M ${bx} ${childBottom} L ${bx} ${busBottom} L ${cx} ${busBottom}`);
 	});
 
 	return y + height;
@@ -142,7 +153,7 @@ export function layoutCircuit(
 	sections: NetNode[],
 	supplyVoltage: number
 ): NetworkLayout & { junctions: number[]; railX: number; topY: number; groundY: number } {
-	const sink: Sink = { resistors: [], wires: [], dots: [] };
+	const sink: Sink = { resistors: [], wires: [], paths: [], dots: [] };
 	const maxSectionWidth = Math.max(...sections.map(nodeWidth), COL_W);
 	const railX = maxSectionWidth / 2 + 72; // left margin fits the Vin label
 	const width = railX + maxSectionWidth / 2 + 130; // right margin fits the tap label

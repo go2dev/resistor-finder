@@ -93,4 +93,24 @@ describe('layout geometry invariants', () => {
 		expect(nodeWidth(parallel(r(1), r(1), r(1)))).toBeGreaterThan(nodeWidth(r(1)));
 		expect(nodeHeight(series(r(1), r(1)))).toBe(2 * nodeHeight(r(1)));
 	});
+
+	it('vertically centres shorter parallel branches between the bus bars', () => {
+		// lone 1k (1 cell tall) next to a 2-cell series branch: the 1k should
+		// start half a cell lower so both midpoints align
+		const layout = layoutCircuit([parallel(r(1000), series(r(500), r(500)))], 10);
+		const lone = layout.resistors.find((g) => g.value === 1000)!;
+		const branchTop = Math.min(...layout.resistors.filter((g) => g.value === 500).map((g) => g.yTop));
+		const cell = lone.yBottom - lone.yTop;
+		expect(lone.yTop - branchTop).toBeCloseTo(cell / 2);
+	});
+
+	it('connects parallel blocks to the rail (entry/exit stubs exist)', () => {
+		const layout = layoutCircuit([parallel(r(1000), r(2000)), r(500)], 10);
+		const railX = layout.railX;
+		const vertical = layout.wires.filter((w) => w.x1 === railX && w.x2 === railX);
+		// supply stub, block entry, block exit, junction run, ground stub
+		expect(vertical.length).toBeGreaterThanOrEqual(4);
+		// every branch has mitred corner paths top and bottom
+		expect(layout.paths.length).toBe(4);
+	});
 });

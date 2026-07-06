@@ -6,6 +6,7 @@
 	// of the same divider for comparison. schematic.js remains the production
 	// engine until the build-out is signed off (docs/overhaul-plan.md §2).
 	import NetworkSchematic from '$lib/components/diagrams/poc/network-schematic.svelte';
+	import UpadBalancedSchematic from '$lib/components/diagrams/poc/upad-balanced-schematic.svelte';
 	import SvelteSchematicDivider from '$lib/components/diagrams/poc/svelte-schematic-divider.svelte';
 	import VoltageDividerDiagram from '$lib/components/diagrams/voltage-divider-diagram.svelte';
 	import { parallel, r, series, type NetNode } from '$lib/components/diagrams/poc/poc-network';
@@ -74,11 +75,10 @@
 		networkPresets.find((p) => p.id === networkPresetId) ?? networkPresets[0]
 	);
 
-	// Symmetric U-pad (legacy topology: Vin → leg → tap → mid → leg → GND)
+	// Symmetric U-pad, drawn balanced (legs on both rails, mid shunt between)
 	let upadLeg = $state(2000);
 	let upadMid = $state(1000);
 	let upadSupply = $state(10);
-	const upadSections = $derived<NetNode[]>([r(upadLeg), r(upadMid), r(upadLeg)]);
 </script>
 
 <section class="space-y-6">
@@ -159,10 +159,12 @@
 	</div>
 
 	<div class="space-y-2">
-		<h3 class="text-sm wt-text-heading">U-pad attenuator</h3>
+		<h3 class="text-sm wt-text-heading">Balanced U-pad attenuator</h3>
 		<p class="text-xs text-wt-muted-fg">
-			Same renderer, three sections with the tap after the top leg (legacy renderUpad topology).
-			Edit the values — labels, tap voltage and per-part tooltips all track.
+			Drawn in its true balanced shape: horizontal series legs on the signal and return rails,
+			vertical mid shunt between them. Vout here is the differential across the shunt
+			(the search engine's tap ratio measures tap-to-ground — same loop, different reference).
+			Edit the values — labels, output voltage and per-part tooltips all track.
 		</p>
 		<div class="flex flex-wrap items-end gap-4">
 			<label class="flex flex-col gap-1 text-sm wt-text-ui">
@@ -179,7 +181,7 @@
 			</label>
 		</div>
 		<div class="rounded-wt-box wt-shell-inner bg-wt-surface p-4">
-			<NetworkSchematic supplyVoltage={upadSupply} sections={upadSections} tapAfterIndex={0} tapLabel="Vtap" />
+			<UpadBalancedSchematic vin={upadSupply} rLeg={upadLeg} rMid={upadMid} />
 		</div>
 	</div>
 </section>
