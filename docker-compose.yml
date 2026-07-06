@@ -1,0 +1,16 @@
+# Wraps the repo's multi-stage Dockerfile so Dokploy's *Compose* app can build it.
+# The Dockerfile serves the legacy site at / and the SvelteKit app at /app,
+# on container port 80. Ingress/TLS is handled by Dokploy/Traefik, so no host
+# `ports:` are published — Dokploy routes the configured domain to the `web`
+# service on port 80.
+#
+# Local verification:
+#   docker compose up --build
+#   # then add `ports: ["8080:80"]` to `web` and open http://localhost:8080/ and /app/
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
