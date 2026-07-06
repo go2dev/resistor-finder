@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import Button from '$lib/components/ui/button.svelte';
 	import DiagramHost from '$lib/components/diagrams/diagram-host.svelte';
+	import { ensureResistorUtilsLoaded } from '$lib/adapters/resistor-utils-browser';
 	import { ensureSchematicLoaded } from '$lib/adapters/schematic-browser';
 	import { renderVoltageDividerDiagram } from '$lib/adapters/voltage-divider-diagram';
 	import type { DividerResult } from '$lib/domain/voltage-divider';
@@ -39,6 +40,10 @@
 
 		void (async () => {
 			try {
+				// schematic.js drawResistorValue reads the ResistorUtils global;
+				// load it here so the diagram works on pages that don't otherwise
+				// pull resistor-utils in (e.g. the PoC page).
+				await ensureResistorUtilsLoaded();
 				await ensureSchematicLoaded();
 				renderVoltageDividerDiagram(diagramId, result.top, result.bottom, supplyVoltage, targetVoltage);
 			} catch (e) {
