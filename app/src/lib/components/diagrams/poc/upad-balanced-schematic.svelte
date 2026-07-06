@@ -80,12 +80,16 @@
 		return `${d} L ${right} ${y} L ${x1} ${y}`;
 	}
 
-	/** Vertical zigzag between y0 and y1 at x. */
-	function vZigzag(x: number, y0: number, y1: number, teeth = 5, amp = 8): string {
-		const lead = 9;
-		const top = y0 + lead;
-		const bottom = y1 - lead;
-		const dy = (bottom - top) / teeth;
+	/**
+	 * Vertical resistor spanning y0..y1 at x: a normal-sized zigzag body
+	 * centred in the span, with plain lead wires filling the rest — the body
+	 * must not stretch with the rail distance.
+	 */
+	function vZigzag(x: number, y0: number, y1: number, teeth = 5, amp = 8, bodyH = 46): string {
+		const mid = (y0 + y1) / 2;
+		const top = mid - bodyH / 2;
+		const bottom = mid + bodyH / 2;
+		const dy = bodyH / teeth;
 		let d = `M ${x} ${y0} L ${x} ${top}`;
 		for (let i = 0; i < teeth; i += 1) {
 			d += ` L ${x + (i % 2 === 0 ? amp : -amp)} ${top + dy * (i + 0.5)}`;

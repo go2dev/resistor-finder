@@ -124,6 +124,12 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 	sink.wires.push({ x1: cx, y1: busBottom, x2: cx, y2: y + height });
 	sink.dots.push({ x: cx, y: busTop }, { x: cx, y: busBottom });
 
+	// Overlap corner paths a few px into the branch's own lead: when a branch
+	// is as tall as the block (childTop === busTop) the drop segment would be
+	// zero-length and no mitre join gets rendered — the corner shows as two
+	// butt caps. A short collinear overlap guarantees a real corner join.
+	const LEAD_OVERLAP = 6;
+
 	node.children.forEach((child, i) => {
 		const bx = branchXs[i];
 		const childHeight = nodeHeight(child);
@@ -131,9 +137,13 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 		const childBottom = childTop + childHeight;
 		// one path per branch: along the bus then turn into the branch —
 		// corners are real path joins, not two butt-capped lines
-		sink.paths.push(`M ${cx} ${busTop} L ${bx} ${busTop} L ${bx} ${childTop}`);
+		sink.paths.push(`M ${cx} ${busTop} L ${bx} ${busTop} L ${bx} ${childTop + LEAD_OVERLAP}`);
 		layoutNode(child, bx, childTop, volts, `${idPrefix}.${i}`, sink);
-		sink.paths.push(`M ${bx} ${childBottom} L ${bx} ${busBottom} L ${cx} ${busBottom}`);
+		sink.paths.push(`M ${bx} ${childBottom - LEAD_OVERLAP} L ${bx} ${busBottom} L ${cx} ${busBottom}`);
+		// interior branches tap a bus that runs past them: 3-way junction dots
+		if (i > 0 && i < node.children.length - 1 && bx !== cx) {
+			sink.dots.push({ x: bx, y: busTop }, { x: bx, y: busBottom });
+		}
 	});
 
 	return y + height;
