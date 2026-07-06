@@ -117,8 +117,17 @@ await page.locator('input').first().fill('100, 1k, 4.7k, 10k, 47k, 100k');
 await page.locator('#tr-target').fill('50k');
 await page.locator('button:has-text("Find closest matches")').click();
 await page.waitForTimeout(4000);
-check('target-resistance: diagrams render', (await page.locator('.diagram-surface svg, [id*="diagram"] svg').count()) >= 1);
-check('target-resistance: PNG export buttons', (await page.locator('button:has-text("PNG")').count()) >= 1);
+check('target-resistance: engine diagrams render', (await page.locator('.diagram-surface svg[role="img"]').count()) >= 1);
+await page.locator('.diagram-surface svg [role="button"]').first().hover();
+check(
+	'target-resistance: per-part tooltip',
+	(await page.locator('.diagram-surface .pointer-events-none.absolute').count()) >= 1
+);
+const [trDownload] = await Promise.all([
+	page.waitForEvent('download', { timeout: 10000 }),
+	page.locator('button:has-text("Download diagram PNG")').first().click()
+]);
+check('target-resistance: PNG export downloads', trDownload.suggestedFilename().startsWith('target-'));
 
 // 3. Theme: dark applies on a legacy-injected page (script.js must not clobber it).
 await page.goto(`${BASE}/balanced-attenuator`, { waitUntil: 'domcontentloaded' });

@@ -32,6 +32,7 @@ export {
 export { formatAmps, formatWatts, partTooltipLines, type PartElectrical } from './format';
 export * from './symbols';
 export { default as NetworkSchematic } from './network-schematic.svelte';
+export { default as NetworkBlockSchematic } from './network-block-schematic.svelte';
 export { default as UpadSchematic } from './upad-schematic.svelte';
 export { default as ResistorPart } from './resistor-part.svelte';
 export { default as PartTooltip } from './part-tooltip.svelte';
