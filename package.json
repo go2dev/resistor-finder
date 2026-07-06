@@ -5,6 +5,7 @@
 		"dev": "npm --prefix app run dev",
 		"build": "npm --prefix app run build",
 		"preview": "npm --prefix app run preview",
-		"check": "npm --prefix app run check"
+		"check": "npm --prefix app run check",
+		"test": "node tests/run-tests.js && npm --prefix app test"
 	}
 }

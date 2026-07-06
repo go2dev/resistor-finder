@@ -34,11 +34,19 @@ Then open **`http://localhost:5173/app`** (not `/`). Example route: `http://loca
 
 ### Running tests
 
+Legacy suite (repo root; Node built-in `assert`/`vm`, no framework needed):
+
 ```bash
 node tests/run-tests.js
 ```
 
-Tests use Node.js built-in `assert` and `vm` modules — no test framework or npm packages needed. Node.js must be installed (any version 12+).
+SvelteKit app suite (Vitest; requires `npm install` in `app/` first):
+
+```bash
+cd app && npm test          # or from the repo root: npm test
+```
+
+Full pre-commit check for the app: `cd app && npm test && npm run check && npm run build`.
 
 ### Linting
 
