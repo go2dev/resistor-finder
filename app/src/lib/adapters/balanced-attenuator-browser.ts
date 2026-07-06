@@ -2,6 +2,7 @@ import attenuatorEngineUrl from '$legacy/attenuator-engine.js?url';
 import commonUiUrl from '$legacy/common-ui.js?url';
 import diagramExportUrl from '$legacy/diagram-export.js?url';
 
+import { installEngineResultDiagrams } from '$lib/adapters/engine-result-diagram';
 import { ensureJlcBasicCatalogLoaded } from '$lib/adapters/jlc-basic-catalog-browser';
 import { ensureLegacyMainScriptLoaded } from '$lib/adapters/legacy-main-script-browser';
 import { ensureResistorUtilsLoaded } from '$lib/adapters/resistor-utils-browser';
@@ -53,6 +54,10 @@ export async function mountBalancedAttenuatorLegacy(): Promise<void> {
 	// script.js runs its own initializeTheme() against the legacy 'theme'
 	// localStorage key, clobbering the app's data-theme — undo that.
 	reassertTheme();
+
+	// Result-card schematics render via the diagram engine (script.js keeps
+	// owning compute, card markup and PNG download wiring).
+	installEngineResultDiagrams();
 
 	const w = window as Window & {
 		__rfWireCalculatorDomListeners?: () => void;

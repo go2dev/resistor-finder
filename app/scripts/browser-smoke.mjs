@@ -127,6 +127,23 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(3500);
 check('dark theme survives legacy script injection', (await page.evaluate(() => document.documentElement.dataset.theme)) === 'dark');
 
+// 3b. Attenuator result diagrams render via the engine shim; PNG download works.
+await page.fill('#resistorValues', '100, 220, 470, 1k, 2.2k, 4.7k, 10k, 22k, 47k');
+await page.click('#calculateBtn');
+await page.waitForSelector('.result-diagram svg[role="img"]', { timeout: 25000 });
+check('attenuator: engine diagrams in result cards', true);
+check(
+	'attenuator: U-pad caption present',
+	/U-pad \(symmetric/.test((await page.locator('.result-diagram').first().textContent()) || '')
+);
+await page.locator('.result-diagram svg [role="button"]').first().hover();
+check('attenuator: per-part tooltip', (await page.locator('text=/V across:/').count()) >= 1);
+const [attenDownload] = await Promise.all([
+	page.waitForEvent('download', { timeout: 10000 }),
+	page.locator('.diagram-download-btn').first().click()
+]);
+check('attenuator: PNG download works', attenDownload.suggestedFilename().endsWith('.png'));
+
 // 4. Diagram PoC renders.
 await page.goto(`${BASE}/diagram-poc`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('svg[role="img"]', { timeout: 15000 });
