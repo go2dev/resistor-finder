@@ -106,6 +106,19 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
 - Deployed via v2 (fc90c98). Decision #3 (card tooltips at live slider
   supply) implemented as likely-yes per brief — flagged for owner.
 
+- INTERACTIVE DIVIDER MIGRATED (f15416a): native Svelte page on the engine —
+  schematic.js/script.js/interactive-divider.js no longer load there (only
+  the ResistorUtils parser stays for notation parity). Full legacy editing
+  UX replicated (dialog, series strips, add-parallel, bus tooltips, results
+  table, warnings); legacy insert-on-parallel-leg quirk preserved. New
+  domain module $lib/domain/interactive-divider.ts (immutable tree ops,
+  bounds, Vout band, power) + engine bus glyphs/interactivity props.
+  55 vitest tests; smoke 15 checks drives the edit flow end-to-end.
+  Deployed via v2, verified light+dark incl. edit flow on the test server.
+- NOTE for owner: test-server TLS cert became Traefik DEFAULT CERT at the
+  2026-07-06 ~18:55 redeploy (browsers will warn; curl fails without -k).
+  Server-side LE issuance needs a look — not fixable from this repo.
+
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
 2. Any Phase 2/3 gated feature from plan §4 (histogram, zoomable filter, URL params,

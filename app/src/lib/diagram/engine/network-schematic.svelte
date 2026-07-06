@@ -24,6 +24,9 @@
 		tapLabel = 'Vout',
 		supplyLabel,
 		showTap = true,
+		caption,
+		tapVoltage,
+		tapLoad,
 		partTooltip,
 		onPartClick,
 		onInsertSeries,
@@ -37,6 +40,12 @@
 		/** Defaults to `Vin {supplyVoltage}V`. */
 		supplyLabel?: string;
 		showTap?: boolean;
+		/** Muted note in the top-left corner (e.g. topology description). */
+		caption?: string;
+		/** Display value for the tap voltage; defaults to the unloaded tree value. */
+		tapVoltage?: number;
+		/** Load impedance drawn from the tap to ground (L-pad Z_load notation). */
+		tapLoad?: { label: string; value?: string };
 		/** Override the default V/I/P tooltip (lines + optional extra class). */
 		partTooltip?: (glyph: AnyResistorGlyph) => { lines: string[]; class?: string };
 		/** Click / Enter / Space on a resistor (glyph id encodes the tree path). */
@@ -50,12 +59,13 @@
 	const layout = $derived(layoutCircuit(sections, supplyVoltage));
 	const supplyText = $derived(supplyLabel ?? `Vin ${supplyVoltage}V`);
 
-	const tapVoltage = $derived.by(() => {
+	const computedTapVoltage = $derived.by(() => {
 		const grand = sections.reduce((s, n) => s + totalResistance(n), 0);
 		if (grand <= 0) return 0;
 		const below = sections.slice(tapAfterIndex + 1).reduce((s, n) => s + totalResistance(n), 0);
 		return (below / grand) * supplyVoltage;
 	});
+	const shownTapVoltage = $derived(tapVoltage ?? computedTapVoltage);
 
 	let tooltip = $state<{ x: number; y: number; lines: string[]; class?: string } | null>(null);
 	let hoveredId = $state<string | null>(null);
@@ -117,8 +127,11 @@
 		viewBox="0 0 {layout.width} {layout.height}"
 		class="h-auto w-full text-wt-ink"
 		role="img"
-		aria-label="Schematic: {sections.length} sections, {supplyVoltage}V supply, {tapLabel} = {tapVoltage.toFixed(3)}V"
+		aria-label="Schematic: {sections.length} sections, {supplyVoltage}V supply, {tapLabel} = {shownTapVoltage.toFixed(3)}V"
 	>
+		{#if caption}
+			<text x="8" y="14" fill="currentColor" opacity="0.7" style={LABEL_STYLE}>{caption}</text>
+		{/if}
 		<!-- supply -->
 		<circle
 			cx={layout.railX}
@@ -153,26 +166,62 @@
 		{#if showTap && layout.junctions[tapAfterIndex] != null}
 			{@const jy = layout.junctions[tapAfterIndex]}
 			<circle cx={layout.railX} cy={jy} r="3.5" fill="currentColor" />
-			<line
-				x1={layout.railX}
-				y1={jy}
-				x2={layout.width - 62}
-				y2={jy}
-				stroke="currentColor"
-				stroke-width={STROKE_WIDTH}
-			/>
-			<circle
-				cx={layout.width - 56}
-				cy={jy}
-				r={TERMINAL_RADIUS}
-				fill="none"
-				stroke="currentColor"
-				stroke-width={STROKE_WIDTH}
-			/>
-			<text x={layout.width - 48} y={jy - 4} fill="currentColor" style={LABEL_STYLE}>{tapLabel}</text>
-			<text x={layout.width - 48} y={jy + 12} fill="currentColor" style={VALUE_STYLE}>
-				{tapVoltage.toFixed(3)}V
-			</text>
+			{#if tapLoad}
+				{@const loadX = layout.width - 90}
+				{@const boxTop = jy + 10}
+				{@const boxH = 35}
+				<line x1={layout.railX} y1={jy} x2={loadX} y2={jy} stroke="currentColor" stroke-width={STROKE_WIDTH} />
+				<text x={loadX - 8} y={jy - 6} text-anchor="end" fill="currentColor" style={VALUE_STYLE}>
+					{tapLabel} {shownTapVoltage.toFixed(3)}V
+				</text>
+				<line x1={loadX} y1={jy} x2={loadX} y2={boxTop} stroke="currentColor" stroke-width={STROKE_WIDTH} />
+				<rect
+					x={loadX - 14}
+					y={boxTop}
+					width="28"
+					height={boxH}
+					fill="none"
+					stroke="currentColor"
+					stroke-width={STROKE_WIDTH}
+				/>
+				<text x={loadX} y={boxTop + 14} text-anchor="middle" fill="currentColor" style={LABEL_STYLE}>
+					{tapLoad.label}
+				</text>
+				{#if tapLoad.value}
+					<text
+						x={loadX}
+						y={boxTop + boxH - 5}
+						text-anchor="middle"
+						fill="currentColor"
+						style="{LABEL_STYLE}font-size:9px;"
+					>
+						{tapLoad.value}
+					</text>
+				{/if}
+				<line x1={loadX} y1={boxTop + boxH} x2={loadX} y2={layout.groundY} stroke="currentColor" stroke-width={STROKE_WIDTH} />
+				<line x1={loadX} y1={layout.groundY} x2={layout.railX} y2={layout.groundY} stroke="currentColor" stroke-width={STROKE_WIDTH} />
+			{:else}
+				<line
+					x1={layout.railX}
+					y1={jy}
+					x2={layout.width - 62}
+					y2={jy}
+					stroke="currentColor"
+					stroke-width={STROKE_WIDTH}
+				/>
+				<circle
+					cx={layout.width - 56}
+					cy={jy}
+					r={TERMINAL_RADIUS}
+					fill="none"
+					stroke="currentColor"
+					stroke-width={STROKE_WIDTH}
+				/>
+				<text x={layout.width - 48} y={jy - 4} fill="currentColor" style={LABEL_STYLE}>{tapLabel}</text>
+				<text x={layout.width - 48} y={jy + 12} fill="currentColor" style={VALUE_STYLE}>
+					{shownTapVoltage.toFixed(3)}V
+				</text>
+			{/if}
 		{/if}
 
 		<!-- resistors -->

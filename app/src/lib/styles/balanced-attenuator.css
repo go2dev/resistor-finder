@@ -461,3 +461,43 @@
 	    background-color: #ff6666;
 	}
 }
+
+/* Result-card PNG download button: the legacy root site sizes this via
+   styles.css + a Font Awesome glyph, neither of which the app loads — port
+   the styling and substitute a text glyph so the button is actually usable. */
+.ba-legacy .result-diagram {
+	position: relative;
+}
+
+.ba-legacy .diagram-download-btn {
+	position: absolute;
+	bottom: 8px;
+	left: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	border-radius: 4px;
+	background-color: rgba(52, 152, 219, 0.9);
+	color: #fff;
+	cursor: pointer;
+	z-index: 10;
+	box-shadow: 0 2px 4px rgb(0 0 0 / 0.2);
+}
+
+.ba-legacy .diagram-download-btn:hover {
+	background-color: rgba(41, 128, 185, 0.95);
+}
+
+.ba-legacy .diagram-download-btn i {
+	pointer-events: none;
+	font-style: normal;
+}
+
+.ba-legacy .diagram-download-btn i::before {
+	content: '⤓';
+	font-size: 16px;
+	line-height: 1;
+}
