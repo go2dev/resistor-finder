@@ -115,9 +115,64 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   bounds, Vout band, power) + engine bus glyphs/interactivity props.
   55 vitest tests; smoke 15 checks drives the edit flow end-to-end.
   Deployed via v2, verified light+dark incl. edit flow on the test server.
-- NOTE for owner: test-server TLS cert became Traefik DEFAULT CERT at the
-  2026-07-06 ~18:55 redeploy (browsers will warn; curl fails without -k).
-  Server-side LE issuance needs a look — not fixable from this repo.
+- BALANCED ATTENUATOR MIGRATED (157ba72): engine shim overrides script.js's
+  renderResultDiagram global — legacy compute/cards/download wiring stay,
+  schematics are engine mounts (U-pad 3-section stack w/ loaded tap voltage;
+  L-pad w/ new tapLoad Z_load box; caption prop). Fixed app-side: the card
+  download button (broken inline onclick from JSON.stringify'd kind — SAME
+  BUG IS LIVE ON THE ROOT SITE, flagged below; plus 0x0 button, FA icon +
+  styles.css sizing never ported → styled with text glyph).
+- TARGET RESISTANCE MIGRATED (f7208f9): NetworkBlockSchematic (standalone
+  network + accent measurement bracket, inline var() styles so it survives
+  PNG serialization); target-network-diagram.svelte fully off schematic.js.
+- SCAFFOLDING RETIRED (6e017de): schematic-browser.ts,
+  voltage-divider-diagram.ts, interactive-divider-browser.ts and the legacy
+  card component deleted; attenuator boot no longer loads schematic.js;
+  /app/diagram-poc = engine gallery; unified-diagram-roadmap.md rewritten
+  (engine is current); overhaul-plan Phase 1 marked done. schematic.js
+  remains untouched for the root site.
+- Smoke suite now 20 checks across all four pages (tooltips, edit flow,
+  real PNG downloads). All deploys via v2.
+
+### Decisions surfaced to owner (from diagram-engine-brief §Decisions)
+1. U-pad Vout reference: attenuator page kept tap-to-ground (parity with the
+   search engine + legacy render). The balanced-differential drawing exists
+   in the gallery. Decide if/when the page should switch reference or shape.
+2. Interactive divider: pure parity, no UX changes snuck in. One formatting
+   difference: values use app convention (9.5K) not legacy RKM (9K5).
+3. VD card tooltips DO show V/I/P at the card's live slider supply
+   (implemented as the brief's likely-yes; screenshots in session log).
+4. Attenuator tooltips show the UNLOADED network's V/I/P; card table shows
+   loaded currents — differs when Z_load is significant. Legacy had no
+   tooltips. OK, or should tooltips be suppressed/adjusted on that page?
+
+### Known issues for owner (not fixable from this repo / out of scope)
+- Test-server TLS cert became Traefik DEFAULT CERT at the 2026-07-06 ~18:55
+  redeploy (browsers warn; curl fails without -k). Server-side LE issuance
+  needs a look.
+- ROOT SITE BUG (pre-existing): attenuator result PNG-download buttons have
+  a broken inline onclick (script.js line ~3155: JSON.stringify'd
+  attenuatorKind's quotes terminate the attribute). Fixed app-side only;
+  root fix is a one-liner but root-site changes were out of scope.
+
+### FINAL VERIFICATION — session 2 (2026-07-06, fresh-context verifier)
+- Independent verifier (fresh context, read brief + code, reran all gates):
+  **PASS with one soft gap.** Section verdicts: engine graduation PASS
+  (single symbol source confirmed by grep — no stray geometry outside the
+  engine); all four page migrations PASS; retirement PASS (root-site files
+  provably untouched this tranche: empty diff over schematic.js/script.js/
+  interactive-divider.js/styles.css/index.html); decisions surfaced PASS
+  (nothing silently decided); gated items untouched PASS; acceptance
+  commands independently green (legacy suite, 55 vitest, check 0, build,
+  smoke 20/20).
+- Soft gap found: per-page side-by-side screenshots were reviewed live but
+  only claimed textually in commit bodies, no artifacts retained. CLOSED
+  after the verdict: curated evidence set committed at
+  docs/evidence/diagram-engine-2026-07-06/ (side-by-sides, both-theme cards,
+  actual downloaded PNGs from both themes, deployed gallery).
+- Deployed state at session end: v2 tip = all tranche work, verified live on
+  the test server (attenuator + target + interactive + divider + gallery,
+  light and dark, real PNG downloads).
 
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
