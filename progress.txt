@@ -30,12 +30,48 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
 - Diagram PoC created: app/src/routes/diagram-poc/+page.svelte +
   app/src/lib/components/diagrams/poc/svelte-schematic-divider.svelte (not in nav; open
   /app/diagram-poc). Side-by-side with schematic.js render.
-- In flight: subagent doing target-resistance parity bundle (diagrams+export+pruning+
-  heuristic+limits+progress+sort-reset, extracting $lib/domain/target-resistance.ts + tests).
-- Playwright+chromium being installed (app devDependency) for browser verification of PoC,
-  restyle light/dark, and final checks.
-- Remaining: restyle (workstream 3), final verification pass, progress recording.
-- GATES (unchanged): no engine build-out, no wt-theme extraction, no pushes/deploys without sign-off.
+- Target-resistance parity landed (1f964c0): engine ported to $lib/domain/target-resistance.ts
+  (pruning, heuristic extremes, legacy limits/tiers, progress messages), renderNetwork diagrams
+  + PNG export per result, sort reset, stats (blocks/pruned/ms); 18 tests incl. legacy oracle.
+- schematic.js silent-failure FIXED (3f20055): `class Diagram` never became window.Diagram, so
+  every app schematic rendered nothing; lexical-global resolution added (found only by driving
+  the app in a browser — the code-level audit had missed it).
+- Diagram PoC landed (3f20055): /app/diagram-poc (unlinked route), Svelte-native SVG divider
+  with hover/click/keyboard + wt-token theming, side-by-side with schematic.js.
+- Restyle landed (3323ace): tool-density.css (extraction candidates documented in plan §5),
+  single-row toolbar shell, 32px controls, one-line footer, compact route headers, ModePanel
+  scaffold removed; legacy-injected pages fixed (theme reassert after script.js boot; chip/
+  tooltip CSS ported scoped under .ba-legacy). Light+dark verified in headless chromium.
+- AGENTS.md + root `npm test` forwarding added (d1b5514).
+
+### FINAL VERIFICATION (2026-07-06, fresh-context verifier + committed smoke script)
+- Acceptance commands all green: `node tests/run-tests.js`; `cd app && npm test` (24 tests),
+  `npm run check` (0 errors), `npm run build`.
+- Divider bug: verifier independently reproduced the pre-fix failure (top-5 all 3-4 part) and
+  confirmed the fix is general (no hard-coded test values in production code). Red-first note:
+  the failing test was demonstrated red in-session, then committed together with the fix in
+  0e82f57 to keep every commit green — not provable from history alone, evidence in this file.
+- Workstream verdicts: WS1 parity IMPLEMENTED (every checklist item ticked or deferred with
+  reason); WS2 diagram engine IMPLEMENTED as PoC+recommendation, gate respected (schematic.js
+  still production engine); WS3 restyle IMPLEMENTED (light/dark verified live); WS4 gating
+  IMPLEMENTED (no gated feature built); WS5 deploy IMPLEMENTED with one disclosed gap.
+- Committed browser smoke (`cd app && npm run smoke`, app/scripts/browser-smoke.mjs) — 7/7
+  PASS against the production build: 1k/5k1 displayed, divider+target diagrams render, PNG
+  buttons, dark theme survives legacy injection, PoC renders, zero page errors.
+- Pause gates respected: no engine build-out, no wt-theme package changes, nothing pushed to
+  any remote, no credentials in repo.
+- KNOWN GAP: Docker image never built (sandbox cannot run docker builds — no bind mounts even
+  via sudo). Layout replicated on disk and HTTP-smoke-tested; FIRST DEPLOY MUST run
+  `docker build` + the curl checks in docs/deploy-runbook.md on a Docker-capable machine.
+- Deferred (with reasons, see plan): docs/readme surface in app (P2), divider chunk-progress
+  spinner, target-resistance error-high flag + watts tooltip line, attenuator help bubbles.
+
+### AWAITING USER SIGN-OFF (do not start without it)
+1. Diagram engine build-out (plan §2 recommendation: Svelte-native SVG, symbols from
+   tscircuit/schematic-symbols; PoC at /app/diagram-poc).
+2. wt-theme extraction of the density layer (plan §5 candidates).
+3. Any Phase 1+ gated feature from plan §4.
+4. Pushing this branch / wiring Dokploy (deploy is push-triggered once Dokploy access lands).
 
 ## Resume instructions (fresh context)
 1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.

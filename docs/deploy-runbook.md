@@ -48,7 +48,7 @@ Dokploy is not publicly reachable from this environment yet; configure via its U
 
 ## Release procedure
 
-1. Merge to the tracked branch locally; ensure green: `node tests/run-tests.js` and `cd app && npm test && npm run check && npm run build`.
+1. Merge to the tracked branch locally; ensure green: `node tests/run-tests.js` and `cd app && npm test && npm run check && npm run build`, plus the headless-browser smoke over the built app: `cd app && npm run smoke` (needs `npx playwright install chromium` once).
 2. Optional: `docker build .` locally for a final smoke test.
 3. Update `version.json` (root **and** `app/static/version.json` — keep in sync until a build step stamps them).
 4. `git push` the tracked branch → Dokploy builds the Dockerfile and swaps the container. Rollback = Dokploy "Deployments" → redeploy a previous build, or `git revert` + push.
