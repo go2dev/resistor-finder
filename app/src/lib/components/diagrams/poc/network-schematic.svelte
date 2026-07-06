@@ -86,7 +86,7 @@
 	let svgEl: SVGSVGElement | null = $state(null);
 
 	/** KiCad-style zigzag between the glyph's lead ends. */
-	function zigzagPath(g: ResistorGlyph, teeth = 5, amp = 8): string {
+	function zigzagPath(g: ResistorGlyph, teeth = 5, amp = 6): string {
 		const lead = 9;
 		const top = g.yTop + lead;
 		const bottom = g.yBottom - lead;

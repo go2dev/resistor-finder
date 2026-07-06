@@ -68,7 +68,7 @@
 	const OUT_X = 338;
 
 	/** Horizontal KiCad-style zigzag between x0 and x1 at height y. */
-	function hZigzag(x0: number, x1: number, y: number, teeth = 5, amp = 8): string {
+	function hZigzag(x0: number, x1: number, y: number, teeth = 5, amp = 6): string {
 		const lead = 9;
 		const left = x0 + lead;
 		const right = x1 - lead;
@@ -85,7 +85,7 @@
 	 * centred in the span, with plain lead wires filling the rest — the body
 	 * must not stretch with the rail distance.
 	 */
-	function vZigzag(x: number, y0: number, y1: number, teeth = 5, amp = 8, bodyH = 46): string {
+	function vZigzag(x: number, y0: number, y1: number, teeth = 5, amp = 6, bodyH = 46): string {
 		const mid = (y0 + y1) / 2;
 		const top = mid - bodyH / 2;
 		const bottom = mid + bodyH / 2;

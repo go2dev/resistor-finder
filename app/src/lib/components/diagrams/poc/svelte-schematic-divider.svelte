@@ -37,7 +37,7 @@
 	const RAIL_X = 80;
 
 	/** KiCad-style zigzag resistor body between y0 and y1 on the rail. */
-	function zigzag(y0: number, y1: number, teeth = 6, amp = 9): string {
+	function zigzag(y0: number, y1: number, teeth = 6, amp = 6): string {
 		const lead = 10;
 		const top = y0 + lead;
 		const bottom = y1 - lead;
