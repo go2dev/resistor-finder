@@ -155,6 +155,25 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   attenuatorKind's quotes terminate the attribute). Fixed app-side only;
   root fix is a one-liner but root-site changes were out of scope.
 
+### FINAL VERIFICATION — session 2 (2026-07-06, fresh-context verifier)
+- Independent verifier (fresh context, read brief + code, reran all gates):
+  **PASS with one soft gap.** Section verdicts: engine graduation PASS
+  (single symbol source confirmed by grep — no stray geometry outside the
+  engine); all four page migrations PASS; retirement PASS (root-site files
+  provably untouched this tranche: empty diff over schematic.js/script.js/
+  interactive-divider.js/styles.css/index.html); decisions surfaced PASS
+  (nothing silently decided); gated items untouched PASS; acceptance
+  commands independently green (legacy suite, 55 vitest, check 0, build,
+  smoke 20/20).
+- Soft gap found: per-page side-by-side screenshots were reviewed live but
+  only claimed textually in commit bodies, no artifacts retained. CLOSED
+  after the verdict: curated evidence set committed at
+  docs/evidence/diagram-engine-2026-07-06/ (side-by-sides, both-theme cards,
+  actual downloaded PNGs from both themes, deployed gallery).
+- Deployed state at session end: v2 tip = all tranche work, verified live on
+  the test server (attenuator + target + interactive + divider + gallery,
+  light and dark, real PNG downloads).
+
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
 2. Any Phase 2/3 gated feature from plan §4 (histogram, zoomable filter, URL params,
