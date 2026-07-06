@@ -36,8 +36,8 @@ jobs:
       - name: Trigger Dokploy deploy
         env:
           DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_API_TOKEN }}
-          # Dokploy composeId for this app — fill in after creating the app in Dokploy.
-          COMPOSE_ID: __COMPOSE_ID__
+          # Dokploy composeId for this app (Public Sites project).
+          COMPOSE_ID: Tpf5fkx5ARHxMBwZ5DFRg
         run: |
           curl --fail-with-body --silent --show-error \
             --retry 3 --retry-connrefused --max-time 60 \
