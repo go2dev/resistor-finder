@@ -1,38 +1,17 @@
-// PoC network model + pure layout for the candidate Svelte SVG engine.
-// Proves the two things the fixed divider PoC didn't: arbitrary nested
-// series/parallel trees, and electrical annotation (volts/watts per part)
-// derivable from the same tree — which is what powers rich mouseovers.
+// Pure recursive layout for series/parallel trees on a vertical rail, plus
+// electrical annotation (per-part V/I/P) derived from the same tree — that
+// is what powers the per-part tooltips. No DOM: renderers consume the
+// returned glyphs.
 
-export type NetNode =
-	| { kind: 'r'; value: number }
-	| { kind: 'series' | 'parallel'; children: NetNode[] };
+import { BUS_PAD, COL_W, LEAD_OVERLAP, RES_CELL } from './symbols';
+import { totalResistance, type NetNode } from './model';
 
-export const r = (value: number): NetNode => ({ kind: 'r', value });
-export const series = (...children: NetNode[]): NetNode => ({ kind: 'series', children });
-export const parallel = (...children: NetNode[]): NetNode => ({ kind: 'parallel', children });
-
-export function totalResistance(node: NetNode): number {
-	if (node.kind === 'r') return node.value;
-	if (node.kind === 'series') {
-		return node.children.reduce((sum, c) => sum + totalResistance(c), 0);
-	}
-	const reciprocal = node.children.reduce((sum, c) => sum + 1 / totalResistance(c), 0);
-	return reciprocal > 0 ? 1 / reciprocal : 0;
-}
-
-export function componentCount(node: NetNode): number {
-	if (node.kind === 'r') return 1;
-	return node.children.reduce((sum, c) => sum + componentCount(c), 0);
-}
-
-// --- layout ------------------------------------------------------------
-
-const RES_H = 64; // one resistor cell (leads + zigzag)
-const COL_W = 64; // horizontal room per parallel branch (zigzag + value label)
-const BUS_PAD = 10; // vertical room for parallel bus bars
+export type Orientation = 'vertical' | 'horizontal';
 
 export type ResistorGlyph = {
 	id: string;
+	ref?: string;
+	orientation: 'vertical';
 	cx: number;
 	yTop: number;
 	yBottom: number;
@@ -43,8 +22,25 @@ export type ResistorGlyph = {
 	amps: number;
 };
 
+/** Horizontal counterpart produced by `transposeBlock`. */
+export type HResistorGlyph = {
+	id: string;
+	ref?: string;
+	orientation: 'horizontal';
+	cy: number;
+	xLeft: number;
+	xRight: number;
+	value: number;
+	volts: number;
+	watts: number;
+	amps: number;
+};
+
+export type AnyResistorGlyph = ResistorGlyph | HResistorGlyph;
+
 export type WireGlyph = { x1: number; y1: number; x2: number; y2: number };
 export type DotGlyph = { x: number; y: number };
+type Point = { x: number; y: number };
 
 export type NetworkLayout = {
 	resistors: ResistorGlyph[];
@@ -63,12 +59,20 @@ export function nodeWidth(node: NetNode): number {
 }
 
 export function nodeHeight(node: NetNode): number {
-	if (node.kind === 'r') return RES_H;
+	if (node.kind === 'r') return RES_CELL;
 	if (node.kind === 'series') return node.children.reduce((sum, c) => sum + nodeHeight(c), 0);
 	return 2 * BUS_PAD + Math.max(...node.children.map(nodeHeight));
 }
 
-type Sink = Pick<NetworkLayout, 'resistors' | 'wires' | 'paths' | 'dots'>;
+type Sink = {
+	resistors: ResistorGlyph[];
+	wires: WireGlyph[];
+	polylines: Point[][];
+	dots: DotGlyph[];
+};
+
+const toPathData = (run: Point[]): string =>
+	run.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
 /**
  * Lay a node out on a vertical rail centred at cx, starting at y.
@@ -76,11 +80,20 @@ type Sink = Pick<NetworkLayout, 'resistors' | 'wires' | 'paths' | 'dots'>;
  * resistance ratio, parallel children all see it — from which each leaf gets
  * V, I and P for tooltips.
  */
-function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefix: string, sink: Sink): number {
+function layoutNode(
+	node: NetNode,
+	cx: number,
+	y: number,
+	volts: number,
+	idPrefix: string,
+	sink: Sink
+): number {
 	if (node.kind === 'r') {
-		const yBottom = y + RES_H;
+		const yBottom = y + RES_CELL;
 		sink.resistors.push({
 			id: idPrefix,
+			ref: node.ref,
+			orientation: 'vertical',
 			cx,
 			yTop: y,
 			yBottom,
@@ -124,22 +137,26 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 	sink.wires.push({ x1: cx, y1: busBottom, x2: cx, y2: y + height });
 	sink.dots.push({ x: cx, y: busTop }, { x: cx, y: busBottom });
 
-	// Overlap corner paths a few px into the branch's own lead: when a branch
-	// is as tall as the block (childTop === busTop) the drop segment would be
-	// zero-length and no mitre join gets rendered — the corner shows as two
-	// butt caps. A short collinear overlap guarantees a real corner join.
-	const LEAD_OVERLAP = 6;
-
 	node.children.forEach((child, i) => {
 		const bx = branchXs[i];
 		const childHeight = nodeHeight(child);
 		const childTop = busTop + (innerHeight - childHeight) / 2;
 		const childBottom = childTop + childHeight;
 		// one path per branch: along the bus then turn into the branch —
-		// corners are real path joins, not two butt-capped lines
-		sink.paths.push(`M ${cx} ${busTop} L ${bx} ${busTop} L ${bx} ${childTop + LEAD_OVERLAP}`);
+		// corners are real path joins, not two butt-capped lines. The path
+		// overlaps LEAD_OVERLAP into the branch's own lead so a branch as tall
+		// as the block still gets a real mitre (see symbols.LEAD_OVERLAP).
+		sink.polylines.push([
+			{ x: cx, y: busTop },
+			{ x: bx, y: busTop },
+			{ x: bx, y: childTop + LEAD_OVERLAP }
+		]);
 		layoutNode(child, bx, childTop, volts, `${idPrefix}.${i}`, sink);
-		sink.paths.push(`M ${bx} ${childBottom - LEAD_OVERLAP} L ${bx} ${busBottom} L ${cx} ${busBottom}`);
+		sink.polylines.push([
+			{ x: bx, y: childBottom - LEAD_OVERLAP },
+			{ x: bx, y: busBottom },
+			{ x: cx, y: busBottom }
+		]);
 		// interior branches tap a bus that runs past them: 3-way junction dots
 		if (i > 0 && i < node.children.length - 1 && bx !== cx) {
 			sink.dots.push({ x: bx, y: busTop }, { x: bx, y: busBottom });
@@ -148,11 +165,6 @@ function layoutNode(node: NetNode, cx: number, y: number, volts: number, idPrefi
 
 	return y + height;
 }
-
-export type SectionLayout = {
-	/** y of the junction below this section (tap candidates) */
-	junctionY: number;
-};
 
 /**
  * Full vertical circuit: supply rail at top, sections stacked with junction
@@ -163,7 +175,7 @@ export function layoutCircuit(
 	sections: NetNode[],
 	supplyVoltage: number
 ): NetworkLayout & { junctions: number[]; railX: number; topY: number; groundY: number } {
-	const sink: Sink = { resistors: [], wires: [], paths: [], dots: [] };
+	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [] };
 	const maxSectionWidth = Math.max(...sections.map(nodeWidth), COL_W);
 	const railX = maxSectionWidth / 2 + 72; // left margin fits the Vin label
 	const width = railX + maxSectionWidth / 2 + 130; // right margin fits the tap label
@@ -188,5 +200,86 @@ export function layoutCircuit(
 	const groundY = y + 16;
 	sink.wires.push({ x1: railX, y1: y, x2: railX, y2: groundY });
 
-	return { ...sink, width, height: groundY + 26, junctions, railX, topY, groundY };
+	return {
+		resistors: sink.resistors,
+		wires: sink.wires,
+		paths: sink.polylines.map(toPathData),
+		dots: sink.dots,
+		width,
+		height: groundY + 26,
+		junctions,
+		railX,
+		topY,
+		groundY
+	};
+}
+
+export type BlockLayout = {
+	resistors: ResistorGlyph[];
+	wires: WireGlyph[];
+	paths: string[];
+	dots: DotGlyph[];
+	width: number;
+	height: number;
+	/** Terminal points the caller wires into the surrounding circuit. */
+	entry: Point;
+	exit: Point;
+};
+
+export type HBlockLayout = Omit<BlockLayout, 'resistors'> & { resistors: HResistorGlyph[] };
+
+/**
+ * Lay out a standalone tree (no supply/ground) with `volts` across it —
+ * building block for shapes that aren't a single vertical rail.
+ */
+export function layoutNetwork(node: NetNode, volts = 0): BlockLayout {
+	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [] };
+	const width = nodeWidth(node);
+	const height = nodeHeight(node);
+	const cx = width / 2;
+	layoutNode(node, cx, 0, volts, 'n', sink);
+	return {
+		resistors: sink.resistors,
+		wires: sink.wires,
+		paths: sink.polylines.map(toPathData),
+		dots: sink.dots,
+		width,
+		height,
+		entry: { x: cx, y: 0 },
+		exit: { x: cx, y: height }
+	};
+}
+
+const transposePathData = (d: string): string =>
+	d.replace(
+		/([ML]) (-?[\d.]+) (-?[\d.]+)/g,
+		(_m, cmd: string, x: string, y: string) => `${cmd} ${y} ${x}`
+	);
+
+/**
+ * Swap axes of a block layout: current then flows left→right instead of
+ * top→bottom (horizontal orientation for shapes like the U-pad legs).
+ */
+export function transposeBlock(block: BlockLayout): HBlockLayout {
+	return {
+		resistors: block.resistors.map((g) => ({
+			id: g.id,
+			ref: g.ref,
+			orientation: 'horizontal',
+			cy: g.cx,
+			xLeft: g.yTop,
+			xRight: g.yBottom,
+			value: g.value,
+			volts: g.volts,
+			amps: g.amps,
+			watts: g.watts
+		})),
+		wires: block.wires.map((w) => ({ x1: w.y1, y1: w.x1, x2: w.y2, y2: w.x2 })),
+		paths: block.paths.map(transposePathData),
+		dots: block.dots.map((d) => ({ x: d.y, y: d.x })),
+		width: block.height,
+		height: block.width,
+		entry: { x: block.entry.y, y: block.entry.x },
+		exit: { x: block.exit.y, y: block.exit.x }
+	};
 }
