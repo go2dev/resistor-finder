@@ -7,6 +7,7 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @import '$lib/design-tokens.css';
+@import '$lib/styles/tool-density.css';
 
 @theme inline {
 	--color-wt-muted: var(--wt-color-muted);

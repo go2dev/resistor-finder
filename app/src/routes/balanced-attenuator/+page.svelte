@@ -28,14 +28,10 @@
 </script>
 
 <section class="ba-legacy space-y-4">
-	<div class="space-y-2">
-		<h2 class="text-xl wt-text-heading tracking-tight text-wt-ink">
-			Balanced Attenuator
-		</h2>
-		<p class="text-sm text-wt-muted-fg">
-			U-pad / L-pad search via legacy <code class="text-xs">script.js</code>,
-			<code class="text-xs">attenuator-engine.js</code>, and <code class="text-xs">schematic.js</code> — identical DOM ids to
-			<code class="text-xs">balanced-attenuator.html</code>.
+	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Balanced Attenuator</h2>
+		<p class="text-xs text-wt-muted-fg">
+			U-pad / L-pad attenuator combinations for a target attenuation, load and impedance.
 		</p>
 	</div>
 

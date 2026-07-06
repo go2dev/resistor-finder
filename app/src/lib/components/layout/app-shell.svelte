@@ -63,31 +63,14 @@
 </script>
 
 <div class="min-h-screen bg-wt-canvas text-wt-body">
-	<div class="mx-auto max-w-6xl px-4 py-8">
-		<header class="@container mb-6 flex items-center justify-between gap-4">
-			<div class="min-w-0 space-y-1">
-				<h1 class="wt-revamp-hero-title wt-text-heading tracking-tight">Resistor Finder</h1>
-				<p class="wt-revamp-hero-tagline wt-text-body text-wt-muted-fg">
-					SvelteKit UI under <code class="text-xs">{base || '/'}</code> · legacy static pages unchanged at repo root ·
-					wt-theme v{wtThemeTokens.meta.version}
-				</p>
-			</div>
-			<button
-				type="button"
-				class="wt-affordance-pill-ghost wt-no-floating-shadow inline-flex h-10 w-10 shrink-0 items-center justify-center bg-wt-surface hover:bg-wt-muted"
-				onclick={toggleTheme}
-				aria-label="Toggle theme"
-			>
-				{#if $appTheme === 'dark'}
-					<Sun class="h-4 w-4" />
-				{:else}
-					<Moon class="h-4 w-4" />
-				{/if}
-			</button>
-		</header>
+	<div class="mx-auto max-w-6xl px-4 py-4">
+		<header class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+			<h1 class="text-base font-semibold tracking-tight text-wt-ink">
+				<Zap class="mb-0.5 inline h-4 w-4 text-wt-brand-design" aria-hidden="true" />
+				Resistor Divider
+			</h1>
 
-		<nav aria-label="Calculator mode" class="mb-6">
-			<div class="flex flex-wrap gap-2">
+			<nav aria-label="Calculator mode" class="flex flex-wrap items-center gap-1.5">
 				{#each modeLinks as link}
 					{@const Icon = iconByMode[link.id]}
 					<a
@@ -95,32 +78,46 @@
 						data-sveltekit-preload-data="hover"
 						aria-current={activeMode === link.id ? 'page' : undefined}
 						class={cn(
-							'wt-affordance-pill-ghost wt-no-floating-shadow inline-flex items-center gap-2 px-3 py-2 text-sm wt-text-ui transition-colors',
+							'wt-affordance-pill-ghost wt-no-floating-shadow tool-control-sm inline-flex items-center gap-1.5 px-2.5 wt-text-ui transition-colors',
 							activeMode === link.id
 								? 'bg-wt-brand-design text-wt-white'
 								: 'bg-wt-surface text-wt-ink hover:bg-wt-muted'
 						)}
 					>
-						<Icon class="h-4 w-4" />
+						<Icon class="h-3.5 w-3.5" />
 						{link.label}
 					</a>
 				{/each}
-			</div>
-		</nav>
+			</nav>
 
-		<main class="wt-corner-squircle wt-shell-root rounded-wt-box p-6">
+			<div class="ms-auto flex items-center gap-2">
+				<span class="tool-stat hidden sm:inline">{appVersion} · wt {wtThemeTokens.meta.version}</span>
+				<button
+					type="button"
+					class="wt-affordance-pill-ghost wt-no-floating-shadow inline-flex h-7 w-7 shrink-0 items-center justify-center bg-wt-surface hover:bg-wt-muted"
+					onclick={toggleTheme}
+					aria-label="Toggle theme"
+				>
+					{#if $appTheme === 'dark'}
+						<Sun class="h-3.5 w-3.5" />
+					{:else}
+						<Moon class="h-3.5 w-3.5" />
+					{/if}
+				</button>
+			</div>
+		</header>
+
+		<main class="wt-corner-squircle wt-shell-root rounded-wt-box p-4 sm:p-5">
 			{@render children?.()}
 		</main>
 
-		<footer class="mt-6 text-center text-xs text-wt-muted-fg">
-			<p>Disclaimer: results are provided without warranty or verification. Use at your own risk!</p>
-			<p class="mt-1">
+		<footer class="mt-4 text-center text-[11px] leading-relaxed text-wt-muted-fg">
+			<p>
+				Results are provided without warranty or verification — use at your own risk.
 				Made by <a class="underline hover:text-wt-ink" href="https://mynameis.dev" target="_blank" rel="noreferrer">Dev</a>
 				© <a class="underline hover:text-wt-ink" href="https://whatevertogether.net/" target="_blank" rel="noreferrer">Whatever Together</a>
 				{currentYear}
-			</p>
-			<p class="mt-1">
-				Source on <a class="underline hover:text-wt-ink" href="https://github.com/go2dev/resistor-finder" target="_blank" rel="noreferrer">GitHub</a>
+				· Source on <a class="underline hover:text-wt-ink" href="https://github.com/go2dev/resistor-finder" target="_blank" rel="noreferrer">GitHub</a>
 				· Version: {appVersion}
 			</p>
 		</footer>

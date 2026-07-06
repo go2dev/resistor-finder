@@ -1,0 +1,49 @@
+/*
+ * Tool-density layer — app-local for now (deliberately NOT in @go2dev/wt-theme).
+ *
+ * The stock wt-theme shell is tuned for marketing surfaces (hero titles,
+ * generous whitespace). This app is a working engineering tool: dense,
+ * efficient, information-first. Everything here overrides toward that.
+ *
+ * Extraction candidates for a future wt-theme "density: tool" variant
+ * (see docs/overhaul-plan.md §5 — gated on sign-off):
+ *   - the control-size scale (--tool-control-h*)
+ *   - .tool-control / .tool-control-sm form-control sizing
+ *   - .tool-section-title (compact section headings)
+ *   - .tool-stat (inline metric text)
+ * App-specific things (series colours, schematic strokes) stay out of the
+ * shared theme permanently.
+ */
+
+:root {
+	--tool-control-h: 2rem; /* 32px controls instead of 40px */
+	--tool-control-h-sm: 1.75rem; /* 28px */
+	--tool-font-control: 0.8125rem; /* 13px */
+}
+
+/* Compact form controls; applied by the shared Button/Input components. */
+.tool-control {
+	height: var(--tool-control-h);
+	font-size: var(--tool-font-control);
+}
+
+.tool-control-sm {
+	height: var(--tool-control-h-sm);
+	font-size: 0.75rem;
+}
+
+/* Compact section headings — quiet, uppercase, information-first. */
+.tool-section-title {
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--wt-color-muted-fg);
+}
+
+/* Inline metric/stat text (worker stats, match counts). */
+.tool-stat {
+	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--wt-color-muted-fg);
+}

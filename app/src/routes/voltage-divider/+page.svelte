@@ -494,11 +494,10 @@
 </svelte:head>
 
 <section class="space-y-6">
-	<div class="space-y-1">
-		<h2 class="text-xl wt-text-heading tracking-tight">Voltage Divider</h2>
-		<p class="text-sm text-wt-muted-fg">
-			Legacy parsing via <code class="text-xs">resistor-utils.js</code> + <code class="text-xs">jlc-basic-catalog.js</code>,
-			parallel <code class="text-xs">resistor-worker.js</code> search, per-result supply sliders, power/package sizing, and zoomable resistance histogram filtering.
+	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Voltage Divider</h2>
+		<p class="text-xs text-wt-muted-fg">
+			Best resistor pairs for a target output voltage from your available values.
 		</p>
 	</div>
 
@@ -524,7 +523,7 @@
 					<select
 						id="snap-series"
 						bind:value={snapSeriesPick}
-						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+						class="tool-control inline-flex rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 					>
 						{#each seriesOptions as s}
 							<option value={s}>{s}</option>
@@ -542,7 +541,7 @@
 						<span class="text-xs wt-text-ui text-wt-muted-fg">Decade</span>
 						<select
 							bind:value={autofillDecade}
-							class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+							class="tool-control inline-flex rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each decadeOptions as d}
 								<option value={d.value}>{d.label}</option>
@@ -551,7 +550,7 @@
 						<span class="text-xs wt-text-ui text-wt-muted-fg">Series</span>
 						<select
 							bind:value={snapSeriesPick}
-							class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
+							class="tool-control inline-flex rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink outline-none focus-visible:ring-2 focus-visible:ring-wt-brand-design focus-visible:ring-offset-2 focus-visible:ring-offset-wt-canvas"
 						>
 							{#each seriesOptions as s}
 								<option value={s}>{s}</option>

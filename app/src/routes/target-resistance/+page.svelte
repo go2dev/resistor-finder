@@ -608,10 +608,10 @@
 </script>
 
 <section class="w-full space-y-6">
-	<div class="space-y-1">
-		<h2 class="text-xl wt-text-heading">Target Resistance</h2>
-		<p class="text-sm wt-text-body text-wt-muted-fg">
-			Find the closest single, series, and parallel matches from your available resistor list.
+	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Target Resistance</h2>
+		<p class="text-xs text-wt-muted-fg">
+			Closest single, series, and parallel matches from your available resistor list.
 		</p>
 	</div>
 
@@ -627,7 +627,7 @@
 					<span class="text-xs wt-text-ui text-wt-muted-fg">Decade</span>
 					<select
 						bind:value={autofillDecade}
-						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
+						class="tool-control inline-flex rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
 					>
 						{#each decadeOptions as d}
 							<option value={d.value}>{d.label}</option>
@@ -636,7 +636,7 @@
 					<span class="text-xs wt-text-ui text-wt-muted-fg">Series</span>
 					<select
 						bind:value={snapSeriesPick}
-						class="inline-flex h-9 rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
+						class="tool-control inline-flex rounded-wt-box wt-shell-inner wt-no-floating-shadow bg-wt-surface px-2 text-sm text-wt-ink"
 					>
 						{#each seriesOptions as s}
 							<option value={s}>{s}</option>

@@ -1,6 +1,7 @@
 import interactiveDividerUrl from '$legacy/interactive-divider.js?url';
 
 import { ensureLegacyMainScriptLoaded } from '$lib/adapters/legacy-main-script-browser';
+import { reassertTheme } from '$lib/stores/app-state';
 import { ensureResistorUtilsLoaded } from '$lib/adapters/resistor-utils-browser';
 import { ensureSchematicLoaded } from '$lib/adapters/schematic-browser';
 
@@ -45,6 +46,10 @@ export async function mountInteractiveDividerLegacy(): Promise<void> {
 	await ensureLegacyMainScriptLoaded();
 	await ensureSchematicLoaded();
 	await ensureInteractiveDividerScriptLoaded();
+
+	// script.js runs its own initializeTheme() against the legacy 'theme'
+	// localStorage key, clobbering the app's data-theme — undo that.
+	reassertTheme();
 
 	const w = window as Window & {
 		__rfInitInteractiveDivider?: () => void;

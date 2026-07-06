@@ -3,7 +3,6 @@
 
 	import { browser } from '$app/environment';
 	import { onDestroy, onMount } from 'svelte';
-	import ModePanel from '$lib/components/forms/mode-panel.svelte';
 	import { mountInteractiveDividerLegacy } from '$lib/adapters/interactive-divider-browser';
 
 	let bootError = $state<string | null>(null);
@@ -29,16 +28,13 @@
 </script>
 
 <section class="space-y-4">
-	<div>
-		<h2 class="text-xl wt-text-heading tracking-tight">Interactive Divider</h2>
-		<p class="text-sm text-wt-muted-fg">
-			Legacy schematic editing (tap resistors, series strips, parallel buses) via repo-root
-			<code class="text-xs">interactive-divider.js</code>
-			and <code class="text-xs">schematic.js</code>. Supply is swept here; V<sub>out</sub> follows your divider.
+	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Interactive Divider</h2>
+		<p class="text-xs text-wt-muted-fg">
+			Build a divider on the schematic: tap a resistor to edit it, use the strips to add series
+			or parallel parts. V<sub>out</sub> follows live.
 		</p>
 	</div>
-
-	<ModePanel mode="interactive-divider" />
 
 	{#if bootError}
 		<div class="rounded-lg border border-red-400/50 bg-red-100/80 p-4 text-sm text-red-800">

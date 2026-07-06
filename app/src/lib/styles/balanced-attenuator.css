@@ -173,3 +173,291 @@
 	font-size: 0.9rem;
 	color: var(--text-secondary);
 }
+
+/* Tool-density restyle: give legacy-injected form controls visible bounds
+ * (legacy styles.css is not loaded in the app; inputs rendered borderless). */
+.ba-legacy input[type='text'],
+.ba-legacy input[type='number'] {
+	display: block;
+	width: 100%;
+	max-width: 32rem;
+	height: var(--tool-control-h, 2rem);
+	padding: 0 0.625rem;
+	font-size: var(--tool-font-control, 0.8125rem);
+	color: var(--wt-color-ink);
+	background-color: var(--wt-color-surface);
+	border: 1px solid var(--wt-color-border);
+	border-radius: 0.5rem;
+	margin: 0.25rem 0 0.375rem;
+}
+
+.ba-legacy input[type='text']:focus-visible,
+.ba-legacy input[type='number']:focus-visible {
+	outline: 2px solid var(--wt-color-brand-design);
+	outline-offset: 1px;
+}
+
+.ba-legacy .autofill-btn,
+.ba-legacy button:not(#calculateBtn):not(.download-diagram-btn) {
+	font-size: 0.75rem;
+}
+
+
+/* Legacy parsed-values grid, chips and help tooltips — copied from repo-root
+ * styles.css (vars resolve via design-tokens.css), scoped with native CSS
+ * nesting so it only applies to the legacy-injected attenuator DOM. */
+.ba-legacy {
+
+
+	/* Help Tooltip */
+	.help-tooltip {
+	    display: inline-flex;
+	    align-items: center;
+	    justify-content: center;
+	    width: 16px;
+	    height: 16px;
+	    border-radius: 50%;
+	    background-color: #888;
+	    color: white;
+	    font-size: 11px;
+	    font-weight: bold;
+	    cursor: help;
+	    margin-left: 4px;
+	    position: relative;
+	    user-select: none;
+	    line-height: 1;
+	    text-align: center;
+	}
+
+
+
+	.help-tooltip .tooltip-text {
+	    visibility: hidden;
+	    position: absolute;
+	    z-index: 1000;
+	    width: 250px;
+	    background-color: var(--container-bg);
+	    color: var(--text-color);
+	    text-align: left;
+	    border-radius: 6px;
+	    padding: 12px;
+	    box-shadow: 0 2px 8px var(--shadow-color);
+	    border: 1px solid var(--input-border);
+	    font-size: 0.95rem;
+	    line-height: 1.5;
+    
+	    /* Fade in tooltip */
+	    opacity: 0;
+	    transition: opacity 0.3s;
+	}
+
+
+
+	/* Show tooltip on hover/active */
+	.help-tooltip:hover .tooltip-text,
+	.help-tooltip:active .tooltip-text {
+	    visibility: visible;
+	    opacity: 1;
+	}
+
+
+
+	/* Add arrow to tooltip */
+	.help-tooltip .tooltip-text::after {
+	    content: "";
+	    position: absolute;
+	    top: var(--arrow-top, 100%);
+	    bottom: var(--arrow-bottom, auto);
+	    left: 50%;
+	    margin-left: -5px;
+	    border-width: 5px;
+	    border-style: solid;
+	    border-color: var(--arrow-border-color, var(--input-border) transparent transparent transparent);
+	}
+
+
+
+	/* Parsed Values Display */
+	.parsed-values {
+	    margin-bottom: 1rem;
+	}
+
+
+
+	.parsed-values h3 {
+	    display: inline-block;
+	    margin-right: 0.5rem;
+	}
+
+
+
+	.parsed-values .help-tooltip {
+	    display: inline-block;
+	    vertical-align: middle;
+	    margin-left: 0.25rem;
+	}
+
+
+
+	.parsed-values-grid {
+	    --parsed-box-width: 70px;
+	    display: grid;
+	    grid-template-columns: repeat(auto-fill, var(--parsed-box-width));
+	    gap: 5px;
+	}
+
+
+
+	.parsed-value-box {
+	    background-color: var(--result-bg);
+	    border: 1px solid #808080;
+	    border-radius: var(--squircle-radius-sm);
+	    padding: 0.4rem 0.2rem;
+	    font-size: 0.9rem;
+	    color: #333;
+	    display: flex;
+	    align-items: center;
+	    cursor: pointer;
+	    transition: all 0.2s ease;
+	    position: relative;
+	    width: var(--parsed-box-width);
+	    justify-content: center;
+	}
+
+
+
+	.parsed-value-box.jlc-basic {
+	    border-radius: var(--squircle-radius);
+	}
+
+
+
+	.parsed-value-box-content {
+	    display: flex;
+	    flex-direction: column;
+	    align-items: center;
+	    justify-content: center;
+	    gap: 0.2rem;
+	    min-width: 0;
+	}
+
+
+
+	.parsed-value-box .jlc-basic-caption {
+	    font-size: 0.65rem;
+	    font-weight: 500;
+	    line-height: 1.1;
+	    color: var(--text-color);
+	    opacity: 0.85;
+	    text-align: center;
+	    white-space: nowrap;
+	}
+
+
+	.parsed-value-box:hover {
+	    border-color: #808080;
+	    box-shadow: 0 0 0 2px var(--button-bg);
+	}
+
+
+
+	.parsed-value-box.active {
+	    background-color: var(--result-bg);
+	    border: 1px solid #808080;
+	}
+
+
+
+	.parsed-value-box.disabled {
+	    background-color: #9c9c9c !important;
+	    border: 1px solid #808080;
+	    opacity: 0.7;
+	}
+
+
+
+	.parsed-value-box.disabled .formatted {
+	    text-decoration: line-through;
+	    color: #333;
+	    opacity: 0.7;
+	}
+
+
+
+	.parsed-value-box .formatted {
+	    font-weight: 500;
+	}
+
+
+
+	.parsed-value-box .box-tooltip {
+	    visibility: hidden;
+	    position: absolute;
+	    z-index: 1000;
+	    background-color: var(--container-bg);
+	    color: var(--text-color);
+	    text-align: center;
+	    border-radius: var(--squircle-radius-sm);
+	    padding: 6px 10px;
+	    box-shadow: 0 2px 8px var(--shadow-color);
+	    border: 1px solid var(--input-border);
+	    font-size: 0.9rem;
+	    white-space: nowrap;
+	    bottom: 125%;
+	    left: 50%;
+	    transform: translateX(-50%);
+	    opacity: 0;
+	    transition: opacity 0.2s;
+	}
+
+
+
+	.parsed-value-box .box-tooltip::after {
+	    content: "";
+	    position: absolute;
+	    top: 100%;
+	    left: 50%;
+	    margin-left: -5px;
+	    border-width: 5px;
+	    border-style: solid;
+	    border-color: var(--input-border) transparent transparent transparent;
+	}
+
+
+
+	.parsed-value-box:hover .box-tooltip {
+	    visibility: visible;
+	    opacity: 1;
+	}
+
+
+
+	/* Add series-specific styles for parsed-value-box */
+	.parsed-value-box.series-e192 {
+	    background-color: #ffe2ff;
+	}
+
+
+
+	.parsed-value-box.series-e96 {
+	    background-color: #e2e2ff;
+	}
+
+
+
+	.parsed-value-box.series-e48 {
+	    background-color: #e2ffff;
+	}
+
+
+
+	.parsed-value-box.series-e24 {
+	    background-color: #e2ffe2;
+	}
+
+
+
+	.parsed-value-box.series-none {
+	    background-color: #ff6666;
+	}
+}

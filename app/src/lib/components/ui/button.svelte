@@ -12,9 +12,9 @@
 						'wt-affordance-pill-ghost bg-wt-surface text-wt-ink hover:bg-wt-muted'
 				},
 				size: {
-					default: 'h-10 px-4 py-2',
-					sm: 'h-9 px-3',
-					lg: 'h-11 px-8'
+					default: 'tool-control px-3',
+					sm: 'tool-control-sm px-2.5',
+					lg: 'h-10 px-6'
 				}
 			},
 			defaultVariants: {

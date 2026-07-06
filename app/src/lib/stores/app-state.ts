@@ -62,6 +62,20 @@ export function toggleTheme() {
 	});
 }
 
+/**
+ * Re-apply the app's current theme to the document. Legacy scripts injected on
+ * the balanced-attenuator / interactive-divider routes run their own
+ * initializeTheme() (legacy 'theme' localStorage key) and overwrite
+ * data-theme; call this after they boot so the app store stays authoritative.
+ */
+export function reassertTheme() {
+	if (!browser) return;
+	appTheme.update((current) => {
+		applyThemeToDocument(current);
+		return current;
+	});
+}
+
 if (browser) {
 	appTheme.subscribe(applyThemeToDocument);
 	window

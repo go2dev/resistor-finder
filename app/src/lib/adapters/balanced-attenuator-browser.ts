@@ -6,6 +6,7 @@ import { ensureJlcBasicCatalogLoaded } from '$lib/adapters/jlc-basic-catalog-bro
 import { ensureLegacyMainScriptLoaded } from '$lib/adapters/legacy-main-script-browser';
 import { ensureResistorUtilsLoaded } from '$lib/adapters/resistor-utils-browser';
 import { ensureSchematicLoaded } from '$lib/adapters/schematic-browser';
+import { reassertTheme } from '$lib/stores/app-state';
 
 const injected = new Set<string>();
 
@@ -48,6 +49,10 @@ export async function mountBalancedAttenuatorLegacy(): Promise<void> {
 
 	await ensureLegacyMainScriptLoaded();
 	await ensureSchematicLoaded();
+
+	// script.js runs its own initializeTheme() against the legacy 'theme'
+	// localStorage key, clobbering the app's data-theme — undo that.
+	reassertTheme();
 
 	const w = window as Window & {
 		__rfWireCalculatorDomListeners?: () => void;
