@@ -3,11 +3,32 @@
 	import Button from '$lib/components/ui/button.svelte';
 	import Input from '$lib/components/ui/input.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
+	import TargetNetworkDiagram from '$lib/components/diagrams/target-network-diagram.svelte';
 	import { ensureResistorUtilsLoaded, getResistorUtils } from '$lib/adapters/resistor-utils-browser';
 	import { parseRichResistorInputs } from '$lib/domain/parse-rich-resistors';
 	import { formatResistorValue } from '$lib/domain/resistor';
+	import {
+		LIMITS,
+		applyErrorFilter,
+		applyResistorHeuristic,
+		buildResults,
+		createTargetResistanceEngine,
+		dedupeResults,
+		filterResultsByExcludedKeys,
+		formatCombination,
+		generateCombinations,
+		getEffectiveLimits,
+		getSafeResistanceRange,
+		sortResults,
+		type ComboNode,
+		type ComboResistor,
+		type EvaluatedCombo,
+		type GenerateCombinationsStats,
+		type TargetLimits,
+		type TargetSortBy
+	} from '$lib/domain/target-resistance';
 
-	type SortBy = 'error' | 'components' | 'totalResistanceAsc' | 'totalResistanceDesc';
+	type SortBy = TargetSortBy;
 	type ParsedValueChip = {
 		id: string;
 		input: string;
@@ -15,33 +36,15 @@
 		formatted: string;
 		tolerancePct: number;
 		series?: string | null;
+		powerRating?: number | null;
 		powerCode?: string | null;
 		isJlcBasic?: boolean;
 		source?: string;
 		active: boolean;
 	};
-	type Block = {
-		id: string;
-		label: string;
-		total: number;
-		componentCount: number;
-		lower: number;
-		upper: number;
-		keys: string[];
-	};
-	type RawResult = {
-		signature: string;
-		label: string;
-		totalResistance: number;
-		error: number;
-		errorPercent: number;
-		componentCount: number;
-		rangeLower: number;
-		rangeUpper: number;
-		keys: string[];
-	};
 	type TargetResult = {
 		label: string;
+		combo: ComboNode;
 		total: number;
 		errorAbs: number;
 		errorPercent: number;
@@ -50,7 +53,6 @@
 	};
 	type CalcStats = {
 		inputCount: number;
-		activeCount: number;
 		filteredCount: number;
 		filteredByHeuristic: boolean;
 		removedByHeuristic: number;
@@ -60,17 +62,19 @@
 		maxSeriesBlocks: number;
 		maxBlocks: number;
 		maxCombos: number;
-		comboCount: number;
-		resultCount: number;
+		blockCount: number | null;
+		comboCount: number | null;
+		prunedBlocks: number;
+		prunedCombos: number;
 		errorFilterFallback: boolean;
+		calculationTimeMs: number | null;
 	};
-	const LIMITS = {
-		maxParallel: 10,
-		maxSeriesBlocks: 10,
-		maxBlocks: 2048,
-		maxCombos: 200000,
-		maxInputResistors: 60
-	} as const;
+	type AggregatedGenStats = {
+		blockCount: number | null;
+		comboCount: number | null;
+		prunedBlocks: number;
+		prunedCombos: number;
+	};
 
 	let resistorValues = $state(
 		'1k, 2.2k, 3.3k, 4.7k, 10k, 22k, 5K11, 96C, EB1041, 100R(0.1%), 220R(5%), 4k7, 49R9, 73k2(10%), 0R, 8M2'
@@ -81,12 +85,22 @@
 	let snapSeriesPick = $state('E24');
 	let autofillDecade = $state('100');
 	let parsedValues = $state<ParsedValueChip[]>([]);
-	let allRawResults = $state<RawResult[]>([]);
+	// Raw state: result sets can be large (up to maxCombos entries) and are only
+	// ever replaced wholesale, so skip deep proxying.
+	let allResults = $state.raw<EvaluatedCombo[]>([]);
 	let results = $state<TargetResult[]>([]);
 	let warnings = $state<string[]>([]);
 	let errors = $state<string[]>([]);
 	let calculating = $state(false);
 	let calcStats = $state<CalcStats | null>(null);
+	let progress = $state<{ processed: number; total: number } | null>(null);
+
+	const activeCount = $derived(parsedValues.filter((p) => p.active).length);
+	const progressText = $derived(
+		progress && progress.total > 0
+			? `${progress.processed.toLocaleString()} / ${progress.total.toLocaleString()} (${((progress.processed / progress.total) * 100).toFixed(1)}%)`
+			: null
+	);
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'error', label: 'Lowest error (ohms / %)' },
@@ -161,22 +175,9 @@
 			.map((v) => formatResistorValue(v).replace(/Ω/g, 'R'));
 	}
 
-	function estimateComboCount(valueCount: number, comboSize: number, cap = Number.MAX_SAFE_INTEGER): number {
-		if (comboSize <= 1) return valueCount;
-		let total = 1;
-		for (let i = 1; i <= comboSize; i++) {
-			total = (total * (valueCount + i - 1)) / i;
-			if (total > cap) return cap + 1;
-		}
-		return total;
-	}
-
-	function getEffectiveLimits(valueCount: number) {
-		if (valueCount <= 20) return { ...LIMITS };
-		if (valueCount <= 35) {
-			return { maxParallel: 8, maxSeriesBlocks: 8, maxBlocks: 1200, maxCombos: 120000 };
-		}
-		return { maxParallel: 6, maxSeriesBlocks: 6, maxBlocks: 800, maxCombos: 90000 };
+	function fmtValue(value: number): string {
+		const Ru = getResistorUtils();
+		return Ru ? Ru.formatResistorValue(value) : formatResistorValue(value);
 	}
 
 	function getWorkerCount(resistorCount: number): number {
@@ -186,238 +187,60 @@
 		return Math.min(cores, 4);
 	}
 
-	function sortRawResults(items: RawResult[], mode: SortBy): RawResult[] {
-		const copy = [...items];
-		copy.sort((a, b) => {
-			if (mode === 'components') {
-				if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
-				return Math.abs(a.error) - Math.abs(b.error);
-			}
-			if (mode === 'totalResistanceAsc') return a.totalResistance - b.totalResistance;
-			if (mode === 'totalResistanceDesc') return b.totalResistance - a.totalResistance;
-			return Math.abs(a.error) - Math.abs(b.error);
-		});
-		return copy;
+	function rangeTextFor(combo: ComboNode): string {
+		const range = getSafeResistanceRange(combo);
+		if (!range) return '—';
+		return `${fmtValue(range.lower)} → ${fmtValue(range.upper)}`;
 	}
 
-	function dedupeRawResults(items: RawResult[]): RawResult[] {
-		const seen = new Set<string>();
-		const out: RawResult[] = [];
-		for (const item of items) {
-			if (seen.has(item.signature)) continue;
-			seen.add(item.signature);
-			out.push(item);
-		}
-		return out;
-	}
-
-	function mapRawToView(items: RawResult[]): TargetResult[] {
-		return items.slice(0, 40).map((r) => ({
-			label: r.label,
+	function refreshVisibleResults() {
+		const excludedKeys = parsedValues.filter((p) => !p.active).map((p) => p.id);
+		const sorted = sortResults([...allResults], sortBy);
+		const visible = filterResultsByExcludedKeys(sorted, excludedKeys);
+		results = visible.slice(0, 40).map((r) => ({
+			label: formatCombination(r.combo, fmtValue),
+			combo: r.combo,
 			total: r.totalResistance,
 			errorAbs: Math.abs(r.error),
 			errorPercent: Math.abs(r.errorPercent),
 			components: r.componentCount,
-			rangeText: `${formatResistorValue(r.rangeLower)} → ${formatResistorValue(r.rangeUpper)}`
+			rangeText: rangeTextFor(r.combo)
 		}));
 	}
 
-	function filterRawByActiveKeys(items: RawResult[], activeKeys: Set<string>): RawResult[] {
-		if (!activeKeys.size) return [];
-		return items.filter((item) => item.keys.every((key) => activeKeys.has(key)));
-	}
-
-	function refreshVisibleResults() {
-		const activeKeys = new Set(parsedValues.filter((p) => p.active).map((p) => p.id));
-		const visible = filterRawByActiveKeys(sortRawResults(allRawResults, sortBy), activeKeys);
-		results = mapRawToView(visible);
-		if (calcStats) {
-			calcStats = { ...calcStats, activeCount: activeKeys.size, resultCount: results.length };
-		}
-	}
-
-	function buildBlocks(entries: ParsedValueChip[], target: number, maxParallel: number, maxBlocks: number): Block[] {
-		const blocks: Block[] = entries.map((e, i) => ({
-			id: `s-${i}`,
-			label: e.formatted,
-			total: e.value,
-			componentCount: 1,
-			lower: e.value * (1 - e.tolerancePct / 100),
-			upper: e.value * (1 + e.tolerancePct / 100),
-			keys: [e.id]
-		}));
-		for (let size = 2; size <= maxParallel; size++) {
-			if (estimateComboCount(entries.length, size, maxBlocks * 4) > maxBlocks * 4) break;
-			let queue: number[][] = [[]];
-			for (let d = 0; d < size; d++) {
-				const next: number[][] = [];
-				for (const prefix of queue) {
-					const start = prefix.length ? prefix[prefix.length - 1] : 0;
-					for (let i = start; i < entries.length; i++) next.push([...prefix, i]);
-				}
-				queue = next;
-			}
-			for (const idxs of queue) {
-				const members = idxs.map((i) => entries[i]);
-				const reciprocal = members.reduce((sum, m) => sum + 1 / m.value, 0);
-				const total = 1 / reciprocal;
-				const lower = 1 / members.reduce((sum, m) => sum + 1 / (m.value * (1 - m.tolerancePct / 100)), 0);
-				const upper = 1 / members.reduce((sum, m) => sum + 1 / (m.value * (1 + m.tolerancePct / 100)), 0);
-				blocks.push({
-					id: `p-${idxs.join('-')}`,
-					label: `(${members.map((m) => m.formatted).join(' || ')})`,
-					total,
-					componentCount: members.length,
-					lower,
-					upper,
-					keys: members.map((m) => m.id)
-				});
-			}
-		}
-
-		const ranked = blocks
-			.map((b) => ({ block: b, diff: Math.abs(b.total - target) }))
-			.sort((a, b) => a.diff - b.diff);
-		const primary = ranked.slice(0, maxBlocks);
-		const extremes = ranked.slice(0, Math.min(5, ranked.length)).concat(ranked.slice(-5));
-		const unique = new Map<string, Block>();
-		for (const item of [...primary, ...extremes]) unique.set(item.block.id, item.block);
-		return [...unique.values()];
-	}
-
-	function generateSeriesCombosFromBlocks(
-		blocks: Block[],
-		targetValue: number,
-		sortByMode: SortBy,
-		opts: { maxSeriesBlocks: number; maxCombos: number; chunkIndex?: number; chunkCount?: number }
-	): RawResult[] {
-		const chunkIndex = opts.chunkIndex ?? 0;
-		const chunkCount = opts.chunkCount ?? 1;
-		const chunkSize = Math.ceil(blocks.length / chunkCount);
-		const firstStart = chunkIndex * chunkSize;
-		const firstEnd = Math.min(firstStart + chunkSize, blocks.length);
-		const out: RawResult[] = [];
-		let generated = 0;
-
-		const pushCombo = (indices: number[]) => {
-			if (generated >= opts.maxCombos) return;
-			const chosen = indices.map((i) => blocks[i]);
-			const total = chosen.reduce((sum, b) => sum + b.total, 0);
-			const lower = chosen.reduce((sum, b) => sum + b.lower, 0);
-			const upper = chosen.reduce((sum, b) => sum + b.upper, 0);
-			const error = total - targetValue;
-			const label = chosen.map((b) => b.label).join(' + ');
-			const keys = Array.from(new Set(chosen.flatMap((b) => b.keys))).sort();
-			out.push({
-				signature: `${indices.join('|')}::${keys.join(',')}`,
-				label,
-				totalResistance: total,
-				error,
-				errorPercent: (error / targetValue) * 100,
-				componentCount: chosen.reduce((sum, b) => sum + b.componentCount, 0),
-				rangeLower: lower,
-				rangeUpper: upper,
-				keys
-			});
-			generated += 1;
-		};
-
-		for (let size = 1; size <= opts.maxSeriesBlocks; size++) {
-			if (generated >= opts.maxCombos) break;
-			for (let first = firstStart; first < firstEnd; first++) {
-				if (generated >= opts.maxCombos) break;
-				if (size === 1) {
-					pushCombo([first]);
-					continue;
-				}
-				let queue: number[][] = [[first]];
-				for (let depth = 1; depth < size; depth++) {
-					const next: number[][] = [];
-					for (const prefix of queue) {
-						const start = prefix[prefix.length - 1];
-						for (let i = start; i < blocks.length; i++) next.push([...prefix, i]);
-					}
-					queue = next;
-				}
-				for (const combo of queue) {
-					if (generated >= opts.maxCombos) break;
-					pushCombo(combo);
-				}
-			}
-		}
-
-		return sortRawResults(dedupeRawResults(out), sortByMode);
-	}
-
+	// The Blob worker cannot import modules, so the whole engine factory is
+	// embedded as source. It must stay self-contained (see target-resistance.ts).
 	function buildWorkerScriptSource(): string {
 		return `
+		const engine = (${createTargetResistanceEngine.toString()})();
 		self.onmessage = (event) => {
-			const { blocks, targetValue, sortBy, options } = event.data;
-			const sortRawResults = (items, mode) => {
-				const copy = [...items];
-				copy.sort((a, b) => {
-					if (mode === 'components') {
-						if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
-						return Math.abs(a.error) - Math.abs(b.error);
+			const data = event.data || {};
+			const { resistors, targetValue, sortBy, options } = data;
+			const chunkIndex = data.chunkIndex ?? 0;
+			const chunkCount = data.chunkCount ?? 1;
+			try {
+				const generated = engine.generateCombinations(resistors, {
+					maxParallel: options.maxParallel,
+					maxSeriesBlocks: options.maxSeriesBlocks,
+					maxBlocks: options.maxBlocks,
+					maxCombos: options.maxCombos,
+					maxParallelCombos: options.maxParallelCombos,
+					targetValue,
+					chunkIndex,
+					chunkCount,
+					onProgress: (processed, total) => {
+						self.postMessage({ type: 'progress', processed, total, chunkIndex });
 					}
-					if (mode === 'totalResistanceAsc') return a.totalResistance - b.totalResistance;
-					if (mode === 'totalResistanceDesc') return b.totalResistance - a.totalResistance;
-					return Math.abs(a.error) - Math.abs(b.error);
 				});
-				return copy;
-			};
-			const chunkIndex = options.chunkIndex || 0;
-			const chunkCount = options.chunkCount || 1;
-			const chunkSize = Math.ceil(blocks.length / chunkCount);
-			const firstStart = chunkIndex * chunkSize;
-			const firstEnd = Math.min(firstStart + chunkSize, blocks.length);
-			const out = [];
-			let generated = 0;
-			const pushCombo = (indices) => {
-				if (generated >= options.maxCombos) return;
-				const chosen = indices.map((i) => blocks[i]);
-				const total = chosen.reduce((sum, b) => sum + b.total, 0);
-				const lower = chosen.reduce((sum, b) => sum + b.lower, 0);
-				const upper = chosen.reduce((sum, b) => sum + b.upper, 0);
-				const error = total - targetValue;
-				const keys = Array.from(new Set(chosen.flatMap((b) => b.keys))).sort();
-				out.push({
-					signature: indices.join('|') + '::' + keys.join(','),
-					label: chosen.map((b) => b.label).join(' + '),
-					totalResistance: total,
-					error,
-					errorPercent: (error / targetValue) * 100,
-					componentCount: chosen.reduce((sum, b) => sum + b.componentCount, 0),
-					rangeLower: lower,
-					rangeUpper: upper,
-					keys
+				const results = engine.sortResults(engine.buildResults(generated.combinations, targetValue), sortBy);
+				self.postMessage({ type: 'result', results, stats: generated.stats, chunkIndex });
+			} catch (error) {
+				self.postMessage({
+					type: 'error',
+					error: error instanceof Error ? error.message : String(error),
+					chunkIndex
 				});
-				generated += 1;
-			};
-			for (let size = 1; size <= options.maxSeriesBlocks; size++) {
-				if (generated >= options.maxCombos) break;
-				for (let first = firstStart; first < firstEnd; first++) {
-					if (generated >= options.maxCombos) break;
-					if (size === 1) {
-						pushCombo([first]);
-						continue;
-					}
-					let queue = [[first]];
-					for (let depth = 1; depth < size; depth++) {
-						const next = [];
-						for (const prefix of queue) {
-							const start = prefix[prefix.length - 1];
-							for (let i = start; i < blocks.length; i++) next.push([...prefix, i]);
-						}
-						queue = next;
-					}
-					for (const combo of queue) {
-						if (generated >= options.maxCombos) break;
-						pushCombo(combo);
-					}
-				}
 			}
-			self.postMessage({ type: 'result', results: sortRawResults(out, sortBy) });
 		};`;
 	}
 
@@ -426,56 +249,134 @@
 		return new Worker(URL.createObjectURL(blob));
 	}
 
-	function runWorker(payload: {
-		blocks: Block[];
+	const progressByWorker = new Map<number, { processed: number; total: number }>();
+
+	function updateAggregatedProgress() {
+		let processedSum = 0;
+		let totalSum = 0;
+		progressByWorker.forEach((entry) => {
+			processedSum += entry.processed || 0;
+			totalSum += entry.total || 0;
+		});
+		if (totalSum > 0) {
+			progress = { processed: processedSum, total: totalSum };
+		}
+	}
+
+	function runWorkerChunk(payload: {
+		resistors: ComboResistor[];
 		targetValue: number;
 		sortBy: SortBy;
-		options: { maxSeriesBlocks: number; maxCombos: number; chunkIndex?: number; chunkCount?: number };
-	}): Promise<RawResult[]> {
+		options: TargetLimits;
+		chunkIndex: number;
+		chunkCount: number;
+	}): Promise<{ results: EvaluatedCombo[]; stats: GenerateCombinationsStats | null }> {
 		return new Promise((resolve, reject) => {
 			const worker = createWorker();
+			const cleanup = () => worker.terminate();
 			worker.onmessage = (event) => {
-				const data = event.data as { type: string; results?: RawResult[] };
+				const data = event.data as {
+					type: string;
+					results?: EvaluatedCombo[];
+					stats?: GenerateCombinationsStats;
+					error?: string;
+					processed?: number;
+					total?: number;
+					chunkIndex?: number;
+				};
+				if (data.type === 'progress') {
+					if (Number.isFinite(data.processed) && Number.isFinite(data.total) && (data.total ?? 0) > 0) {
+						progressByWorker.set(data.chunkIndex ?? payload.chunkIndex, {
+							processed: data.processed ?? 0,
+							total: data.total ?? 0
+						});
+						updateAggregatedProgress();
+					}
+					return;
+				}
 				if (data.type === 'result') {
-					resolve(data.results ?? []);
-					worker.terminate();
+					const progressKey = data.chunkIndex ?? payload.chunkIndex;
+					const entry = progressByWorker.get(progressKey);
+					if (entry && entry.total) {
+						progressByWorker.set(progressKey, { processed: entry.total, total: entry.total });
+						updateAggregatedProgress();
+					}
+					cleanup();
+					resolve({ results: data.results ?? [], stats: data.stats ?? null });
+				} else if (data.type === 'error') {
+					cleanup();
+					reject(new Error(data.error || 'Worker failed'));
 				}
 			};
 			worker.onerror = (err) => {
-				reject(err);
-				worker.terminate();
+				cleanup();
+				reject(err instanceof ErrorEvent && err.message ? new Error(err.message) : new Error('Worker failed'));
 			};
 			worker.postMessage(payload);
 		});
 	}
 
 	async function computeWithWorkers(
-		blocks: Block[],
+		resistors: ComboResistor[],
 		targetValue: number,
 		sortByMode: SortBy,
-		maxSeriesBlocks: number,
-		maxCombos: number,
+		limits: TargetLimits,
 		workerCount: number
-	): Promise<RawResult[]> {
+	): Promise<{ results: EvaluatedCombo[]; stats: AggregatedGenStats }> {
+		progressByWorker.clear();
 		if (workerCount <= 1) {
-			return runWorker({ blocks, targetValue, sortBy: sortByMode, options: { maxSeriesBlocks, maxCombos } });
-		}
-		const maxCombosPerWorker = Math.ceil(maxCombos / workerCount);
-		const jobs = Array.from({ length: workerCount }, (_, chunkIndex) =>
-			runWorker({
-				blocks,
+			const single = await runWorkerChunk({
+				resistors,
 				targetValue,
 				sortBy: sortByMode,
-				options: {
-					maxSeriesBlocks,
-					maxCombos: maxCombosPerWorker,
-					chunkIndex,
-					chunkCount: workerCount
+				options: limits,
+				chunkIndex: 0,
+				chunkCount: 1
+			});
+			return {
+				results: single.results,
+				stats: {
+					blockCount: single.stats?.blockCount ?? null,
+					comboCount: single.stats?.comboCount ?? null,
+					prunedBlocks: single.stats?.prunedBlocks ?? 0,
+					prunedCombos: single.stats?.prunedCombos ?? 0
 				}
+			};
+		}
+
+		// Legacy runWorkerCalculationParallel: split the combo budget evenly and
+		// take blockCount/prunedBlocks from the first worker that reports stats.
+		const perWorkerMaxCombos = Math.ceil(limits.maxCombos / workerCount);
+		const jobs = Array.from({ length: workerCount }, (_, chunkIndex) =>
+			runWorkerChunk({
+				resistors,
+				targetValue,
+				sortBy: sortByMode,
+				options: { ...limits, maxCombos: perWorkerMaxCombos },
+				chunkIndex,
+				chunkCount: workerCount
 			})
 		);
-		const merged = (await Promise.all(jobs)).flat();
-		return sortRawResults(dedupeRawResults(merged), sortByMode);
+		const settled = await Promise.all(jobs);
+		const aggregated: AggregatedGenStats = {
+			blockCount: null,
+			comboCount: 0,
+			prunedBlocks: 0,
+			prunedCombos: 0
+		};
+		const merged: EvaluatedCombo[] = [];
+		for (const chunk of settled) {
+			merged.push(...chunk.results);
+			if (chunk.stats) {
+				aggregated.prunedCombos += chunk.stats.prunedCombos ?? 0;
+				if (aggregated.blockCount == null && chunk.stats.blockCount != null) {
+					aggregated.blockCount = chunk.stats.blockCount;
+					aggregated.prunedBlocks = chunk.stats.prunedBlocks ?? 0;
+				}
+			}
+		}
+		aggregated.comboCount = merged.length;
+		return { results: merged, stats: aggregated };
 	}
 
 	async function autofillCommonSeries() {
@@ -522,10 +423,15 @@
 
 	async function calculate() {
 		calculating = true;
-		allRawResults = [];
+		progress = null;
+		progressByWorker.clear();
+		// Legacy resets the sort mode on every fresh Calculate click.
+		sortBy = 'error';
+		allResults = [];
 		results = [];
 		const nextWarnings: string[] = [];
 		const nextErrors: string[] = [];
+		const calculationStart = performance.now();
 		try {
 			await ensureResistorUtilsLoaded();
 			const Ru = getResistorUtils();
@@ -534,11 +440,17 @@
 				return;
 			}
 
-			const parsedTarget = Ru.parseResistorInput(targetResistance, {
-				snapToSeries,
-				snapSeries: snapSeriesPick
-			});
-			const target = Number(parsedTarget?.value);
+			let target: number;
+			try {
+				const parsedTarget = Ru.parseResistorInput(targetResistance, {
+					snapToSeries,
+					snapSeries: snapSeriesPick
+				});
+				target = Number(parsedTarget?.value);
+			} catch (e) {
+				nextErrors.push(`Target resistance: ${e instanceof Error ? e.message : String(e)}`);
+				return;
+			}
 			if (!Number.isFinite(target) || target <= 0) {
 				nextErrors.push('Target resistance must be a positive value (for example, 50k or 4k7(1%)).');
 				return;
@@ -577,6 +489,7 @@
 					formatted: r.formatted,
 					tolerancePct,
 					series: resolvedSeries,
+					powerRating: r.powerRating ?? null,
 					powerCode: r.powerCode ?? null,
 					isJlcBasic: r.isJlcBasic ?? false,
 					source: r.source,
@@ -585,97 +498,111 @@
 			});
 			parsedValues = nextParsed;
 
-			const activeEntries = nextParsed.filter((p) => p.active);
 			if (nextParsed.length === 0) {
 				nextErrors.push('At least one parsed value is required.');
 				return;
 			}
 
-			const fullCountBeforeTrim = nextParsed.length;
-			let computeEntries = nextParsed;
-			if (computeEntries.length > LIMITS.maxInputResistors) {
-				computeEntries = computeEntries
-					.map((entry) => ({ entry, diff: Math.abs(entry.value - target) }))
-					.sort((a, b) => a.diff - b.diff)
-					.slice(0, LIMITS.maxInputResistors)
-					.map((x) => x.entry);
+			// Legacy searches on all parsed inputs and filters excluded values
+			// out of the displayed results afterwards.
+			const engineResistors: ComboResistor[] = nextParsed.map((chip, idx) => ({
+				id: idx,
+				key: chip.id,
+				value: chip.value,
+				tolerance: chip.tolerancePct,
+				series: chip.series ?? null,
+				powerRating: chip.powerRating ?? null,
+				powerCode: chip.powerCode ?? null
+			}));
+
+			const heuristic = applyResistorHeuristic(engineResistors, target, LIMITS.maxInputResistors);
+			const filteredResistors = heuristic.resistors;
+			if (heuristic.trimmed) {
 				nextWarnings.push(
-					`Input list trimmed to ${LIMITS.maxInputResistors} parsed values for performance (legacy heuristic).`
+					`Input list trimmed to ${filteredResistors.length} parsed values for performance (legacy heuristic, cap ${LIMITS.maxInputResistors}).`
 				);
 			}
 
-			const effective = getEffectiveLimits(computeEntries.length);
-			const blocks = buildBlocks(computeEntries, target, effective.maxParallel, effective.maxBlocks);
-			const workerCount = getWorkerCount(computeEntries.length);
-			let raw: RawResult[] = [];
-			try {
-				raw =
-					workerCount > 0
-						? await computeWithWorkers(
-								blocks,
-								target,
-								sortBy,
-								effective.maxSeriesBlocks,
-								effective.maxCombos,
-								workerCount
-							)
-						: generateSeriesCombosFromBlocks(blocks, target, sortBy, {
-								maxSeriesBlocks: effective.maxSeriesBlocks,
-								maxCombos: effective.maxCombos
-							});
-			} catch (e) {
-				nextWarnings.push(
-					`Worker calculation failed; fallback search used (${e instanceof Error ? e.message : String(e)}).`
-				);
-				raw = generateSeriesCombosFromBlocks(blocks, target, sortBy, {
+			const effective = getEffectiveLimits(filteredResistors.length);
+			const workerCount = getWorkerCount(filteredResistors.length);
+			let raw: EvaluatedCombo[] = [];
+			let genStats: AggregatedGenStats = {
+				blockCount: null,
+				comboCount: null,
+				prunedBlocks: 0,
+				prunedCombos: 0
+			};
+
+			if (workerCount > 0) {
+				try {
+					const workerResult = await computeWithWorkers(filteredResistors, target, sortBy, effective, workerCount);
+					raw = workerResult.results;
+					genStats = workerResult.stats;
+				} catch (e) {
+					nextWarnings.push(
+						`Worker failed: ${e instanceof Error ? e.message : String(e)}. Falling back to local calculation.`
+					);
+				}
+			}
+			if (raw.length === 0) {
+				const generated = generateCombinations(filteredResistors, {
+					maxParallel: effective.maxParallel,
 					maxSeriesBlocks: effective.maxSeriesBlocks,
-					maxCombos: effective.maxCombos
+					maxBlocks: effective.maxBlocks,
+					maxCombos: effective.maxCombos,
+					maxParallelCombos: effective.maxParallelCombos,
+					targetValue: target
 				});
+				genStats = {
+					blockCount: generated.stats.blockCount,
+					comboCount: generated.stats.comboCount,
+					prunedBlocks: generated.stats.prunedBlocks,
+					prunedCombos: generated.stats.prunedCombos
+				};
+				raw = buildResults(generated.combinations, target);
 			}
 
-			const within = raw.filter((r) => Number.isFinite(r.errorPercent) && Math.abs(r.errorPercent) <= 20);
-			const cutoffFallback = within.length === 0 && raw.length > 0;
-			const filtered = within.length ? within : raw;
-			allRawResults = filtered;
+			const deduped = dedupeResults(raw);
+			sortResults(deduped, sortBy);
+			const filtered = applyErrorFilter(deduped, 20);
+			allResults = filtered.results;
 			refreshVisibleResults();
 
-			if (!filtered.length) {
+			if (!filtered.results.length) {
 				nextWarnings.push('No combinations found within current search limits.');
-			}
-			if (workerCount > 0) {
-				nextWarnings.push(
-					`Worker search used (${workerCount} worker${workerCount === 1 ? '' : 's'}) with expanded combo space.`
-				);
-			} else {
-				nextWarnings.push('Single-thread search used for this input size.');
 			}
 
 			calcStats = {
 				inputCount: nextParsed.length,
-				activeCount: activeEntries.length,
-				filteredCount: computeEntries.length,
-				filteredByHeuristic: fullCountBeforeTrim !== computeEntries.length,
-				removedByHeuristic: Math.max(0, fullCountBeforeTrim - computeEntries.length),
+				filteredCount: filteredResistors.length,
+				filteredByHeuristic: heuristic.trimmed,
+				removedByHeuristic: heuristic.removedCount,
 				workerUsed: workerCount > 0,
 				workerCount,
 				maxParallel: effective.maxParallel,
 				maxSeriesBlocks: effective.maxSeriesBlocks,
 				maxBlocks: effective.maxBlocks,
 				maxCombos: effective.maxCombos,
-				comboCount: filtered.length,
-				resultCount: mapRawToView(filterRawByActiveKeys(filtered, new Set(activeEntries.map((p) => p.id)))).length,
-				errorFilterFallback: cutoffFallback
+				blockCount: genStats.blockCount,
+				comboCount: genStats.comboCount,
+				prunedBlocks: genStats.prunedBlocks,
+				prunedCombos: genStats.prunedCombos,
+				errorFilterFallback: filtered.fallbackUsed,
+				calculationTimeMs: Math.round(performance.now() - calculationStart)
 			};
+		} catch (e) {
+			nextErrors.push(`Calculation failed: ${e instanceof Error ? e.message : String(e)}`);
 		} finally {
 			warnings = nextWarnings;
 			errors = nextErrors;
 			calculating = false;
+			progress = null;
 		}
 	}
 
 	$effect(() => {
 		void sortBy;
-		if (!allRawResults.length) return;
+		if (!allResults.length) return;
 		refreshVisibleResults();
 	});
 </script>
@@ -748,6 +675,11 @@
 		<Button onclick={() => void calculate()} disabled={calculating}>
 			{calculating ? 'Calculating…' : 'Find closest matches'}
 		</Button>
+		{#if calculating}
+			<span class="text-xs wt-text-ui text-wt-muted-fg" aria-live="polite">
+				{progressText ?? 'Preparing…'}
+			</span>
+		{/if}
 	</div>
 
 	{#if parsedValues.length > 0}
@@ -799,20 +731,20 @@
 			</p>
 		{:else}
 			<div class="grid gap-3">
-				{#each results as result, index}
+				{#each results as result}
 					<article class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface p-3">
 						<p class="text-sm wt-text-body-strong">{result.label}</p>
 						<p class="text-xs text-wt-muted-fg">
-							{formatResistorValue(result.total)} · error {formatResistorValue(result.errorAbs)} ({result.errorPercent.toFixed(2)}%) · {result.components}
+							{fmtValue(result.total)} · error {fmtValue(result.errorAbs)} ({result.errorPercent.toFixed(2)}%) · {result.components}
 							component{result.components === 1 ? '' : 's'}
 						</p>
 						<p class="text-xs text-wt-muted-fg">Tolerance range: {result.rangeText}</p>
-						<div
-							class="mt-3 wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-muted/30 p-3 text-xs text-wt-muted-fg"
-							aria-label={`Diagram placeholder ${index + 1}`}
-						>
-							Diagram placeholder (unified diagram system integration pending).
-						</div>
+						<TargetNetworkDiagram
+							combo={result.combo}
+							totalResistance={result.total}
+							comboLabel={result.label}
+							targetInput={targetResistance}
+						/>
 					</article>
 				{/each}
 			</div>
@@ -822,7 +754,7 @@
 	{#if calcStats}
 		<ResultsPanel title="Calculation stats">
 			<div class="grid gap-1 text-sm">
-				<p><span class="wt-text-ui">Inputs:</span> {calcStats.inputCount} total, {calcStats.activeCount} active</p>
+				<p><span class="wt-text-ui">Inputs:</span> {calcStats.inputCount} total, {activeCount} active</p>
 				<p>
 					<span class="wt-text-ui">Filtered inputs used:</span> {calcStats.filteredCount}
 					{#if calcStats.filteredByHeuristic}
@@ -834,9 +766,15 @@
 					parallel {calcStats.maxParallel}, series blocks {calcStats.maxSeriesBlocks}, block cap {calcStats.maxBlocks}, combo cap {calcStats.maxCombos.toLocaleString()}
 				</p>
 				<p><span class="wt-text-ui">Worker used:</span> {calcStats.workerUsed ? `yes (${calcStats.workerCount})` : 'no'}</p>
-				<p><span class="wt-text-ui">Generated combos:</span> {calcStats.comboCount.toLocaleString()}</p>
-				<p><span class="wt-text-ui">Displayed results:</span> {calcStats.resultCount}</p>
+				<p><span class="wt-text-ui">Block count:</span> {calcStats.blockCount != null ? calcStats.blockCount.toLocaleString() : 'n/a'}</p>
+				<p><span class="wt-text-ui">Generated combos:</span> {calcStats.comboCount != null ? calcStats.comboCount.toLocaleString() : 'n/a'}</p>
+				<p>
+					<span class="wt-text-ui">Pruned blocks:</span> {calcStats.prunedBlocks.toLocaleString()},
+					<span class="wt-text-ui">pruned combos:</span> {calcStats.prunedCombos.toLocaleString()}
+				</p>
+				<p><span class="wt-text-ui">Displayed results:</span> {results.length}</p>
 				<p><span class="wt-text-ui">20% cutoff fallback:</span> {calcStats.errorFilterFallback ? 'yes' : 'no'}</p>
+				<p><span class="wt-text-ui">Calculation time:</span> {calcStats.calculationTimeMs != null ? `${calcStats.calculationTimeMs}ms` : 'n/a'}</p>
 			</div>
 		</ResultsPanel>
 	{/if}
