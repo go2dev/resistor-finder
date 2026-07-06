@@ -117,6 +117,9 @@
 		{#each layout.wires as w}
 			<line x1={w.x1} y1={w.y1} x2={w.x2} y2={w.y2} stroke="currentColor" stroke-width="2" />
 		{/each}
+		{#each layout.paths as d}
+			<path {d} fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter" />
+		{/each}
 		{#each layout.dots as d}
 			<circle cx={d.x} cy={d.y} r="3" fill="currentColor" />
 		{/each}
