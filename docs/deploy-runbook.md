@@ -38,8 +38,8 @@ Dokploy is not publicly reachable from this environment yet; configure via its U
 
 - **Type:** Application
 - **Provider:** GitHub → `go2dev/resistor-finder`
-- **Branch:** the production branch (decide at cutover; currently the integration branch is `cursor/sveltekit-greenfield-foundation-8189`)
-- **Auto Deploy:** ON (deploy on push — this is the trigger; pushing to the tracked branch IS the deploy)
+- **Branch:** `v2` — the deploy/integration branch. Working process: feature work happens on any branch; merging to `v2` is what deploys to the test server. (Production branch/domain cutover decided later.)
+- **Auto Deploy:** ON (deploy on push — pushing/merging to `v2` IS the deploy)
 - **Build Type:** Dockerfile · path `./Dockerfile` · context `.`
 - **Port:** 80 (map the domain to container port 80)
 - **Domain:** `resistordivider.com` (+ `www` redirect), HTTPS via Dokploy/Traefik Let's Encrypt

@@ -66,12 +66,16 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
 - Deferred (with reasons, see plan): docs/readme surface in app (P2), divider chunk-progress
   spinner, target-resistance error-high flag + watts tooltip line, attenuator help bubbles.
 
+### Branch process (user-decided 2026-07-06)
+- `v2` = deploy/integration branch: whatever lands on v2 gets built by CI/CD and deployed to
+  the test server. Feature work on any branch, merge to v2 to deploy. v2 pushed from
+  overhaul-session at user's request.
+
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. Diagram engine build-out (plan §2 recommendation: Svelte-native SVG, symbols from
    tscircuit/schematic-symbols; PoC at /app/diagram-poc).
-2. wt-theme extraction of the density layer (plan §5 candidates).
+2. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
 3. Any Phase 1+ gated feature from plan §4.
-4. Pushing this branch / wiring Dokploy (deploy is push-triggered once Dokploy access lands).
 
 ## Resume instructions (fresh context)
 1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.
