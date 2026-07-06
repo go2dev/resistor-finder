@@ -6,7 +6,6 @@ import { installEngineResultDiagrams } from '$lib/adapters/engine-result-diagram
 import { ensureJlcBasicCatalogLoaded } from '$lib/adapters/jlc-basic-catalog-browser';
 import { ensureLegacyMainScriptLoaded } from '$lib/adapters/legacy-main-script-browser';
 import { ensureResistorUtilsLoaded } from '$lib/adapters/resistor-utils-browser';
-import { ensureSchematicLoaded } from '$lib/adapters/schematic-browser';
 import { reassertTheme } from '$lib/stores/app-state';
 
 const injected = new Set<string>();
@@ -29,7 +28,7 @@ async function injectOnce(src: string): Promise<void> {
 }
 
 /**
- * Boots repo-root balanced attenuator flow (`balanced-attenuator.html` parity): resistor-utils → catalog → engine → diagram-export → common-ui → `script.js` → schematic.
+ * Boots repo-root balanced attenuator flow (`balanced-attenuator.html` parity): resistor-utils → catalog → engine → diagram-export → common-ui → `script.js`; result schematics render via the app diagram engine (no schematic.js).
  * Requires matching DOM ids and `document.body.dataset.page === 'balanced-attenuator'`.
  */
 export async function mountBalancedAttenuatorLegacy(): Promise<void> {
@@ -49,7 +48,6 @@ export async function mountBalancedAttenuatorLegacy(): Promise<void> {
 	await injectOnce(commonUiUrl);
 
 	await ensureLegacyMainScriptLoaded();
-	await ensureSchematicLoaded();
 
 	// script.js runs its own initializeTheme() against the legacy 'theme'
 	// localStorage key, clobbering the app's data-theme — undo that.
