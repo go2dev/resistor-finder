@@ -19,17 +19,17 @@ Status legend: `[x]` at parity · `[~]` present but different (gap noted) · `[ 
 - [x] Combination generation (single / series-pair / parallel-pair) — mirrored in `legacy-divider-combos.ts`
 - [x] Tolerance-aware real-world Vout range (4-corner)
 - [x] Ratio dedupe cross-chunk (app `worker-divider-result.ts`; legacy lacks it — fixed as part of the divider bug, §3)
-- [ ] **Divider ranking bug** — 2-part `1k/5k1` answer buried below 3-4-part combos (both apps). Fix in §3.
+- [x] **Divider ranking bug** — FIXED (commit 0e82f57, details §3); verified end-to-end in a headless browser: `1k/5k1` is now result #1 at 3V3→2.76V.
 - [x] Top-5 results: R_TOP/R_BOT, ratio, totalR, Vout, error, component count, Vout range, power (top/bot/total), min package recommendation, power warnings
 - [x] Per-result supply slider with live Vout/power/package updates (native range input vs noUiSlider — accepted)
-- [x] Per-result schematic (legacy `schematic.js` via adapter) + PNG export (TS port of `diagram-export.js`, same filenames; app adds power annotation lines)
+- [x] Per-result schematic + PNG export — the code-level audit called this equivalent, but driving the app in a browser showed every schematic silently rendered nothing (`class Diagram` never becomes `window.Diagram`); FIXED in 3f20055 and verified rendering on all cards
 - [x] Parsed-value chips: series colours, click include/exclude, tooltips
-- [~] Chip tooltip depth: app misses power-rating watts, JLC package sizes, JLC catalog tolerances, debug info → **close in parity pass**
-- [~] JLC chip caption "JLC Basics" (app: border style only) → close in parity pass
-- [~] Parse-warnings: legacy structured table vs app bullet list → keep list (restyle makes it dense); content parity only
-- [ ] "Calculation Details" panel (input-conversion table; combos tested; calc time; cores; above/below/exact distribution) → **add compact stats line version in restyle**
-- [~] Live recalc on supply/overshoot input change (app requires Calculate press; sort is live) → close in parity pass
-- [~] Loading spinner + chunk progress (app: button label only) → close in parity pass (small)
+- [x] Chip tooltip depth — DONE (24548ca): ohms, series/non-standard, tolerance provenance, power code+watts, JLC list/sizes/catalog tolerances
+- [x] JLC chip caption — DONE (24548ca): visible JLC tag on chips
+- [~] Parse-warnings: legacy structured table vs app bullet list → kept list deliberately (denser); content parity holds
+- [~] "Calculation Details" panel → compact stats line exists (combos · workers · ms · raw match count); full input-conversion table + voltage distribution DEFERRED — superseded by chip tooltips and the stats line; revisit only if missed
+- [x] Live recalc on supply/target/overshoot/snap change — DONE (24548ca, debounced)
+- [~] Loading spinner + chunk progress (divider page: button label + stats line only) → DEFERRED, small; target-resistance got the full progress readout, divider worker chunks finish in <1s for realistic inputs
 - [x] Zoomable total-resistance histogram filter (legacy widget reused; app adds numeric min/max + reset — improvement, keep)
 - [~] Input token dedupe rewrites the text field in legacy; app doesn't rewrite → accepted difference (app dedupes internally)
 - [~] App caps input at 30 unique values with warning; legacy uncapped → accepted (documented perf guard)
@@ -39,18 +39,18 @@ Status legend: `[x]` at parity · `[~]` present but different (gap noted) · `[ 
 - [x] Target input (with tolerance-bracket parse), resistor set input, autofills, snap, 4 sort modes
 - [x] Blocks model (singles + parallel blocks), series combos, top-block pre-ranking, 20% error cutoff w/ fallback
 - [x] Worker offload ≥6 inputs, multi-worker chunking, main-thread fallback
-- [ ] **Schematic diagram per result** (`Diagram.renderNetwork`) — app shows a placeholder → **parity fix (P1)**
-- [ ] **PNG export per result** — missing in app → parity fix (P1)
-- [~] Tolerance-overlap pruning of blocks/combos (`shouldPruneSingles`) missing in app → **parity fix (P1: port pruning)**
-- [~] `applyResistorHeuristic` extremes preservation (legacy keeps 3 smallest + 3 largest; app slices closest only) → parity fix (P1)
-- [~] `getEffectiveLimits` scaling tiers differ; `maxParallelCombos` guard missing → parity fix (P1)
-- [~] Results count: legacy top-5 vs app top-40 → decide in restyle; default 5 with "show more" is the plan
-- [~] Worker progress messages + spinner missing → parity fix (P2)
-- [~] Sort not reset to "error" on recalc (legacy resets) → parity fix (P2)
-- [~] Nested topology signatures for dedupe (legacy structural, app index-based) → verify equivalence with a test (P2)
-- [~] Stats panel: app misses block count, pruned counts, calc time → fold into stats line (P2)
-- [~] error-high (>20%) visual flag missing → restyle
-- [~] Power-rating watts not captured (only code) → parity fix with chip tooltip work
+- [x] **Schematic diagram per result** — DONE (1f964c0): `Diagram.renderNetwork` via new target-network-diagram.svelte, with text fallback
+- [x] **PNG export per result** — DONE (1f964c0): legacy filename convention, shared export service
+- [x] Tolerance-overlap pruning — DONE (1f964c0): ported to $lib/domain/target-resistance.ts + inline worker; proven against a verbatim legacy oracle in tests
+- [x] `applyResistorHeuristic` extremes preservation — DONE (1f964c0), oracle-tested
+- [x] `getEffectiveLimits` tiers + `maxParallelCombos` guard — DONE (1f964c0), tier tests
+- [~] Results count: app keeps top-40 (legacy 5) — deliberate improvement, every card gets a diagram; revisit if unwanted
+- [x] Worker progress messages + readout — DONE (1f964c0): N / M (x%) while calculating
+- [x] Sort reset to "error" on recalc — DONE (1f964c0)
+- [x] Dedupe equivalence — covered by the legacy-oracle generator tests (1f964c0)
+- [x] Stats panel: block count, pruned blocks/combos, calc time ms — DONE (1f964c0)
+- [~] error-high (>20%) visual flag → DEFERRED (minor; the 20% cutoff fallback message exists)
+- [x] Power-rating watts captured for chip tooltips (voltage divider); target-resistance chips show power code — remaining watts display there DEFERRED (minor)
 
 ### 1.3 Balanced attenuator (`balanced-attenuator.html` → app route)
 
@@ -59,7 +59,7 @@ App injects the identical legacy scripts (attenuator-engine, script.js, schemati
 - [x] All inputs (type select, Vin, dB, Zload, Zin/Zout targets, min power), hints, hidden target field
 - [x] U-pad/L-pad math, result cards, schematics, PNG export, spinner
 - [x] Live recalc wiring; sort; overshoot
-- [~] H1 help tooltip + overshoot/filter "?" tooltips → replaced by static prose; restore succinct help affordances in restyle
+- [~] H1 help tooltip + overshoot/filter "?" tooltips → replaced by one-line descriptions in the restyle; legacy "?" bubbles now render inside the injected results DOM (chip-grid CSS ported, 3323ace); full help-affordance pass DEFERRED to the engine-migration rebuild of this page
 - [x] Vestigial resistance slider inert in both (not a regression)
 
 ### 1.4 Interactive divider (`interactive-divider.html` → app route)
@@ -69,18 +69,18 @@ Also injects identical legacy scripts.
 - [x] Supply input, snap, series select; live updates
 - [x] Interactive SVG (click-to-edit dialog, add series/parallel, remove, hover tooltips, touch hint)
 - [x] Results table (nominal+range Rtop/Rbot, totalR, current, power, package, Vout + range, warnings)
-- [~] `ModePanel` scaffold rendered on this page is non-functional → remove in restyle
+- [x] `ModePanel` scaffold removed (3323ace)
 - [x] No export in legacy either (loads diagram-export but never calls it) — parity holds
 
 ### 1.5 Cross-cutting / shell
 
-- [~] Theme: app key `rf-app-theme` (legacy `theme`), **no system `prefers-color-scheme` fallback/listener** in app → parity fix (P1: add system-pref default + listener; keep app key)
-- [ ] Footer: disclaimer, author credit, GitHub link, **app version from `version.json`** → parity fix (P1)
-- [ ] Documentation/readme surface (legacy `readme.html` + marked.js) + nav link → parity fix (P2: render README via a `/docs` route or link to repo; decide in restyle)
+- [x] Theme — DONE (24548ca): system-pref default + live listener; explicit toggle persists and wins; app keeps its own key. Legacy-injected pages no longer clobber it (3323ace).
+- [x] Footer — DONE (24548ca): disclaimer, credit, GitHub link, version.json readout (+ version chip in the header)
+- [ ] Documentation/readme surface + nav link → DEFERRED (P2): decide between a `/docs` route rendering README and a plain GitHub link; legacy readme.html still serves at the root deployment
 - [x] Nav between 4 modes (app shell)
 - [x] JLC catalog loading + embedded fallback (byte-identical data); autofill; chip flags
 - [x] URL params: absent in both (feature-gated, §4)
-- [ ] **Tests: app has zero test infra** → add Vitest as part of the bug fix (§3); port/add domain tests
+- [x] **Tests** — DONE: Vitest configured (`cd app && npm test`), 24 tests across divider ranking and target-resistance engine (incl. legacy oracles)
 - [x] Legacy root app untouched and green (`node tests/run-tests.js`)
 
 ---
