@@ -9,10 +9,20 @@ import { chromium } from 'playwright';
 const PORT = 4173;
 const BASE = `http://localhost:${PORT}/app`;
 
+// detached → own process group, so we can kill npx AND the vite child it
+// spawns (plain preview.kill() leaves vite holding the port for the next run)
 const preview = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
 	cwd: new URL('..', import.meta.url).pathname,
-	stdio: 'pipe'
+	stdio: 'pipe',
+	detached: true
 });
+const stopPreview = () => {
+	try {
+		process.kill(-preview.pid, 'SIGTERM');
+	} catch {
+		preview.kill();
+	}
+};
 await new Promise((resolve, reject) => {
 	preview.stdout.on('data', (d) => d.toString().includes('Local:') && resolve());
 	preview.stderr.on('data', (d) => process.stderr.write(d));
@@ -42,7 +52,23 @@ await page.locator('button:has-text("Calculate")').first().click();
 await page.waitForTimeout(4000);
 const body = (await page.textContent('body')).replace(/\s+/g, ' ');
 check('divider: 1k/5k1 two-part answer displayed', /R_TOP:\s*1K\s*=\s*1K.*R_BOT:\s*5\.1K/.test(body));
-check('divider: result schematics render', (await page.locator('.diagram-surface svg').count()) >= 1);
+check('divider: result schematics render (engine)', (await page.locator('.diagram-surface svg[role="img"]').count()) >= 1);
+
+// Engine per-part tooltip: hover the first resistor in the first card.
+await page.locator('.diagram-surface svg [role="button"]').first().hover();
+check('divider: per-part V/I/P tooltip on hover', (await page.locator('text=/V across:/').count()) >= 1);
+
+// PNG export must produce an actual non-trivial download.
+const [download] = await Promise.all([
+	page.waitForEvent('download', { timeout: 10000 }),
+	page.locator('button:has-text("Download diagram PNG")').first().click()
+]);
+const pngPath = await download.path();
+const pngSize = pngPath ? (await import('node:fs')).statSync(pngPath).size : 0;
+check(
+	'divider: PNG export downloads a real file',
+	download.suggestedFilename().endsWith('.png') && pngSize > 5000
+);
 
 // 2. Target resistance: results, diagrams, PNG buttons.
 await page.goto(`${BASE}/target-resistance`, { waitUntil: 'domcontentloaded' });
@@ -70,5 +96,5 @@ check('no page errors across smoke run', pageErrors.length === 0);
 if (pageErrors.length) console.log('page errors:', pageErrors.join('\n'));
 
 await browser.close();
-preview.kill();
+stopPreview();
 process.exit(failures.length ? 1 : 0);
