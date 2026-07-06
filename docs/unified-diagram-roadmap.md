@@ -1,64 +1,60 @@
-# Port plan & unified diagramming roadmap
+# Unified diagramming — current state
 
-This file captures agreed sequencing for the **framework app** (`app/`, base path `/app`) running **in parallel** with **legacy static pages** at the repo root.
+Updated 2026-07-06 after the diagram-engine build-out (docs/diagram-engine-brief.md).
+Historical sequencing that used to live in this file is preserved at the bottom.
 
-## Overall port plan (unchanged)
+## The engine (current)
 
-1. **Keep** current legacy HTML/JS pages working at repo root.
-2. **Framework app** lives under `app/` and is served under **`/app`** (see `app/svelte.config.js` → `paths.base`).
-3. Migrate **shell + shared UI state** first: navigation, theme, shared inputs/results containers.
-4. Keep **`schematic.js`** as the diagram engine initially; load it via **`$lib/adapters/schematic-browser`** (repo-root script). Replace with a typed facade later if useful.
-5. **Migrate one mode at a time**, in this order:
-   - Voltage Divider  
-   - Interactive Divider  
-   - Balanced Attenuator  
-   - Target Resistance  
-6. **PNG export**: use the framework **`$lib/services/diagram-export`** (`exportSvgToPng`) as the single implementation inside `app/`. Legacy still uses `diagram-export.js` until parity tests pass.
-7. After parity: **remove legacy DOM string-render paths** and consolidate export/diagram wiring.
+All four app pages draw schematics with the **app diagram engine** at
+`app/src/lib/diagram/engine/` — Svelte components emitting SVG, no renderer
+library (decision record: `docs/overhaul-plan.md` §2).
 
-## Unified diagramming system — goal
+| Piece | File | Role |
+|-------|------|------|
+| Symbols & typography | `engine/symbols.ts` | Single source for resistor geometry (46px body, amp 6, 5 teeth, 2px stroke), dots/terminals/ground, and all diagram text styles (inline styles so text survives SVG→PNG serialization). The typography pass plugs in here. |
+| Model | `engine/model.ts` | `NetNode` series/parallel trees with optional per-part refs; `networkToNetNode` bridges UI `Network` rows (legacy worker combos arrive via `legacy-section-network.ts`). |
+| Layout | `engine/layout.ts` | Pure recursive layout + per-part V/I/P annotation; `layoutCircuit` (vertical rail with junctions), `layoutNetwork` (standalone block), `transposeBlock` (horizontal orientation), bus glyphs for hit-testing. Unit-tested invariants (containment, no-overlap, centring, stubs) in `engine/engine.test.ts`. |
+| Parts | `engine/resistor-part.svelte`, `engine/part-tooltip.svelte` | The one place a resistor is drawn (both orientations); shared tooltip. |
+| Renderers | `engine/network-schematic.svelte` | Vertical circuit (divider, U/L-pad stacks): supply/tap/ground, caption, `tapVoltage` display override, `tapLoad` (Z_load box), optional interactivity (part click, insert-series strips, bus tooltips). |
+| | `engine/network-block-schematic.svelte` | Standalone two-terminal network + measurement bracket (target resistance). |
+| | `engine/upad-schematic.svelte` | Balanced U-pad (horizontal legs, vertical shunt). |
 
-One coherent way to:
+### Per-page wiring
 
-- Mount/clear diagrams per result row  
-- Drive PNG export from **structured domain data** (not scraping legacy DOM)  
-- Share styling/theming hooks once multiple modes draw schematics  
+- **Voltage divider** — `components/diagrams/divider-schematic.svelte` renders result cards; PNG export via `services/diagram-export.ts` (`inkColor` resolves currentColor for both themes; canvas widens to fit annotation lines).
+- **Interactive divider** — native Svelte page on the engine's interactive props; tree state + edit ops in `domain/interactive-divider.ts`. Only the legacy `ResistorUtils` parser is still loaded (input notation parity).
+- **Balanced attenuator** — page is still legacy-injected (script.js computes), but `adapters/engine-result-diagram.ts` overrides the `renderResultDiagram` global so result schematics are engine mounts (U-pad stack, L-pad with Z_load). schematic.js is no longer loaded anywhere in the app.
+- **Target resistance** — `components/diagrams/target-network-diagram.svelte` converts `ComboNode` trees and renders `NetworkBlockSchematic`.
 
-That “unified system” is a **feature milestone**, not the first milestone.
+### PNG export rules
 
-## Prerequisites (do these before designing the full unified diagram API)
+Engine SVGs draw with `currentColor` + inline text styles. Serialization
+loses app CSS, so exports either pass `inkColor` (app export service) or rely
+on currentColor defaulting to black (legacy diagram-export.js path on the
+attenuator page). Accent-coloured elements use inline `var(--…, fallback)`
+styles so a fallback colour survives standalone rendering. Always verify the
+actual downloaded PNG in both themes.
 
-1. **Stable domain outputs per mode**  
-   Each route should expose a small explicit shape for “what to draw” (sections, labels, supply/target). Export annotation lines should be derived from that same shape.
+### Gallery / visual regression
 
-2. **Shared diagram host pattern**  
-   One predictable mount point and lifecycle in the UI (clear container → render → optional teardown). Implemented incrementally via shared components/helpers under `app/src/lib/components/diagrams/` and `app/src/lib/diagram/`.
+`/app/diagram-poc` (unlinked route) exercises every renderer — check it after
+touching symbols or layout. `cd app && npm run smoke` drives all four pages
+including tooltips and real PNG downloads.
 
-3. **Single load path for `schematic.js`**  
-   All framework modes should use `ensureSchematicLoaded()` (or a thin wrapper), not one-off script tags inside Svelte routes.
+## Legacy root site
 
-4. **Shell/base-path/theme working**  
-   So asset URLs, navigation, and future stroke/colour tokens do not need per-page hacks.
+The root static pages (`index.html`, `interactive-divider.html`, …) keep
+using repo-root `schematic.js` + `diagram-export.js` indefinitely — do not
+migrate or restyle them. Known root-site bug flagged 2026-07-06: the
+attenuator result download button has a broken inline onclick
+(JSON.stringify'd kind terminates the HTML attribute); fixed app-side only.
 
-## Safe to defer
+## Historical port plan (completed)
 
-- A heavy **abstract Diagram façade** over every `Diagram` method — wait until at least **two** modes (e.g. Voltage Divider + Interactive Divider) share the same host + data patterns.
-- **Deleting** legacy `diagram-export.js` or merging it with the TS service — after automated/manual parity checks.
-
-## Suggested sequencing toward “unified diagrams”
-
-1. Finish **Voltage Divider parity** in `app/` (inputs, workers/filters, richer result model as needed).  
-2. Port **Interactive Divider** (exercises interactive schematic paths).  
-3. Define **narrow typed helpers** (mount, export metadata per mode) where duplication is obvious.  
-4. Generalise into a **unified diagram module** only when the helpers stabilize.
-
-## Related paths
-
-| Area | Location |
-|------|----------|
-| Framework PNG export | `app/src/lib/services/diagram-export.ts` |
-| Legacy PNG export (until parity) | `diagram-export.js` |
-| Schematic engine | `schematic.js` (repo root) |
-| Framework loader | `app/src/lib/adapters/schematic-browser.ts` |
-| Divider wiring | `app/src/lib/adapters/voltage-divider-diagram.ts` |
-| E-series payload for workers | `app/src/lib/domain/resistor-series-data.json` (regenerate from `resistor-utils.js` if series tables change) |
+The original sequencing: shell first; keep `schematic.js` via
+`$lib/adapters/schematic-browser` while migrating modes one at a time
+(Voltage Divider → Interactive Divider → Balanced Attenuator → Target
+Resistance); then consolidate export and remove legacy adapters. All steps
+completed 2026-07-06; the schematic.js adapters
+(`schematic-browser.ts`, `voltage-divider-diagram.ts`,
+`interactive-divider-browser.ts`) have been removed from the app.

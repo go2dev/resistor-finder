@@ -121,6 +121,8 @@ Ordering principle: correctness → parity → deploy-readiness first (this sess
 
 **Phase 1 — gated on sign-off (diagram engine):** build-out of the Svelte SVG engine; migrate voltage-divider result schematics, then interactive divider (most interactivity value), then attenuator + target-resistance networks; retire `schematic.js` after parity tests. *Dependency: theme/restyle tokens should be settled first so engine styling is written against final CSS variables once.*
 
+> **DONE 2026-07-06** (sign-off received, docs/diagram-engine-brief.md executed): engine graduated to `app/src/lib/diagram/engine/`; all four pages migrated in the order above; app-side schematic.js adapters removed (root site untouched); `/app/diagram-poc` is now the engine gallery. State record: `docs/unified-diagram-roadmap.md`.
+
 **Phase 2 — result-set UX (needs restyle, benefits from engine, no hard dependency):**
 1. **Histogram of result distribution** across the resistance range — extends the existing zoomable filter; do first, it's the substrate for the next item.
 2. **Total-resistance filter refinement** — split lookup-zone vs filter control per the "D3 zoomable range slider" spec (noUiSlider + d3-zoom, three domains, wheel/pinch, drag-pan over histogram, Fit buttons, keyboard/a11y). Notion child page unreachable from this machine — implement from the summary in the brief.
