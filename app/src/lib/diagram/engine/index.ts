@@ -20,6 +20,7 @@ export {
 	transposeBlock,
 	type AnyResistorGlyph,
 	type BlockLayout,
+	type BusGlyph,
 	type DotGlyph,
 	type HBlockLayout,
 	type HResistorGlyph,

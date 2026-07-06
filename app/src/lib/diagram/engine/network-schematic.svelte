@@ -23,7 +23,11 @@
 		tapAfterIndex = 0,
 		tapLabel = 'Vout',
 		supplyLabel,
-		showTap = true
+		showTap = true,
+		partTooltip,
+		onPartClick,
+		onInsertSeries,
+		busTooltip
 	}: {
 		supplyVoltage: number;
 		sections: NetNode[];
@@ -33,6 +37,14 @@
 		/** Defaults to `Vin {supplyVoltage}V`. */
 		supplyLabel?: string;
 		showTap?: boolean;
+		/** Override the default V/I/P tooltip (lines + optional extra class). */
+		partTooltip?: (glyph: AnyResistorGlyph) => { lines: string[]; class?: string };
+		/** Click / Enter / Space on a resistor (glyph id encodes the tree path). */
+		onPartClick?: (id: string) => void;
+		/** When set, renders insert-series strips at each resistor's leads. */
+		onInsertSeries?: (id: string, where: 'above' | 'below') => void;
+		/** Hover tooltip for parallel bus bars (id is the parallel node's id). */
+		busTooltip?: (id: string) => string[] | null;
 	} = $props();
 
 	const layout = $derived(layoutCircuit(sections, supplyVoltage));
@@ -45,7 +57,7 @@
 		return (below / grand) * supplyVoltage;
 	});
 
-	let tooltip = $state<{ x: number; y: number; lines: string[] } | null>(null);
+	let tooltip = $state<{ x: number; y: number; lines: string[]; class?: string } | null>(null);
 	let hoveredId = $state<string | null>(null);
 	let wrapEl: HTMLElement | null = $state(null);
 	let svgEl: SVGSVGElement | null = $state(null);
@@ -55,15 +67,21 @@
 		return g.ref ? [g.ref, value] : [value];
 	}
 
+	function glyphTooltip(g: AnyResistorGlyph): { lines: string[]; class?: string } {
+		return partTooltip ? partTooltip(g) : { lines: partTooltipLines(g) };
+	}
+
+	function cursorPos(event: PointerEvent): { x: number; y: number } | null {
+		const rect = wrapEl?.getBoundingClientRect();
+		if (!rect) return null;
+		return { x: event.clientX - rect.left + 12, y: event.clientY - rect.top + 12 };
+	}
+
 	function showTooltip(g: AnyResistorGlyph, event: PointerEvent) {
 		hoveredId = g.id;
-		const rect = wrapEl?.getBoundingClientRect();
-		if (!rect) return;
-		tooltip = {
-			x: event.clientX - rect.left + 12,
-			y: event.clientY - rect.top + 12,
-			lines: partTooltipLines(g)
-		};
+		const pos = cursorPos(event);
+		if (!pos) return;
+		tooltip = { ...pos, ...glyphTooltip(g) };
 	}
 
 	function showTooltipAtGlyph(g: AnyResistorGlyph) {
@@ -73,14 +91,24 @@
 		tooltip = {
 			x: (g.cx + 16) * scale,
 			y: ((g.yTop + g.yBottom) / 2) * scale,
-			lines: partTooltipLines(g)
+			...glyphTooltip(g)
 		};
+	}
+
+	function showBusTooltip(id: string, event: PointerEvent) {
+		const lines = busTooltip?.(id);
+		const pos = cursorPos(event);
+		if (!lines || !pos) return;
+		tooltip = { ...pos, lines };
 	}
 
 	function hideTooltip() {
 		hoveredId = null;
 		tooltip = null;
 	}
+
+	const STRIP_HALF_H = 5;
+	const STRIP_HALF_W = 22;
 </script>
 
 <div bind:this={wrapEl} class="relative inline-block w-full max-w-md">
@@ -158,8 +186,52 @@
 				onLeave={hideTooltip}
 				onFocus={showTooltipAtGlyph}
 				onBlur={hideTooltip}
+				onActivate={onPartClick ? (glyph) => onPartClick(glyph.id) : undefined}
 			/>
 		{/each}
+
+		<!-- insert-series strips (interactive editors only) -->
+		{#if onInsertSeries}
+			{#each layout.resistors as g (`strip-${g.id}`)}
+				{#each [{ where: 'above' as const, y: g.yTop }, { where: 'below' as const, y: g.yBottom }] as strip (strip.where)}
+					<rect
+						class="engine-strip"
+						role="button"
+						tabindex="0"
+						aria-label="Insert resistor in series {strip.where} {formatResistorValue(g.value)}"
+						x={g.cx - STRIP_HALF_W}
+						y={strip.y - STRIP_HALF_H}
+						width={2 * STRIP_HALF_W}
+						height={2 * STRIP_HALF_H}
+						onclick={() => onInsertSeries(g.id, strip.where)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								onInsertSeries(g.id, strip.where);
+							}
+						}}
+					/>
+				{/each}
+			{/each}
+		{/if}
+
+		<!-- parallel bus hover targets -->
+		{#if busTooltip}
+			{#each layout.buses as bus, i (`${bus.id}-${i}`)}
+				<rect
+					class="engine-bus-hit"
+					role="img"
+					aria-label="Parallel group bus"
+					x={Math.min(bus.x1, bus.x2) - 2}
+					y={Math.min(bus.y1, bus.y2) - 5}
+					width={Math.abs(bus.x2 - bus.x1) + 4}
+					height={Math.abs(bus.y2 - bus.y1) + 10}
+					onpointerenter={(e) => showBusTooltip(bus.id, e)}
+					onpointermove={(e) => showBusTooltip(bus.id, e)}
+					onpointerleave={hideTooltip}
+				/>
+			{/each}
+		{/if}
 
 		<!-- ground -->
 		<path
@@ -171,6 +243,25 @@
 	</svg>
 
 	{#if tooltip}
-		<PartTooltip x={tooltip.x} y={tooltip.y} lines={tooltip.lines} />
+		<PartTooltip x={tooltip.x} y={tooltip.y} lines={tooltip.lines} class={tooltip.class ?? ''} />
 	{/if}
 </div>
+
+<style>
+	.engine-strip {
+		fill: transparent;
+		stroke: none;
+		cursor: row-resize;
+		outline: none;
+	}
+	.engine-strip:hover,
+	.engine-strip:focus-visible {
+		fill: var(--wt-color-brand-design, #6d5ae6);
+		opacity: 0.18;
+	}
+	.engine-bus-hit {
+		fill: transparent;
+		stroke: none;
+		cursor: help;
+	}
+</style>

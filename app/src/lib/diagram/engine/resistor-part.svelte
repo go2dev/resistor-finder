@@ -22,7 +22,8 @@
 		onPointer,
 		onLeave,
 		onFocus,
-		onBlur
+		onBlur,
+		onActivate
 	}: {
 		glyph: AnyResistorGlyph;
 		labelLines: string[];
@@ -33,6 +34,8 @@
 		onLeave: () => void;
 		onFocus: (glyph: AnyResistorGlyph) => void;
 		onBlur: () => void;
+		/** Click / Enter / Space on the part (interactive editors). */
+		onActivate?: (glyph: AnyResistorGlyph) => void;
 	} = $props();
 
 	const LINE_H = 13;
@@ -97,6 +100,13 @@
 	onpointerleave={onLeave}
 	onfocus={() => onFocus(glyph)}
 	onblur={onBlur}
+	onclick={() => onActivate?.(glyph)}
+	onkeydown={(e) => {
+		if (onActivate && (e.key === 'Enter' || e.key === ' ')) {
+			e.preventDefault();
+			onActivate(glyph);
+		}
+	}}
 >
 	<rect {...geo.hit} fill="transparent" stroke="none" />
 	<path

@@ -86,6 +86,26 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   migrations in roadmap order, PNG-export gotchas, decisions to surface incl. the
   U-pad differential-vs-tap-to-ground Vout question).
 
+### 2026-07-06 — session 2: diagram-engine build-out (docs/diagram-engine-brief.md)
+- Branch: feat/diagram-engine (from v2). Baseline re-verified green before work.
+- ENGINE GRADUATED (b43a33a): PoC promoted to app/src/lib/diagram/engine/ —
+  symbols.ts (single geometry+typography source; inline-style labels so text
+  survives SVG serialization), model.ts (NetNode + refs + networkToNetNode
+  bridge), layout.ts (tested recursive layout + layoutNetwork standalone
+  blocks + transposeBlock horizontal orientation), shared resistor-part /
+  part-tooltip components, network-schematic + upad-schematic renderers.
+  svelte-schematic-divider retired (superseded by NetworkSchematic w/ refs).
+  Tests 34 → 43 (engine/engine.test.ts). vitest.config.ts gained $lib alias.
+- VD RESULT CARDS MIGRATED (b3cc8c1): divider-schematic.svelte renders cards
+  on the engine (live Vin/Vout at slider supply, V/I/P tooltips). PNG export:
+  inkColor option resolves currentColor → both themes export ink-on-white
+  (verified actual downloads); canvas now widens to fit annotation lines
+  (power line was clipped, legacy too). Smoke extended: 9 checks incl.
+  tooltip + real PNG download; smoke script no longer leaks its vite preview
+  (was blocking port 4173 on repeated runs — kill process group).
+- Deployed via v2 (fc90c98). Decision #3 (card tooltips at live slider
+  supply) implemented as likely-yes per brief — flagged for owner.
+
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
 2. Any Phase 2/3 gated feature from plan §4 (histogram, zoomable filter, URL params,

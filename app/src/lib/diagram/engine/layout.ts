@@ -40,6 +40,8 @@ export type AnyResistorGlyph = ResistorGlyph | HResistorGlyph;
 
 export type WireGlyph = { x1: number; y1: number; x2: number; y2: number };
 export type DotGlyph = { x: number; y: number };
+/** One bus bar of a parallel group (two per group); id is the group's node id. */
+export type BusGlyph = { id: string; x1: number; y1: number; x2: number; y2: number };
 type Point = { x: number; y: number };
 
 export type NetworkLayout = {
@@ -48,6 +50,7 @@ export type NetworkLayout = {
 	/** Multi-segment wire runs (SVG path data) — corners render as proper mitred joins */
 	paths: string[];
 	dots: DotGlyph[];
+	buses: BusGlyph[];
 	width: number;
 	height: number;
 };
@@ -69,6 +72,7 @@ type Sink = {
 	wires: WireGlyph[];
 	polylines: Point[][];
 	dots: DotGlyph[];
+	buses: BusGlyph[];
 };
 
 const toPathData = (run: Point[]): string =>
@@ -137,6 +141,15 @@ function layoutNode(
 	sink.wires.push({ x1: cx, y1: busBottom, x2: cx, y2: y + height });
 	sink.dots.push({ x: cx, y: busTop }, { x: cx, y: busBottom });
 
+	// bus extents for hit-testing (the bars themselves render via the
+	// per-branch corner paths below)
+	const busLeft = Math.min(cx, ...branchXs);
+	const busRight = Math.max(cx, ...branchXs);
+	sink.buses.push(
+		{ id: idPrefix, x1: busLeft, y1: busTop, x2: busRight, y2: busTop },
+		{ id: idPrefix, x1: busLeft, y1: busBottom, x2: busRight, y2: busBottom }
+	);
+
 	node.children.forEach((child, i) => {
 		const bx = branchXs[i];
 		const childHeight = nodeHeight(child);
@@ -175,7 +188,7 @@ export function layoutCircuit(
 	sections: NetNode[],
 	supplyVoltage: number
 ): NetworkLayout & { junctions: number[]; railX: number; topY: number; groundY: number } {
-	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [] };
+	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [], buses: [] };
 	const maxSectionWidth = Math.max(...sections.map(nodeWidth), COL_W);
 	const railX = maxSectionWidth / 2 + 72; // left margin fits the Vin label
 	const width = railX + maxSectionWidth / 2 + 130; // right margin fits the tap label
@@ -205,6 +218,7 @@ export function layoutCircuit(
 		wires: sink.wires,
 		paths: sink.polylines.map(toPathData),
 		dots: sink.dots,
+		buses: sink.buses,
 		width,
 		height: groundY + 26,
 		junctions,
@@ -219,6 +233,7 @@ export type BlockLayout = {
 	wires: WireGlyph[];
 	paths: string[];
 	dots: DotGlyph[];
+	buses: BusGlyph[];
 	width: number;
 	height: number;
 	/** Terminal points the caller wires into the surrounding circuit. */
@@ -233,7 +248,7 @@ export type HBlockLayout = Omit<BlockLayout, 'resistors'> & { resistors: HResist
  * building block for shapes that aren't a single vertical rail.
  */
 export function layoutNetwork(node: NetNode, volts = 0): BlockLayout {
-	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [] };
+	const sink: Sink = { resistors: [], wires: [], polylines: [], dots: [], buses: [] };
 	const width = nodeWidth(node);
 	const height = nodeHeight(node);
 	const cx = width / 2;
@@ -243,6 +258,7 @@ export function layoutNetwork(node: NetNode, volts = 0): BlockLayout {
 		wires: sink.wires,
 		paths: sink.polylines.map(toPathData),
 		dots: sink.dots,
+		buses: sink.buses,
 		width,
 		height,
 		entry: { x: cx, y: 0 },
@@ -277,6 +293,7 @@ export function transposeBlock(block: BlockLayout): HBlockLayout {
 		wires: block.wires.map((w) => ({ x1: w.y1, y1: w.x1, x2: w.y2, y2: w.x2 })),
 		paths: block.paths.map(transposePathData),
 		dots: block.dots.map((d) => ({ x: d.y, y: d.x })),
+		buses: block.buses.map((b) => ({ id: b.id, x1: b.y1, y1: b.x1, x2: b.y2, y2: b.x2 })),
 		width: block.height,
 		height: block.width,
 		entry: { x: block.entry.y, y: block.entry.x },
