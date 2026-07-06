@@ -1,0 +1,14 @@
+# resistor-finder — static site served by nginx.
+#
+# Ingress/TLS is handled by Dokploy/Traefik, so no host `ports:` are published.
+# Dokploy routes the configured domain to the `web` service on container port 80.
+#
+# For purely local verification: `docker compose up --build` then add a temporary
+# `ports: ["8080:80"]` to `web` and open http://localhost:8080.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped

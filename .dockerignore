@@ -1,0 +1,13 @@
+# Keep the image (and public web root) to just the runtime site assets.
+# Referenced at runtime and therefore NOT ignored: nuis/, data/, and the
+# root *.html / *.js / *.css / version.json files.
+.git
+.github
+tests
+scripts
+*.md
+*.demo
+Dockerfile
+docker-compose.yml
+.gitignore
+.DS_Store
