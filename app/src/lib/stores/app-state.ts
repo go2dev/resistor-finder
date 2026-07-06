@@ -25,21 +25,48 @@ export function setMode(mode: AppMode) {
 	currentMode.set(mode);
 }
 
-function readStoredTheme(): 'light' | 'dark' {
-	if (!browser) return 'light';
-	return localStorage.getItem('rf-app-theme') === 'dark' ? 'dark' : 'light';
+type Theme = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'rf-app-theme';
+
+function readStoredTheme(): Theme | null {
+	if (!browser) return null;
+	const stored = localStorage.getItem(THEME_STORAGE_KEY);
+	return stored === 'dark' || stored === 'light' ? stored : null;
 }
 
-function applyThemeToDocument(theme: 'light' | 'dark') {
+function systemTheme(): Theme {
+	if (!browser) return 'light';
+	return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyThemeToDocument(theme: Theme) {
 	if (!browser) return;
 	document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
 }
 
-export const appTheme = writable<'light' | 'dark'>(readStoredTheme());
+/** Follows the system preference until the user explicitly picks a theme. */
+export const appTheme = writable<Theme>(readStoredTheme() ?? systemTheme());
+
+/** Explicit user choice — persisted, stops following the system preference. */
+export function setTheme(theme: Theme) {
+	if (browser) localStorage.setItem(THEME_STORAGE_KEY, theme);
+	appTheme.set(theme);
+}
+
+export function toggleTheme() {
+	appTheme.update((current) => {
+		const next: Theme = current === 'dark' ? 'light' : 'dark';
+		if (browser) localStorage.setItem(THEME_STORAGE_KEY, next);
+		return next;
+	});
+}
 
 if (browser) {
-	appTheme.subscribe((theme) => {
-		localStorage.setItem('rf-app-theme', theme);
-		applyThemeToDocument(theme);
-	});
+	appTheme.subscribe(applyThemeToDocument);
+	window
+		.matchMedia?.('(prefers-color-scheme: dark)')
+		.addEventListener('change', (event) => {
+			if (!readStoredTheme()) appTheme.set(event.matches ? 'dark' : 'light');
+		});
 }

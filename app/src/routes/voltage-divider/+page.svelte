@@ -16,7 +16,7 @@
 		calculateDividerVoltageRangeForSupply,
 		getDividerPowerPresentation
 	} from '$lib/domain/divider-power';
-	import { parseRichResistorInputs } from '$lib/domain/parse-rich-resistors';
+	import { parseRichResistorInputs, type RichParsedResistor } from '$lib/domain/parse-rich-resistors';
 	import { formatResistorValue } from '$lib/domain/resistor';
 	import type { ParsedResistor } from '$lib/domain/resistor';
 	import {
@@ -60,7 +60,7 @@
 		id: string;
 		label: string;
 		active: boolean;
-		resistor: ParsedResistor;
+		resistor: RichParsedResistor;
 		series?: string | null;
 		tolerance?: number | null;
 		isJlcBasic?: boolean;
@@ -121,12 +121,28 @@
 			chip.source && chip.source !== 'value'
 				? `Parsed: ${chip.label} from ${chip.source} (${chip.resistor.input})`
 				: `Parsed: ${chip.label}`;
+		const explicitTolerance = chip.resistor.tolerance != null;
+		const toleranceLabel =
+			chip.tolerance != null
+				? `±${chip.tolerance}%${explicitTolerance ? '' : ' (series)'}`
+				: 'unknown';
 		const parts = [
 			parsedLine,
-			`Series: ${chip.series ?? 'unknown'}`,
-			`Tolerance: ${chip.tolerance != null ? `±${chip.tolerance}%` : 'unknown'}`
+			`${chip.resistor.value} Ω`,
+			chip.series ? `Series: ${chip.series}` : 'Non-standard value',
+			`Tolerance: ${toleranceLabel}`
 		];
-		if (chip.isJlcBasic) parts.splice(3, 0, 'JLC Basic');
+		if (chip.resistor.powerRating != null && chip.resistor.powerCode) {
+			parts.push(`Power code: ${chip.resistor.powerCode} (${chip.resistor.powerRating}W)`);
+		}
+		if (chip.isJlcBasic) {
+			parts.push('JLC PCB Basics list');
+			const meta = chip.resistor.jlcBasicMeta;
+			if (meta?.packages?.length) parts.push(`JLC basics sizes: ${meta.packages.join(', ')}`);
+			if (meta?.tolerances?.length) {
+				parts.push(`JLC catalog tolerance: ${meta.tolerances.map((t) => `${t}%`).join(', ')}`);
+			}
+		}
 		return parts.join('\n');
 	}
 
@@ -449,6 +465,28 @@
 	}
 
 	onMount(() => void calculate());
+
+	// Legacy parity: recalculate automatically when the electrical inputs or
+	// snap settings change (legacy wires supply/overshoot/snap to live recalc).
+	let liveRecalcTimer: ReturnType<typeof setTimeout> | undefined;
+	let liveRecalcArmed = false;
+	$effect(() => {
+		void supplyVoltage;
+		void targetVoltage;
+		void allowOvershoot;
+		void snapToSeries;
+		void snapSeriesPick;
+		if (!liveRecalcArmed) {
+			// Skip the initial run; onMount already calculates once.
+			liveRecalcArmed = true;
+			return;
+		}
+		clearTimeout(liveRecalcTimer);
+		liveRecalcTimer = setTimeout(() => {
+			if (!calculating) void calculate();
+		}, 400);
+		return () => clearTimeout(liveRecalcTimer);
+	});
 </script>
 
 <svelte:head>
@@ -632,6 +670,9 @@
 					>
 						<span class="h-2.5 w-2.5 rounded-full {seriesToneClass(chip.series)}"></span>
 						{chip.label}
+						{#if chip.isJlcBasic}
+							<span class="text-[9px] uppercase tracking-wide text-wt-muted-fg">JLC</span>
+						{/if}
 						<span class="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-40 -translate-x-1/2 whitespace-pre-line rounded-wt-box border-2 border-wt-border p-3 text-[11px] text-wt-ink {seriesTooltipToneClass(chip.series)} group-hover:block group-focus-visible:block">
 							{chipTooltipText(chip)}
 						</span>

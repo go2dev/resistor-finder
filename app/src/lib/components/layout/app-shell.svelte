@@ -1,13 +1,29 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import { SlidersHorizontal, Sigma, SquareChartGantt, Sun, Moon, Zap } from 'lucide-svelte';
 	import type { AppMode } from '$lib/stores/app-state';
-	import { appTheme, modeLabels, modeRoutes } from '$lib/stores/app-state';
+	import { appTheme, modeLabels, modeRoutes, toggleTheme } from '$lib/stores/app-state';
 	import { wtThemeTokens } from '$lib/wt-theme-tokens';
 	import { cn } from '$lib/utils';
 
 	let { children } = $props();
+
+	let appVersion = $state('dev');
+	const currentYear = new Date().getFullYear();
+
+	onMount(async () => {
+		try {
+			const response = await fetch(`${base}/version.json?cb=${Date.now()}`);
+			if (response.ok) {
+				const data = await response.json();
+				if (typeof data?.version === 'string') appVersion = data.version;
+			}
+		} catch {
+			// keep the "dev" fallback
+		}
+	});
 
 	function normalizedPath(pathname: string): string {
 		if (base && pathname.startsWith(base)) {
@@ -44,9 +60,6 @@
 		'target-resistance': Sigma
 	};
 
-	function toggleTheme() {
-		appTheme.update((t: 'light' | 'dark') => (t === 'dark' ? 'light' : 'dark'));
-	}
 </script>
 
 <div class="min-h-screen bg-wt-canvas text-wt-body">
@@ -98,5 +111,18 @@
 		<main class="wt-corner-squircle wt-shell-root rounded-wt-box p-6">
 			{@render children?.()}
 		</main>
+
+		<footer class="mt-6 text-center text-xs text-wt-muted-fg">
+			<p>Disclaimer: results are provided without warranty or verification. Use at your own risk!</p>
+			<p class="mt-1">
+				Made by <a class="underline hover:text-wt-ink" href="https://mynameis.dev" target="_blank" rel="noreferrer">Dev</a>
+				© <a class="underline hover:text-wt-ink" href="https://whatevertogether.net/" target="_blank" rel="noreferrer">Whatever Together</a>
+				{currentYear}
+			</p>
+			<p class="mt-1">
+				Source on <a class="underline hover:text-wt-ink" href="https://github.com/go2dev/resistor-finder" target="_blank" rel="noreferrer">GitHub</a>
+				· Version: {appVersion}
+			</p>
+		</footer>
 	</div>
 </div>
