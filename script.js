@@ -2727,10 +2727,20 @@ function filterAndSortResults(allResults, minResistance, maxResistance) {
     );
 
     const sortBy = document.getElementById('sortBy').value;
-    const sortedResults = [...filteredResults];
     const isBalancedAtt = isBalancedAttenuatorPage();
     const attKind = isBalancedAtt ? getAttenuatorKind() : null;
     const useAttenSort = isBalancedAtt && (attKind === 'u' || attKind === 'l');
+
+    if (!isBalancedAtt) {
+        // Voltage-divider display: collapse same-ratio duplicates surviving from
+        // separate worker chunks, then use the shared tolerance-aware ranking.
+        const deduped = ResistorUtils.dedupeDividerRatios(filteredResults);
+        return ResistorUtils.sortDividerResultsForDisplay(deduped, sortBy, {
+            supplyVoltage: calculator.supplyVoltage
+        }).slice(0, 5);
+    }
+
+    const sortedResults = [...filteredResults];
 
     if (sortBy === 'components') {
         sortedResults.sort((a, b) => {

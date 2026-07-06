@@ -448,5 +448,63 @@ const ResistorUtils = {
             }
         }
         return null;
+    },
+
+    // Nominal-error differences below this fraction of the supply voltage are
+    // physically meaningless (smaller than the Vout shift of even 0.1%-tolerance
+    // parts), so the error sort treats them as ties.
+    dividerErrorBucketFraction: 0.001,
+
+    // Collapse divider results that realise the exact same ratio, keeping the
+    // network with the fewest components (then the lowest total resistance).
+    dedupeDividerRatios(results) {
+        const byRatio = new Map();
+        for (const r of results) {
+            const key = (r.r2Value / (r.r1Value + r.r2Value)).toFixed(10);
+            const prev = byRatio.get(key);
+            if (
+                !prev
+                || r.componentCount < prev.componentCount
+                || (r.componentCount === prev.componentCount && r.totalResistance < prev.totalResistance)
+            ) {
+                byRatio.set(key, r);
+            }
+        }
+        return Array.from(byRatio.values());
+    },
+
+    // Display ranking for voltage-divider results. In 'error' mode, |error| is
+    // quantized into buckets of dividerErrorBucketFraction * supplyVoltage;
+    // within a bucket, fewer components win, then exact |error|, then total
+    // resistance — so a plain two-resistor answer is not buried under 3-4 part
+    // networks whose nominal advantage is smaller than any real-world tolerance.
+    sortDividerResultsForDisplay(results, sortBy, { supplyVoltage } = {}) {
+        const sorted = [...results];
+        if (sortBy === 'components') {
+            sorted.sort((a, b) => {
+                if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
+                return Math.abs(a.error) - Math.abs(b.error);
+            });
+            return sorted;
+        }
+        if (sortBy === 'totalResistanceAsc') {
+            sorted.sort((a, b) => a.totalResistance - b.totalResistance);
+            return sorted;
+        }
+        if (sortBy === 'totalResistanceDesc') {
+            sorted.sort((a, b) => b.totalResistance - a.totalResistance);
+            return sorted;
+        }
+        const eps = Math.abs(supplyVoltage) * this.dividerErrorBucketFraction || Number.EPSILON;
+        sorted.sort((a, b) => {
+            const bucketA = Math.floor(Math.abs(a.error) / eps);
+            const bucketB = Math.floor(Math.abs(b.error) / eps);
+            if (bucketA !== bucketB) return bucketA - bucketB;
+            if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
+            const errDiff = Math.abs(a.error) - Math.abs(b.error);
+            if (errDiff !== 0) return errDiff;
+            return a.totalResistance - b.totalResistance;
+        });
+        return sorted;
     }
 };

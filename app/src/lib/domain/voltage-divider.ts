@@ -89,7 +89,48 @@ export function generateNetworks(resistors: ParsedResistor[]): Network[] {
 	return networks;
 }
 
-export function sortDividerResults(results: DividerResult[], sortBy: SortBy): DividerResult[] {
+/**
+ * Nominal-error differences below this fraction of the supply voltage are
+ * physically meaningless (smaller than the Vout shift of even 0.1%-tolerance
+ * parts), so the error sort treats them as ties.
+ */
+export const DIVIDER_ERROR_BUCKET_FRACTION = 0.001;
+
+/**
+ * Collapse divider results that realise the exact same ratio, keeping the
+ * network with the fewest components (then the lowest total resistance).
+ * Same preference as the raw worker-result dedupe in worker-divider-result.ts.
+ */
+export function dedupeDividerResults(results: DividerResult[]): DividerResult[] {
+	const byRatio = new Map<string, DividerResult>();
+	for (const r of results) {
+		const denominator = r.top.total + r.bottom.total;
+		if (!Number.isFinite(denominator) || denominator <= 0) continue;
+		const key = (r.bottom.total / denominator).toFixed(10);
+		const prev = byRatio.get(key);
+		if (
+			!prev ||
+			r.componentCount < prev.componentCount ||
+			(r.componentCount === prev.componentCount && r.totalResistance < prev.totalResistance)
+		) {
+			byRatio.set(key, r);
+		}
+	}
+	return [...byRatio.values()];
+}
+
+/**
+ * In 'error' mode, |error| is quantized into buckets of
+ * DIVIDER_ERROR_BUCKET_FRACTION * supplyVoltage; within a bucket, fewer
+ * components win, then exact |error|, then total resistance — so a plain
+ * two-resistor answer is not buried under 3-4 part networks whose nominal
+ * advantage is smaller than any real-world tolerance.
+ */
+export function sortDividerResults(
+	results: DividerResult[],
+	sortBy: SortBy,
+	opts: { supplyVoltage?: number } = {}
+): DividerResult[] {
 	const sorted = [...results];
 	if (sortBy === 'components') {
 		sorted.sort((a, b) => {
@@ -106,18 +147,29 @@ export function sortDividerResults(results: DividerResult[], sortBy: SortBy): Di
 		sorted.sort((a, b) => b.totalResistance - a.totalResistance);
 		return sorted;
 	}
-	sorted.sort((a, b) => Math.abs(a.error) - Math.abs(b.error));
+	const eps =
+		Math.abs(opts.supplyVoltage ?? 0) * DIVIDER_ERROR_BUCKET_FRACTION || Number.EPSILON;
+	sorted.sort((a, b) => {
+		const bucketA = Math.floor(Math.abs(a.error) / eps);
+		const bucketB = Math.floor(Math.abs(b.error) / eps);
+		if (bucketA !== bucketB) return bucketA - bucketB;
+		if (a.componentCount !== b.componentCount) return a.componentCount - b.componentCount;
+		const errDiff = Math.abs(a.error) - Math.abs(b.error);
+		if (errDiff !== 0) return errDiff;
+		return a.totalResistance - b.totalResistance;
+	});
 	return sorted;
 }
 
 export function filterSortLimitDividerResults(
 	results: DividerResult[],
-	opts: { minR: number; maxR: number; sortBy: SortBy; limit: number }
+	opts: { minR: number; maxR: number; sortBy: SortBy; limit: number; supplyVoltage?: number }
 ): DividerResult[] {
 	const filtered = results.filter(
 		(r) => r.totalResistance >= opts.minR && r.totalResistance <= opts.maxR
 	);
-	const sorted = sortDividerResults(filtered, opts.sortBy);
+	const deduped = dedupeDividerResults(filtered);
+	const sorted = sortDividerResults(deduped, opts.sortBy, { supplyVoltage: opts.supplyVoltage });
 	return sorted.slice(0, opts.limit);
 }
 

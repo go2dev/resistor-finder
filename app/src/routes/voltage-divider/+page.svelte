@@ -160,7 +160,12 @@
 	const displayResults = $derived.by(() => {
 		const rng = parseTotalResistanceRange();
 		if (!allResults.length || !rng) return [];
-		return filterSortLimitDividerResults(allResults, { ...rng, sortBy, limit: 5 });
+		return filterSortLimitDividerResults(allResults, {
+			...rng,
+			sortBy,
+			limit: 5,
+			supplyVoltage: diagramSupply
+		});
 	});
 
 	const displayResultsSignature = $derived(
