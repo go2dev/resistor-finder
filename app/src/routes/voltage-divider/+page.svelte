@@ -32,6 +32,8 @@
 		ensureZoomableHistogramDepsLoaded,
 		type ZoomableHistogramApi
 	} from '$lib/adapters/zoomable-range-filter-browser';
+	import ResistanceHistogram from '$lib/components/filters/resistance-histogram.svelte';
+	import { logDomainOf } from '$lib/domain/range-filter-math';
 
 	let resistorValues = $state(
 		'1k, 2.2k, 3.3k, 4.7k, 10k, 22k, 5K11, 96C, EB1041, 100R(0.1%), 220R(5%), 4k7, 49R9, 73k2(10%), 0R, 8M2'
@@ -76,6 +78,12 @@
 	let zoomHistogramApi: ZoomableHistogramApi | null = null;
 
 	const histogramDomainSig = $derived(allResults.map((r) => r.totalResistance).join(','));
+
+	/** All raw match totals, ascending — the histogram substrate (recomputed once per calculate). */
+	const sortedTotals = $derived(
+		allResults.map((r) => r.totalResistance).sort((a, b) => a - b)
+	);
+	const totalsLogDomain = $derived(logDomainOf(sortedTotals));
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'error', label: 'Lowest error' },
@@ -604,6 +612,21 @@
 					Scroll or pinch on the histogram to zoom; drag to pan. Use the slider handles to set the band — same widget as the static voltage divider page.
 				</p>
 			</div>
+			{#if totalsLogDomain}
+				{@const band = parseTotalResistanceRange()}
+				<div class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface px-3 pb-1 pt-2">
+					<p class="mb-1 text-[11px] text-wt-muted-fg">
+						Result distribution — {allResults.length.toLocaleString()} raw matches (log scale)
+					</p>
+					<ResistanceHistogram
+						sortedValues={sortedTotals}
+						viewMinLog={totalsLogDomain.minLog}
+						viewMaxLog={totalsLogDomain.maxLog}
+						filterMin={band?.minR ?? null}
+						filterMax={band?.maxR ?? null}
+					/>
+				</div>
+			{/if}
 			<div bind:this={histogramMountEl} class="zoom-range-filter min-h-[180px] w-full"></div>
 			<div class="grid gap-2 md:grid-cols-2">
 				<div class="space-y-1">

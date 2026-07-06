@@ -54,6 +54,10 @@ const body = (await page.textContent('body')).replace(/\s+/g, ' ');
 check('divider: 1k/5k1 two-part answer displayed', /R_TOP:\s*1K\s*=\s*1K.*R_BOT:\s*5\.1K/.test(body));
 check('divider: result schematics render (engine)', (await page.locator('.diagram-surface svg[role="img"]').count()) >= 1);
 
+// Result-distribution histogram (Svelte-native, log-x) over the full raw match set.
+const histSvg = page.locator('svg[aria-label="Distribution of matches across the total-resistance range"]');
+check('divider: distribution histogram renders with bars', (await histSvg.locator('rect').count()) >= 5);
+
 // Engine per-part tooltip: hover the first resistor in the first card.
 await page.locator('.diagram-surface svg [role="button"]').first().hover();
 check('divider: per-part V/I/P tooltip on hover', (await page.locator('text=/V across:/').count()) >= 1);
