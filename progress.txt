@@ -1,0 +1,27 @@
+# Overhaul session progress (freeform state)
+
+Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under app/).
+
+## Session log
+
+### 2026-07-06 — session 1 start
+- Branch: created local `overhaul-session` at 3c69d13 (== tip of origin/cursor/sveltekit-greenfield-foundation-8189, which includes origin/main).
+- Baseline verified:
+  - Legacy tests: `node tests/run-tests.js` → All tests passed.
+  - App: `cd app && npm install && npm run build` → builds OK (adapter-static, base /app).
+  - `npm run check` (svelte-check) → 0 errors, 0 warnings.
+  - App has NO test runner configured yet (no `test` script) — must add one (divider bug needs a failing test).
+- Read: docs/overhaul-brief.md, docs/unified-diagram-roadmap.md, docs/wt-theme-integration-todo.md, AGENTS.md, app/README.md.
+- In flight: 4 parity-audit subagents (voltage divider / target resistance / attenuator+interactive / cross-cutting), 1 web-research agent on schematic renderer landscape.
+- Next: divider pruning bug investigation (1k/5k1 @ 3V3 → two-resistor answer discarded), then write docs/overhaul-plan.md and commit (first checkpoint).
+
+## Resume instructions (fresh context)
+1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.
+2. Run `node tests/run-tests.js` (legacy) and `cd app && npm run build && npm run check`.
+3. Legacy served via `python3 -m http.server 8000`; app dev via `cd app && npm run dev` → http://localhost:5173/app.
+4. Continue from the checklist in docs/overhaul-plan.md; keep this file updated.
+
+## Decisions / sign-off gates (from brief)
+- PAUSE for user sign-off before: building the new diagram engine (beyond PoC), extracting theme changes to shared wt-theme, building large gated features.
+- Never push to shared branches or trigger deploys; no credentials exist here.
+- Conventional commits; commit after each completed component.
