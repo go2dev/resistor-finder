@@ -58,6 +58,40 @@ check('divider: result schematics render (engine)', (await page.locator('.diagra
 const histSvg = page.locator('svg[aria-label="Distribution of matches across the total-resistance range"]');
 check('divider: distribution histogram renders with bars', (await histSvg.locator('rect').count()) >= 5);
 
+// Zoomable filter (Svelte-native): wheel zoom narrows the band (filter follows view).
+const filterMinBefore = Number(await page.inputValue('#vd-filter-min'));
+const filterMaxBefore = Number(await page.inputValue('#vd-filter-max'));
+await page.locator('.rrf-zone').hover();
+await page.mouse.wheel(0, -600);
+await page.waitForTimeout(400);
+const zoomedMin = Number(await page.inputValue('#vd-filter-min'));
+const zoomedMax = Number(await page.inputValue('#vd-filter-max'));
+check(
+	'filter: wheel zoom narrows the resistance band',
+	zoomedMin > filterMinBefore && zoomedMax < filterMaxBefore
+);
+
+// Fit data restores the full band exactly (no rounding loss at the edges).
+await page.locator('button:has-text("Fit data")').click();
+await page.waitForTimeout(200);
+check(
+	'filter: Fit data restores the full band',
+	Number(await page.inputValue('#vd-filter-min')) === filterMinBefore &&
+		Number(await page.inputValue('#vd-filter-max')) === filterMaxBefore
+);
+
+// Keyboard-accessible handles: ArrowRight on the min handle raises the minimum.
+await page.locator('[data-rrf-handle="min"]').focus();
+await page.keyboard.press('ArrowRight');
+await page.keyboard.press('ArrowRight');
+await page.waitForTimeout(200);
+check(
+	'filter: min handle responds to arrow keys',
+	Number(await page.inputValue('#vd-filter-min')) > filterMinBefore
+);
+await page.locator('button:has-text("Fit data")').click();
+await page.waitForTimeout(200);
+
 // Engine per-part tooltip: hover the first resistor in the first card.
 await page.locator('.diagram-surface svg [role="button"]').first().hover();
 check('divider: per-part V/I/P tooltip on hover', (await page.locator('text=/V across:/').count()) >= 1);

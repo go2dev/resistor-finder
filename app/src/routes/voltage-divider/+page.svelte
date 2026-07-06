@@ -1,10 +1,7 @@
 <script lang="ts">
-	import '$lib/styles/zoom-range-filter.css';
-
 	import { browser } from '$app/environment';
 	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
-	import nouisliderCssUrl from '$legacy/nuis/nouislider.css?url';
 	import Button from '$lib/components/ui/button.svelte';
 	import DividerSchematic from '$lib/components/diagrams/divider-schematic.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
@@ -27,13 +24,7 @@
 		type SortBy
 	} from '$lib/domain/voltage-divider';
 	import { computeVoltageDividerViaLegacyWorkers } from '$lib/workers/voltage-divider-worker-client';
-	import {
-		createZoomableHistogramFilter,
-		ensureZoomableHistogramDepsLoaded,
-		type ZoomableHistogramApi
-	} from '$lib/adapters/zoomable-range-filter-browser';
-	import ResistanceHistogram from '$lib/components/filters/resistance-histogram.svelte';
-	import { logDomainOf } from '$lib/domain/range-filter-math';
+	import ResistanceRangeFilter from '$lib/components/filters/resistance-range-filter.svelte';
 
 	let resistorValues = $state(
 		'1k, 2.2k, 3.3k, 4.7k, 10k, 22k, 5K11, 96C, EB1041, 100R(0.1%), 220R(5%), 4k7, 49R9, 73k2(10%), 0R, 8M2'
@@ -73,17 +64,10 @@
 	let filterMinStr = $state('0');
 	let filterMaxStr = $state('0');
 
-	let histogramMountEl: HTMLElement | null = $state(null);
-	let histogramBootGeneration = 0;
-	let zoomHistogramApi: ZoomableHistogramApi | null = null;
-
-	const histogramDomainSig = $derived(allResults.map((r) => r.totalResistance).join(','));
-
-	/** All raw match totals, ascending — the histogram substrate (recomputed once per calculate). */
+	/** All raw match totals, ascending — the histogram/filter substrate (recomputed once per calculate). */
 	const sortedTotals = $derived(
 		allResults.map((r) => r.totalResistance).sort((a, b) => a - b)
 	);
-	const totalsLogDomain = $derived(logDomainOf(sortedTotals));
 
 	const sortOptions: { value: SortBy; label: string }[] = [
 		{ value: 'error', label: 'Lowest error' },
@@ -207,60 +191,6 @@
 	function dividerCardKey(r: DividerResult): string {
 		return `${r.top.label}|${r.bottom.label}|${r.totalResistance}`;
 	}
-
-	$effect(() => {
-		if (!browser) return;
-
-		const sig = histogramDomainSig;
-		const mountEl = histogramMountEl;
-
-		if (!sig || !mountEl || allResults.length === 0) {
-			histogramBootGeneration += 1;
-			zoomHistogramApi?.destroy();
-			zoomHistogramApi = null;
-			return;
-		}
-
-		const generation = ++histogramBootGeneration;
-		const numericResults = allResults.map((r, i) => ({
-			id: `r-${i}-${r.totalResistance}`,
-			value: r.totalResistance
-		}));
-
-		void (async () => {
-			try {
-				await ensureResistorUtilsLoaded();
-				await ensureZoomableHistogramDepsLoaded();
-				if (generation !== histogramBootGeneration) return;
-
-				zoomHistogramApi?.destroy();
-				zoomHistogramApi = null;
-
-				const imin = parseFloat(filterMinStr);
-				const imax = parseFloat(filterMaxStr);
-				const rangeOk = Number.isFinite(imin) && Number.isFinite(imax) && imin <= imax;
-
-				zoomHistogramApi = createZoomableHistogramFilter(mountEl, {
-					results: numericResults,
-					...(rangeOk ? { initialFilterMin: imin, initialFilterMax: imax } : {}),
-					formatValue: (v: number) => formatResistorValue(v),
-					showHistogram: true,
-					onFilterChange(range: { filterMin: number; filterMax: number }) {
-						filterMinStr = String(range.filterMin);
-						filterMaxStr = String(range.filterMax);
-					}
-				});
-			} catch (e) {
-				console.warn('[voltage-divider] histogram filter failed', e);
-			}
-		})();
-
-		return () => {
-			histogramBootGeneration += 1;
-			zoomHistogramApi?.destroy();
-			zoomHistogramApi = null;
-		};
-	});
 
 	function boundsFromTotals(results: DividerResult[]) {
 		if (!results.length) return { min: 0, max: 0 };
@@ -497,10 +427,6 @@
 	});
 </script>
 
-<svelte:head>
-	<link rel="stylesheet" href={nouisliderCssUrl} />
-</svelte:head>
-
 <section class="space-y-6">
 	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Voltage Divider</h2>
@@ -608,26 +534,20 @@
 		<div class="wt-shell-inner wt-no-floating-shadow space-y-3 rounded-wt-box bg-wt-muted/60 p-4">
 			<div class="space-y-1">
 				<p class="text-sm wt-text-ui">Total resistance filter</p>
-				<p class="text-xs text-wt-muted-fg">
-					Scroll or pinch on the histogram to zoom; drag to pan. Use the slider handles to set the band — same widget as the static voltage divider page.
-				</p>
 			</div>
-			{#if totalsLogDomain}
-				{@const band = parseTotalResistanceRange()}
-				<div class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface px-3 pb-1 pt-2">
-					<p class="mb-1 text-[11px] text-wt-muted-fg">
-						Result distribution — {allResults.length.toLocaleString()} raw matches (log scale)
-					</p>
-					<ResistanceHistogram
+			{#if resistanceBand}
+				<div class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface px-3 py-2">
+					<ResistanceRangeFilter
 						sortedValues={sortedTotals}
-						viewMinLog={totalsLogDomain.minLog}
-						viewMaxLog={totalsLogDomain.maxLog}
-						filterMin={band?.minR ?? null}
-						filterMax={band?.maxR ?? null}
+						filterMin={resistanceBand.minR}
+						filterMax={resistanceBand.maxR}
+						onFilterChange={(range) => {
+							filterMinStr = String(range.filterMin);
+							filterMaxStr = String(range.filterMax);
+						}}
 					/>
 				</div>
 			{/if}
-			<div bind:this={histogramMountEl} class="zoom-range-filter min-h-[180px] w-full"></div>
 			<div class="grid gap-2 md:grid-cols-2">
 				<div class="space-y-1">
 					<label for="vd-filter-min" class="text-xs wt-text-ui text-wt-muted-fg">Min total resistance</label>
