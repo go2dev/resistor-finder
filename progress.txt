@@ -12,8 +12,30 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   - `npm run check` (svelte-check) → 0 errors, 0 warnings.
   - App has NO test runner configured yet (no `test` script) — must add one (divider bug needs a failing test).
 - Read: docs/overhaul-brief.md, docs/unified-diagram-roadmap.md, docs/wt-theme-integration-todo.md, AGENTS.md, app/README.md.
-- In flight: 4 parity-audit subagents (voltage divider / target resistance / attenuator+interactive / cross-cutting), 1 web-research agent on schematic renderer landscape.
-- Next: divider pruning bug investigation (1k/5k1 @ 3V3 → two-resistor answer discarded), then write docs/overhaul-plan.md and commit (first checkpoint).
+- Parity audit completed (4 subagents) → results folded into docs/overhaul-plan.md checklist.
+- Diagram-engine research completed → recommendation in plan §2 (Svelte-native SVG, symbols harvested from tscircuit/schematic-symbols; fallback circuit-to-svg).
+- docs/overhaul-plan.md committed (7d8dc60) — FIRST CHECKPOINT for user review.
+- Divider bug FIXED (0e82f57): root cause was display ranking, not search pruning.
+  Red-first evidence: tests/divider-ranking.test.js failed with "Ru.dedupeDividerRatios
+  is not a function" before the fix; repro also showed top-5 all 3-4 part at target
+  2.76V. Fix: error-bucket ranking (0.1% of supply) + component-count tie-break +
+  cross-chunk ratio dedupe, in ResistorUtils (legacy) and app domain. App gained
+  Vitest infra (app/vitest.config.ts, npm test) with the same regression covered.
+- Shell parity committed (24548ca): system-pref theme + listener, footer w/ version.json
+  (copied to app/static — keep in sync), rich chip tooltips + JLC caption, live recalc.
+- Deploy prep committed (7bacb0b): Dockerfile (node build stage → nginx), deploy/nginx.conf
+  (SPA fallback /app, immutable caching), .dockerignore, docs/deploy-runbook.md.
+  NOTE: docker build NOT runnable in this sandbox (no bind mounts) — layout replicated on
+  disk and HTTP-smoke-tested; first deploy must run the documented docker build check.
+- Diagram PoC created: app/src/routes/diagram-poc/+page.svelte +
+  app/src/lib/components/diagrams/poc/svelte-schematic-divider.svelte (not in nav; open
+  /app/diagram-poc). Side-by-side with schematic.js render.
+- In flight: subagent doing target-resistance parity bundle (diagrams+export+pruning+
+  heuristic+limits+progress+sort-reset, extracting $lib/domain/target-resistance.ts + tests).
+- Playwright+chromium being installed (app devDependency) for browser verification of PoC,
+  restyle light/dark, and final checks.
+- Remaining: restyle (workstream 3), final verification pass, progress recording.
+- GATES (unchanged): no engine build-out, no wt-theme extraction, no pushes/deploys without sign-off.
 
 ## Resume instructions (fresh context)
 1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.
