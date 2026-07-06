@@ -70,6 +70,46 @@ check(
 	download.suggestedFilename().endsWith('.png') && pngSize > 5000
 );
 
+// 1b. Interactive divider: engine render + full edit flow.
+await page.goto(`${BASE}/interactive-divider`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('#interactiveDividerDiagram svg[role="img"]', { timeout: 15000 });
+await page.waitForTimeout(1000);
+const iresults = () => page.textContent('#interactiveDividerResults');
+check('interactive: default 10k/10k → Vout 2.500 V', /2\.500 V/.test(await iresults()));
+
+const partSel = '#interactiveDividerDiagram svg [role="button"][aria-label*="volts across"]';
+await page.locator(partSel).first().hover();
+check(
+	'interactive: resistor tooltip shows series/tolerance + V/I/P',
+	(await page.locator('text=/Tolerance:/').count()) >= 1 &&
+		(await page.locator('text=/V across:/').count()) >= 1
+);
+
+// tap → dialog → apply a new value
+await page.locator(partSel).first().click();
+await page.waitForSelector('#interactiveResistorDialog:not([hidden])', { timeout: 5000 });
+await page.fill('#interactiveResistorInput', '4k7');
+await page.click('#interactiveDialogApply');
+await page.waitForTimeout(300);
+check('interactive: edit dialog updates the tree', /4\.7K/.test(await iresults()));
+
+// insert-series strip adds a third resistor
+await page.locator('#interactiveDividerDiagram svg .engine-strip').first().click();
+await page.waitForTimeout(300);
+check('interactive: series strip inserts a part', (await page.locator(partSel).count()) === 3);
+
+// add-parallel via dialog creates a bus with a hover target
+await page.locator(partSel).first().click();
+await page.waitForSelector('#interactiveResistorDialog:not([hidden])', { timeout: 5000 });
+await page.click('#interactiveDialogParallel');
+await page.waitForTimeout(300);
+check(
+	'interactive: add parallel creates bus hover targets',
+	(await page.locator('#interactiveDividerDiagram svg .engine-bus-hit').count()) === 2
+);
+await page.locator('#interactiveDividerDiagram svg .engine-bus-hit').first().hover();
+check('interactive: bus tooltip shows group equivalent', (await page.locator('text=/Parallel group:/').count()) >= 1);
+
 // 2. Target resistance: results, diagrams, PNG buttons.
 await page.goto(`${BASE}/target-resistance`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(1500);
