@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import nouisliderCssUrl from '$legacy/nuis/nouislider.css?url';
 	import Button from '$lib/components/ui/button.svelte';
-	import VoltageDividerDiagram from '$lib/components/diagrams/voltage-divider-diagram.svelte';
+	import DividerSchematic from '$lib/components/diagrams/divider-schematic.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
 	import Input from '$lib/components/ui/input.svelte';
 	import Switch from '$lib/components/ui/switch.svelte';
@@ -779,7 +779,7 @@
 									Power warning: {power.warnings.join(', ')}
 								</div>
 							{/if}
-							<VoltageDividerDiagram {result} supplyVoltage={sliderSupply} targetVoltage={diagramTarget} />
+							<DividerSchematic {result} supplyVoltage={sliderSupply} targetVoltage={diagramTarget} />
 						</article>
 					{/each}
 				</div>

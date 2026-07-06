@@ -7,6 +7,13 @@ export type DiagramExportOptions = {
 	scale?: number;
 	annotations?: string[];
 	extraLines?: string[];
+	/**
+	 * Resolves currentColor in the serialized SVG: engine diagrams draw
+	 * everything with currentColor, which a standalone SVG can't inherit from
+	 * the app theme. The PNG canvas is always white, so pass a dark ink
+	 * (e.g. engine EXPORT_INK) to get a readable export in both themes.
+	 */
+	inkColor?: string;
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -72,6 +79,7 @@ export function exportSvgToPng(svgElement: SVGSVGElement | null | undefined, fil
 	const extraLines = Array.isArray(options.extraLines) ? options.extraLines : [];
 
 	const { svgClone, originalWidth, originalHeight, scaledWidth, scaledHeight } = cloneWithScaledDimensions(svgElement, scale);
+	if (options.inkColor) svgClone.style.color = options.inkColor;
 
 	let drawHeight = scaledHeight;
 	let canvasHeight = scaledHeight;
@@ -95,13 +103,21 @@ export function exportSvgToPng(svgElement: SVGSVGElement | null | undefined, fil
 	}
 
 	const canvas = document.createElement('canvas');
-	canvas.width = scaledWidth;
-	canvas.height = canvasHeight;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) return;
 
+	// annotation lines can be wider than the schematic — measure before sizing
+	// the canvas so they don't get clipped (resizing resets ctx state)
+	ctx.font = `${12 * scale}px Arial`;
+	const maxAnnotationWidth = annotations.length
+		? Math.max(...annotations.map((line) => ctx.measureText(line).width)) + 24 * scale
+		: 0;
+	const canvasWidth = Math.max(scaledWidth, Math.ceil(maxAnnotationWidth));
+	canvas.width = canvasWidth;
+	canvas.height = canvasHeight;
+
 	ctx.fillStyle = 'white';
-	ctx.fillRect(0, 0, scaledWidth, canvasHeight);
+	ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
 	const svgData = new XMLSerializer().serializeToString(svgClone);
 	const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
