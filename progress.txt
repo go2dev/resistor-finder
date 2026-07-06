@@ -71,11 +71,26 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   the test server. Feature work on any branch, merge to v2 to deploy. v2 pushed from
   overhaul-session at user's request.
 
+### 2026-07-06 (later) — PoC iteration + sign-off
+- Extended the PoC on user request: arbitrary nested series/parallel networks
+  (poc-network.ts recursive layout + electrical annotation), balanced U-pad shape,
+  per-part V/I/P hover tooltips. Iterated on user feedback: rail continuity stubs,
+  mitred corner joins (LEAD_OVERLAP fixes zero-length-drop corners), branch vertical
+  centring, 3-way junction dots, normal-sized centred U-pad shunt, slim zigzags (amp 6).
+- Also fixed: schematic.js needs the ResistorUtils global for value labels — shared
+  diagram component now loads it itself (comparison panel only half-rendered before).
+- All iterations deployed to the test server via v2 (feature branch → merge → push;
+  CI builds in ~40s). 34 vitest tests green.
+- **USER APPROVED the diagram engine PoC (2026-07-06). Gate 1 is CLEARED.**
+- Next tranche brief written: docs/diagram-engine-brief.md (engine graduation, page
+  migrations in roadmap order, PNG-export gotchas, decisions to surface incl. the
+  U-pad differential-vs-tap-to-ground Vout question).
+
 ### AWAITING USER SIGN-OFF (do not start without it)
-1. Diagram engine build-out (plan §2 recommendation: Svelte-native SVG, symbols from
-   tscircuit/schematic-symbols; PoC at /app/diagram-poc).
-2. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
-3. Any Phase 1+ gated feature from plan §4.
+1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
+2. Any Phase 2/3 gated feature from plan §4 (histogram, zoomable filter, URL params,
+   JLC order codes, new modes).
+3. Production/domain changes. Test-server deploys via v2 are fine.
 
 ## Resume instructions (fresh context)
 1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.

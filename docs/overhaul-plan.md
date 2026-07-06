@@ -97,7 +97,7 @@ Survey summary (details in the session research; ranked):
 
 Why not D3-from-scratch: for fixed topologies D3's value (data joins, scales, layout) buys nothing Svelte reactivity doesn't already provide; it would add a dependency and an idiom foreign to the rest of the app.
 
-**PoC delivered in this session** (per brief): one voltage divider rendered by the favoured approach with hover states and theme awareness, side by side with the existing `schematic.js` output, behind a dev-only route. `schematic.js` remains the production engine throughout (roadmap unchanged). **Gate: sign-off required before building the engine out for real.**
+**PoC delivered and iterated** (per brief): divider, arbitrary nested networks and a balanced U-pad rendered by the favoured approach with per-part V/I/P tooltips, theme awareness, and reviewed layout rules (centring, mitred corners, junction dots, slim symbols) at `/app/diagram-poc`. **Gate CLEARED: owner approved the PoC 2026-07-06.** Build-out is the next tranche — see `docs/diagram-engine-brief.md`.
 
 ## 3. Divider correctness bug (fix now, part of parity)
 
