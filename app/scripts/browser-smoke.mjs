@@ -108,6 +108,38 @@ check(
 	download.suggestedFilename().endsWith('.png') && pngSize > 5000
 );
 
+// Deep links (docs/url-schema.md): the URL mirrors the inputs after the debounce…
+await page.waitForTimeout(700);
+check(
+	'divider: URL carries shareable state (vs/vt/r)',
+	/voltage-divider\?(?=.*vs=3\.3)(?=.*vt=2\.76)(?=.*r=100,220)/.test(page.url())
+);
+check('divider: Copy link affordance present', (await page.locator('button:has-text("Copy link")').count()) === 1);
+
+// …and loading a deep link reproduces the calculation (incl. non-default sort).
+await page.goto(`${BASE}/voltage-divider?vs=3.3&vt=2.76&r=1k,5.1k,10k&sort=parts`, {
+	waitUntil: 'domcontentloaded'
+});
+await page.waitForSelector('#resistor-values', { timeout: 15000 });
+await page.waitForTimeout(4000);
+const deepBody = (await page.textContent('body')).replace(/\s+/g, ' ');
+check(
+	'divider: deep link reproduces the calculation',
+	(await page.inputValue('#supply-voltage')) === '3.3' &&
+		/R_TOP:\s*1K\s*=\s*1K.*R_BOT:\s*5\.1K/.test(deepBody) &&
+		(await page.locator('#sort-by').inputValue()) === 'components'
+);
+
+// Target-resistance deep link: rt + r reproduce a calculation on load.
+await page.goto(`${BASE}/target-resistance?rt=50k&r=22k,47k,100k`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('#tr-values', { timeout: 15000 });
+await page.waitForTimeout(3500);
+check(
+	'target-resistance: deep link reproduces the calculation',
+	(await page.inputValue('#tr-values')).includes('22k') &&
+		(await page.locator('.diagram-surface svg[role="img"]').count()) >= 1
+);
+
 // 1b. Interactive divider: engine render + full edit flow.
 await page.goto(`${BASE}/interactive-divider`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#interactiveDividerDiagram svg[role="img"]', { timeout: 15000 });
