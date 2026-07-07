@@ -108,6 +108,41 @@ check(
 	download.suggestedFilename().endsWith('.png') && pngSize > 5000
 );
 
+// PDF export: real download, %PDF header, key-figure text embedded.
+const [pdfDownload] = await Promise.all([
+	page.waitForEvent('download', { timeout: 15000 }),
+	page.locator('button:has-text("Download result PDF")').first().click()
+]);
+const pdfPath = await pdfDownload.path();
+const fsMod = await import('node:fs');
+const pdfBytes = pdfPath ? fsMod.readFileSync(pdfPath) : Buffer.alloc(0);
+// Content streams are flate-compressed — inflate to assert the figures text.
+const { inflateSync } = await import('node:zlib');
+let pdfText = '';
+for (let cursor = 0; ; ) {
+	const start = pdfBytes.indexOf('stream', cursor);
+	if (start === -1) break;
+	const dataStart = pdfBytes.indexOf('\n', start) + 1;
+	const end = pdfBytes.indexOf('endstream', dataStart);
+	if (end === -1) break;
+	try {
+		pdfText += inflateSync(pdfBytes.subarray(dataStart, end)).toString('latin1');
+	} catch {
+		/* embedded image stream — skip */
+	}
+	cursor = end + 9;
+}
+// Show-text operands are hex-encoded (<...> Tj) — decode them.
+pdfText = pdfText.replace(/<([0-9A-Fa-f]+)>/g, (m, h) => Buffer.from(h, 'hex').toString('latin1'));
+check(
+	'divider: PDF export downloads a real single-result PDF',
+	pdfDownload.suggestedFilename().endsWith('.pdf') &&
+		pdfBytes.length > 5000 &&
+		pdfBytes.subarray(0, 5).toString() === '%PDF-' &&
+		pdfText.includes('Voltage Divider Result') &&
+		pdfText.includes('resistordivider.com')
+);
+
 // Deep links (docs/url-schema.md): the URL mirrors the inputs after the debounce…
 await page.waitForTimeout(700);
 check(
@@ -138,6 +173,16 @@ check(
 	'target-resistance: deep link reproduces the calculation',
 	(await page.inputValue('#tr-values')).includes('22k') &&
 		(await page.locator('.diagram-surface svg[role="img"]').count()) >= 1
+);
+
+// Parity polish: >20% error flag + watts line in the power-code chip tooltip.
+await page.goto(`${BASE}/target-resistance?rt=1&r=100k,EB1041`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('#tr-values', { timeout: 15000 });
+await page.waitForTimeout(3000);
+check('target-resistance: high-error flag on >20% results', (await page.locator('text=High error').count()) >= 1);
+check(
+	'target-resistance: chip tooltip shows power-code watts',
+	(await page.locator('text=/Power code: EB \\(0\\.5W\\)/').count()) >= 1
 );
 
 // 1b. Interactive divider: engine render + full edit flow.
@@ -222,6 +267,23 @@ const [attenDownload] = await Promise.all([
 	page.locator('.diagram-download-btn').first().click()
 ]);
 check('attenuator: PNG download works', attenDownload.suggestedFilename().endsWith('.png'));
+
+// Help bubbles restored (legacy parity): header + overshoot + filter "?" affordances.
+check('attenuator: help bubbles present', (await page.locator('[data-help-bubble]').count()) >= 3);
+await page.locator('[data-help-bubble][aria-label="About this calculator"]').hover();
+check(
+	'attenuator: header help bubble opens with docs link',
+	(await page.locator('text=View documentation').count()) >= 1
+);
+
+// Docs route renders the README in-app (parity item P2).
+await page.goto(`${BASE}/docs`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('.readme-content', { timeout: 15000 });
+check(
+	'docs: README renders in-app with nav link',
+	/Voltage Divider Resistor Calculator/.test(await page.textContent('.readme-content')) &&
+		(await page.locator('nav a:has-text("Docs")').count()) === 1
+);
 
 // 4. Diagram PoC renders.
 await page.goto(`${BASE}/diagram-poc`, { waitUntil: 'domcontentloaded' });
