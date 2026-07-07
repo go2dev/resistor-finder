@@ -261,6 +261,15 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
 - Verifier nits closed post-verdict: overview strip now calls
   binCountForWidth() instead of inlining the formula; the PDF "identical
   output" claim above softened to match the bytes.
+- DEPLOY RESOLVED (2026-07-07 ~09:22Z): owner restored Dokploy + token;
+  rerun of run 28850928171 succeeded; v2 tip 504d264 live on the test
+  server. Deployed verification: 17/17 checks light+dark (histogram, zoom,
+  URL state, real PDF w/ figures text, TR flag, help bubble, /docs, deep
+  link reproducing 1K/5.1K). Deployed evidence (screenshots + actual
+  PNG/PDF downloads from the server, both themes) committed at
+  docs/evidence/result-set-ux-2026-07-07/ alongside the local-build set.
+  BRIEF END STATE MET: all five items live and verified on the deployed
+  test server.
 
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
