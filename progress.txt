@@ -277,11 +277,27 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
    JLC order codes, new modes).
 3. Production/domain changes. Test-server deploys via v2 are fine.
 
+## NEXT SESSION STARTS HERE (2026-07-07)
+- Phases 0–2 are DONE and live on the test server (v2 tip 21b99e2 → deploy run
+  28855831699 green). Nothing outstanding on phase 2.
+- The next tranche brief is written: **docs/phase3-brief.md** (BOM-optimisation
+  core — JLC precision/order codes first, then spec-a-divider / define-by-ratio
+  modes, then fixed-R/vary-Vin). Start there: branch from v2, ask the surfaced
+  decisions up front, one commit per component, deploy via v2, verify light+dark.
+- Deployed app URL: legacy at `/`, app at `/app/` on
+  https://public-sites-resistordividercom-aaqcco-ae7de6-95-216-211-185.sslip.io
+  (routes: /app/voltage-divider, /app/target-resistance, /app/balanced-attenuator,
+  /app/interactive-divider, /app/docs, gallery /app/diagram-poc).
+- Still-gated (do NOT start without sign-off): wt-theme extraction; phase 4
+  (current-divider, U-pad mode surface); phase 5 history rewrite; root-site/TLS/
+  production changes. Three carried-over owner decisions still unconfirmed — see
+  the "Decisions surfaced to owner" blocks above and docs/phase3-brief.md.
+
 ## Resume instructions (fresh context)
-1. Read this file, docs/overhaul-plan.md (if it exists), and `git log --oneline -20`.
-2. Run `node tests/run-tests.js` (legacy) and `cd app && npm run build && npm run check`.
+1. Read this file, docs/phase3-brief.md, docs/overhaul-plan.md, and `git log --oneline -20`.
+2. Run `node tests/run-tests.js` (legacy) and `cd app && npm test && npm run build && npm run check && npm run smoke`.
 3. Legacy served via `python3 -m http.server 8000`; app dev via `cd app && npm run dev` → http://localhost:5173/app.
-4. Continue from the checklist in docs/overhaul-plan.md; keep this file updated.
+4. Continue from docs/phase3-brief.md; tick docs/overhaul-plan.md §4 as items land; keep this file updated.
 
 ## Decisions / sign-off gates (from brief)
 - PAUSE for user sign-off before: building the new diagram engine (beyond PoC), extracting theme changes to shared wt-theme, building large gated features.

@@ -1,4 +1,3 @@
-- [ ] Export results to PDF
-- [ ] Encode parameters in URL (allows for sharing results and calling the application with parameters)
-- [ ] Current divider mode
-
+- [x] Export results to PDF — DONE 2026-07-07 (phase 2, per-result via pdf-lib; see docs/url-schema.md sibling docs)
+- [x] Encode parameters in URL (allows for sharing results and calling the application with parameters) — DONE 2026-07-07 (phase 2, docs/url-schema.md)
+- [ ] Current divider mode — planned for phase 4 (see docs/overhaul-plan.md §4 and docs/phase3-brief.md handoff)
