@@ -131,7 +131,7 @@ Ordering principle: correctness → parity → deploy-readiness first (this sess
 
 > Phase-2 small parity items also landed session 3: divider chunk progress, TR error-high flag + watts tooltip, attenuator help bubbles, /docs README surface (see §1 ticks).
 
-**Phase 3 — BOM-optimisation core (frame everything around this):**
+**Phase 3 — BOM-optimisation core (frame everything around this):** — NEXT TRANCHE, brief written: `docs/phase3-brief.md`
 1. **JLC precision/order codes** — check precision percentages in the predetermined set (or worst-case); surface LCSC order codes for the most precise version of a value; prefer JLC-basic values in any mode. Data already embedded (`tolerance_fraction`, `lcsc` fields exist); mostly UI + ranking work. *Dependency: restyle (results table density), none on engine.*
 2. **Spec-an-existing-divider mode** (given divider → same/close-ratio configs) + **define-by-ratio mode** — new search entry points over the existing combination machinery.
 3. **Fixed-resistors / vary-input-voltage mode** — small; shares the per-result supply-slider machinery that already exists.
