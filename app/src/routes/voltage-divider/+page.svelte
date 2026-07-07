@@ -25,6 +25,9 @@
 	} from '$lib/domain/voltage-divider';
 	import { computeVoltageDividerViaLegacyWorkers } from '$lib/workers/voltage-divider-worker-client';
 	import ResistanceRangeFilter from '$lib/components/filters/resistance-range-filter.svelte';
+	import { replaceState } from '$app/navigation';
+	import CopyLinkButton from '$lib/components/share/copy-link-button.svelte';
+	import { buildDividerShareQuery, parseDividerShareQuery } from '$lib/domain/share-url';
 
 	let resistorValues = $state(
 		'1k, 2.2k, 3.3k, 4.7k, 10k, 22k, 5K11, 96C, EB1041, 100R(0.1%), 220R(5%), 4k7, 49R9, 73k2(10%), 0R, 8M2'
@@ -42,6 +45,7 @@
 	let warnings = $state<string[]>([]);
 	let allResults = $state<DividerResult[]>([]);
 	let calculating = $state(false);
+	let chunkProgress = $state<{ done: number; total: number } | null>(null);
 	let usedWorkers = $state(false);
 	let workerStats = $state<{ durationMs: number; workerCount: number; comboCount: number } | null>(null);
 	let fallbackStats = $state({ networkCount: 0, networksTested: 0 });
@@ -332,7 +336,10 @@
 						combinations: combos,
 						supplyVoltage: supply,
 						targetVoltage: target,
-						allowOvershoot
+						allowOvershoot,
+						onProgress: (done, total) => {
+							chunkProgress = { done, total };
+						}
 					});
 					nextResults = workerResults;
 					usedWorkers = true;
@@ -385,11 +392,18 @@
 			allResults = nextResults;
 			warnings = nextWarnings;
 
-			const { min, max } = boundsFromTotals(nextResults);
-			filterMinStr = String(min);
-			filterMaxStr = String(max);
+			if (pendingUrlFilter) {
+				filterMinStr = pendingUrlFilter.min;
+				filterMaxStr = pendingUrlFilter.max;
+				pendingUrlFilter = null;
+			} else {
+				const { min, max } = boundsFromTotals(nextResults);
+				filterMinStr = String(min);
+				filterMaxStr = String(max);
+			}
 		} finally {
 			calculating = false;
+			chunkProgress = null;
 		}
 	}
 
@@ -402,7 +416,70 @@
 		}
 	}
 
-	onMount(() => void calculate());
+	/** Filter band from a deep link, applied once after the first calculate. */
+	let pendingUrlFilter: { min: string; max: string } | null = null;
+	let urlSyncArmed = false;
+
+	function applyDeepLink() {
+		const parsed = parseDividerShareQuery(window.location.search);
+		if (parsed.supply != null) supplyVoltage = parsed.supply;
+		if (parsed.target != null) targetVoltage = parsed.target;
+		if (parsed.resistors != null) resistorValues = parsed.resistors;
+		if (parsed.allowOvershoot != null) allowOvershoot = parsed.allowOvershoot;
+		if (parsed.snapToSeries) {
+			snapToSeries = true;
+			if (parsed.snapSeries) snapSeriesPick = parsed.snapSeries;
+		}
+		if (parsed.sortBy != null) sortBy = parsed.sortBy;
+		if (parsed.filterMin != null && parsed.filterMax != null) {
+			pendingUrlFilter = { min: parsed.filterMin, max: parsed.filterMax };
+		}
+	}
+
+	onMount(() => {
+		applyDeepLink();
+		urlSyncArmed = true;
+		void calculate();
+	});
+
+	/** Band counts as URL state only when narrowed from the full data bounds. */
+	function narrowedBand(): { min: string; max: string } | null {
+		if (!allResults.length) return null;
+		const rng = parseTotalResistanceRange();
+		if (!rng) return null;
+		const { min, max } = boundsFromTotals(allResults);
+		if (rng.minR <= min && rng.maxR >= max) return null;
+		return { min: filterMinStr, max: filterMaxStr };
+	}
+
+	// Keep the URL shareable: debounced replaceState (no history spam while typing).
+	let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const query = buildDividerShareQuery({
+			supply: supplyVoltage,
+			target: targetVoltage,
+			resistors: resistorValues,
+			allowOvershoot,
+			snapToSeries,
+			snapSeries: snapSeriesPick,
+			sortBy,
+			...(narrowedBand() ? { filterMin: filterMinStr, filterMax: filterMaxStr } : {})
+		});
+		if (!browser || !urlSyncArmed) return;
+		clearTimeout(urlSyncTimer);
+		urlSyncTimer = setTimeout(() => {
+			const next = `${window.location.pathname}${query}`;
+			if (`${window.location.pathname}${window.location.search}` !== next) {
+				try {
+					replaceState(next, {});
+				} catch {
+					// Router not ready yet (first tick) — the next state change retries.
+				}
+			}
+		}, 400);
+		return () => clearTimeout(urlSyncTimer);
+	});
+
 
 	// Legacy parity: recalculate automatically when the electrical inputs or
 	// snap settings change (legacy wires supply/overshoot/snap to live recalc).
@@ -585,6 +662,14 @@
 		<Button onclick={() => void calculate()} disabled={calculating}>
 			{calculating ? 'Calculating…' : 'Calculate combinations'}
 		</Button>
+		{#if calculating}
+			<span class="text-xs wt-text-ui text-wt-muted-fg" aria-live="polite">
+				{chunkProgress && chunkProgress.total > 0
+					? `Worker chunks ${chunkProgress.done} / ${chunkProgress.total}`
+					: 'Preparing…'}
+			</span>
+		{/if}
+		<CopyLinkButton onError={pushUiWarning} />
 		{#if usedWorkers && workerStats}
 			<p class="text-xs text-wt-muted-fg">
 				Legacy worker · {workerStats.comboCount.toLocaleString()} combo definitions · {workerStats.workerCount} worker{workerStats.workerCount === 1 ? '' : 's'} · {workerStats.durationMs}

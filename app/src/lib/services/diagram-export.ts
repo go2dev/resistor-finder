@@ -60,7 +60,7 @@ function drawCanvasAnnotationLines(ctx: CanvasRenderingContext2D, lines: string[
 	}
 }
 
-function downloadBlob(blob: Blob, filename: string) {
+export function downloadBlob(blob: Blob, filename: string) {
 	const downloadUrl = URL.createObjectURL(blob);
 	const downloadLink = document.createElement('a');
 	downloadLink.href = downloadUrl;
@@ -69,6 +69,50 @@ function downloadBlob(blob: Blob, filename: string) {
 	downloadLink.click();
 	document.body.removeChild(downloadLink);
 	URL.revokeObjectURL(downloadUrl);
+}
+
+/**
+ * Renders the SVG to an ink-on-white PNG blob (same pipeline as the PNG
+ * download) without triggering a download — the PDF export embeds the result.
+ */
+export function renderSvgToPngBlob(
+	svgElement: SVGSVGElement,
+	options: DiagramExportOptions = {}
+): Promise<{ blob: Blob; width: number; height: number }> {
+	return new Promise((resolve, reject) => {
+		const scale = Number.isFinite(options.scale) && options.scale! > 0 ? options.scale! : 2;
+		const { svgClone, scaledWidth, scaledHeight } = cloneWithScaledDimensions(svgElement, scale);
+		if (options.inkColor) svgClone.style.color = options.inkColor;
+
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d');
+		if (!ctx) {
+			reject(new Error('Canvas 2D context unavailable'));
+			return;
+		}
+		canvas.width = scaledWidth;
+		canvas.height = scaledHeight;
+		ctx.fillStyle = 'white';
+		ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+
+		const svgData = new XMLSerializer().serializeToString(svgClone);
+		const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+		const svgUrl = URL.createObjectURL(svgBlob);
+		const img = new Image();
+		img.onload = () => {
+			ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+			canvas.toBlob((blob) => {
+				URL.revokeObjectURL(svgUrl);
+				if (blob) resolve({ blob, width: scaledWidth, height: scaledHeight });
+				else reject(new Error('PNG encoding failed'));
+			}, 'image/png');
+		};
+		img.onerror = () => {
+			URL.revokeObjectURL(svgUrl);
+			reject(new Error('Failed to load SVG for conversion'));
+		};
+		img.src = svgUrl;
+	});
 }
 
 export function exportSvgToPng(svgElement: SVGSVGElement | null | undefined, filename: string, options: DiagramExportOptions = {}) {

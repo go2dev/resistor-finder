@@ -2,7 +2,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import { SlidersHorizontal, Sigma, SquareChartGantt, Sun, Moon, Zap } from 'lucide-svelte';
+	import { BookOpen, SlidersHorizontal, Sigma, SquareChartGantt, Sun, Moon, Zap } from 'lucide-svelte';
 	import type { AppMode } from '$lib/stores/app-state';
 	import { appTheme, modeLabels, modeRoutes, toggleTheme } from '$lib/stores/app-state';
 	import { wtThemeTokens } from '$lib/wt-theme-tokens';
@@ -88,6 +88,20 @@
 						{link.label}
 					</a>
 				{/each}
+				<a
+					href={`${base}/docs`}
+					data-sveltekit-preload-data="hover"
+					aria-current={normalizedPath(page.url.pathname) === '/docs' ? 'page' : undefined}
+					class={cn(
+						'wt-affordance-pill-ghost wt-no-floating-shadow tool-control-sm inline-flex items-center gap-1.5 px-2.5 wt-text-ui transition-colors',
+						normalizedPath(page.url.pathname) === '/docs'
+							? 'bg-wt-brand-design text-wt-white'
+							: 'bg-wt-surface text-wt-ink hover:bg-wt-muted'
+					)}
+				>
+					<BookOpen class="h-3.5 w-3.5" />
+					Docs
+				</a>
 			</nav>
 
 			<div class="ms-auto flex items-center gap-2">

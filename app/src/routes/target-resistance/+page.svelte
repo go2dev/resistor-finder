@@ -1,6 +1,11 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { replaceState } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/button.svelte';
+	import CopyLinkButton from '$lib/components/share/copy-link-button.svelte';
+	import { buildTargetShareQuery, parseTargetShareQuery } from '$lib/domain/share-url';
 	import Input from '$lib/components/ui/input.svelte';
 	import ResultsPanel from '$lib/components/layout/results-panel.svelte';
 	import TargetNetworkDiagram from '$lib/components/diagrams/target-network-diagram.svelte';
@@ -151,7 +156,13 @@
 			`Tolerance: ±${chip.tolerancePct}%`
 		];
 		if (chip.isJlcBasic) parts.push('JLC Basic');
-		if (chip.powerCode) parts.push(`Power code: ${chip.powerCode}`);
+		if (chip.powerCode) {
+			parts.push(
+				chip.powerRating != null
+					? `Power code: ${chip.powerCode} (${chip.powerRating}W)`
+					: `Power code: ${chip.powerCode}`
+			);
+		}
 		return parts.join('\n');
 	}
 
@@ -605,6 +616,48 @@
 		if (!allResults.length) return;
 		refreshVisibleResults();
 	});
+
+	// Deep links (docs/url-schema.md): apply ?rt/&r/&snap on load and reproduce
+	// the calculation; keep the URL shareable via debounced replaceState.
+	let urlSyncArmed = false;
+	onMount(() => {
+		const parsed = parseTargetShareQuery(window.location.search);
+		if (parsed.target != null) targetResistance = parsed.target;
+		if (parsed.resistors != null) resistorValues = parsed.resistors;
+		if (parsed.snapToSeries) {
+			snapToSeries = true;
+			if (parsed.snapSeries) snapSeriesPick = parsed.snapSeries;
+		}
+		urlSyncArmed = true;
+		if (parsed.target != null || parsed.resistors != null) void calculate();
+	});
+
+	let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const query = buildTargetShareQuery({
+			target: targetResistance,
+			resistors: resistorValues,
+			snapToSeries,
+			snapSeries: snapSeriesPick
+		});
+		if (!browser || !urlSyncArmed) return;
+		clearTimeout(urlSyncTimer);
+		urlSyncTimer = setTimeout(() => {
+			const next = `${window.location.pathname}${query}`;
+			if (`${window.location.pathname}${window.location.search}` !== next) {
+				try {
+					replaceState(next, {});
+				} catch {
+					// Router not ready yet (first tick) — the next state change retries.
+				}
+			}
+		}, 400);
+		return () => clearTimeout(urlSyncTimer);
+	});
+
+	function pushShareWarning(message: string) {
+		if (!warnings.includes(message)) warnings = [...warnings, message];
+	}
 </script>
 
 <section class="w-full space-y-6">
@@ -675,6 +728,7 @@
 		<Button onclick={() => void calculate()} disabled={calculating}>
 			{calculating ? 'Calculating…' : 'Find closest matches'}
 		</Button>
+		<CopyLinkButton onError={pushShareWarning} />
 		{#if calculating}
 			<span class="text-xs wt-text-ui text-wt-muted-fg" aria-live="polite">
 				{progressText ?? 'Preparing…'}
@@ -733,7 +787,17 @@
 			<div class="grid gap-3">
 				{#each results as result}
 					<article class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface p-3">
-						<p class="text-sm wt-text-body-strong">{result.label}</p>
+						<p class="flex flex-wrap items-center gap-2 text-sm wt-text-body-strong">
+							{result.label}
+							{#if result.errorPercent > 20}
+								<span
+									class="rounded-full border border-amber-400/60 bg-amber-100/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+									title="Error exceeds the 20% cutoff — shown because no closer combination exists"
+								>
+									High error
+								</span>
+							{/if}
+						</p>
 						<p class="text-xs text-wt-muted-fg">
 							{fmtValue(result.total)} · error {fmtValue(result.errorAbs)} ({result.errorPercent.toFixed(2)}%) · {result.components}
 							component{result.components === 1 ? '' : 's'}

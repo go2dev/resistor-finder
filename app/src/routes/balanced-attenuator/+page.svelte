@@ -2,7 +2,9 @@
 	import '$lib/styles/balanced-attenuator.css';
 
 	import { browser } from '$app/environment';
+	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
+	import HelpBubble from '$lib/components/ui/help-bubble.svelte';
 	import { mountBalancedAttenuatorLegacy } from '$lib/adapters/balanced-attenuator-browser';
 
 	let bootError = $state<string | null>(null);
@@ -29,7 +31,17 @@
 
 <section class="ba-legacy space-y-4">
 	<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-		<h2 class="text-base font-semibold tracking-tight text-wt-ink">Balanced Attenuator</h2>
+		<h2 class="text-base font-semibold tracking-tight text-wt-ink">
+			Balanced Attenuator
+			<HelpBubble label="About this calculator">
+				Pick an attenuator topology and enter your available resistor values, target attenuation,
+				and load impedance. U-pad and L-pad are implemented; Pi, H, and T will follow.
+				<br /><br />
+				Works best on desktop.
+				<br /><br />
+				<a class="underline" href={`${base}/docs`}>View documentation →</a>
+			</HelpBubble>
+		</h2>
 		<p class="text-xs text-wt-muted-fg">
 			U-pad / L-pad attenuator combinations for a target attenuation, load and impedance.
 		</p>
@@ -113,6 +125,10 @@
 							<div class="slider round"></div>
 						</label>
 						<span class="theme-label">Allow overshoot (tap voltage above target)</span>
+						<HelpBubble label="About overshoot">
+							When enabled, combinations with tap voltage above the attenuation target are
+							included (useful for closest match).
+						</HelpBubble>
 					</div>
 				</div>
 				<div class="option-group">
@@ -129,6 +145,9 @@
 							<span class="theme-label">
 								Filter total resistance [Min: <span id="resistance-min">0</span> – Max:
 								<span id="resistance-max">0</span>]
+								<HelpBubble label="About the resistance filter">
+									Move the handles to set the filter range.
+								</HelpBubble>
 							</span>
 							<div class="resistance-filter-container">
 								<div id="resistance-slider"></div>

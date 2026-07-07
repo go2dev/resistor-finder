@@ -29,8 +29,8 @@ Status legend: `[x]` at parity · `[~]` present but different (gap noted) · `[ 
 - [~] Parse-warnings: legacy structured table vs app bullet list → kept list deliberately (denser); content parity holds
 - [~] "Calculation Details" panel → compact stats line exists (combos · workers · ms · raw match count); full input-conversion table + voltage distribution DEFERRED — superseded by chip tooltips and the stats line; revisit only if missed
 - [x] Live recalc on supply/target/overshoot/snap change — DONE (24548ca, debounced)
-- [~] Loading spinner + chunk progress (divider page: button label + stats line only) → DEFERRED, small; target-resistance got the full progress readout, divider worker chunks finish in <1s for realistic inputs
-- [x] Zoomable total-resistance histogram filter (legacy widget reused; app adds numeric min/max + reset — improvement, keep)
+- [x] Loading spinner + chunk progress — DONE (session 3): worker client reports per-chunk completion (the worker has no finer granularity); page shows "Worker chunks N / M" while calculating
+- [x] Zoomable total-resistance histogram filter — REPLACED Svelte-native (session 3): log-x histogram substrate + three-domain zoom/pan/handles; legacy widget + adapter deleted app-side (root site untouched)
 - [~] Input token dedupe rewrites the text field in legacy; app doesn't rewrite → accepted difference (app dedupes internally)
 - [~] App caps input at 30 unique values with warning; legacy uncapped → accepted (documented perf guard)
 
@@ -49,8 +49,8 @@ Status legend: `[x]` at parity · `[~]` present but different (gap noted) · `[ 
 - [x] Sort reset to "error" on recalc — DONE (1f964c0)
 - [x] Dedupe equivalence — covered by the legacy-oracle generator tests (1f964c0)
 - [x] Stats panel: block count, pruned blocks/combos, calc time ms — DONE (1f964c0)
-- [~] error-high (>20%) visual flag → DEFERRED (minor; the 20% cutoff fallback message exists)
-- [x] Power-rating watts captured for chip tooltips (voltage divider); target-resistance chips show power code — remaining watts display there DEFERRED (minor)
+- [x] error-high (>20%) visual flag — DONE (session 3): amber "High error" chip on result cards past the cutoff
+- [x] Power-rating watts in target-resistance chip tooltips — DONE (session 3): "Power code: EB (0.5W)" line
 
 ### 1.3 Balanced attenuator (`balanced-attenuator.html` → app route)
 
@@ -59,7 +59,7 @@ App injects the identical legacy scripts (attenuator-engine, script.js, schemati
 - [x] All inputs (type select, Vin, dB, Zload, Zin/Zout targets, min power), hints, hidden target field
 - [x] U-pad/L-pad math, result cards, schematics, PNG export, spinner
 - [x] Live recalc wiring; sort; overshoot
-- [~] H1 help tooltip + overshoot/filter "?" tooltips → replaced by one-line descriptions in the restyle; legacy "?" bubbles now render inside the injected results DOM (chip-grid CSS ported, 3323ace); full help-affordance pass DEFERRED to the engine-migration rebuild of this page
+- [x] H1 help tooltip + overshoot/filter "?" tooltips — DONE (session 3): Svelte-native HelpBubble component restores all three legacy bubbles (header one links to the in-app /docs route)
 - [x] Vestigial resistance slider inert in both (not a regression)
 
 ### 1.4 Interactive divider (`interactive-divider.html` → app route)
@@ -76,10 +76,10 @@ Also injects identical legacy scripts.
 
 - [x] Theme — DONE (24548ca): system-pref default + live listener; explicit toggle persists and wins; app keeps its own key. Legacy-injected pages no longer clobber it (3323ace).
 - [x] Footer — DONE (24548ca): disclaimer, credit, GitHub link, version.json readout (+ version chip in the header)
-- [ ] Documentation/readme surface + nav link → DEFERRED (P2): decide between a `/docs` route rendering README and a plain GitHub link; legacy readme.html still serves at the root deployment
+- [x] Documentation/readme surface + nav link — DONE (session 3): `/docs` route renders the repo README at build time (`$legacy/README.md?raw` + marked, same source legacy readme.html renders via CDN); Docs link in the mode nav
 - [x] Nav between 4 modes (app shell)
 - [x] JLC catalog loading + embedded fallback (byte-identical data); autofill; chip flags
-- [x] URL params: absent in both (feature-gated, §4)
+- [x] URL params — DONE (session 3): readable deep links for voltage-divider + target-resistance (docs/url-schema.md); attenuator intentionally out (legacy-DOM-owned inputs)
 - [x] **Tests** — DONE: Vitest configured (`cd app && npm test`), 24 tests across divider ranking and target-resistance engine (incl. legacy oracles)
 - [x] Legacy root app untouched and green (`node tests/run-tests.js`)
 
@@ -124,10 +124,12 @@ Ordering principle: correctness → parity → deploy-readiness first (this sess
 > **DONE 2026-07-06** (sign-off received, docs/diagram-engine-brief.md executed): engine graduated to `app/src/lib/diagram/engine/`; all four pages migrated in the order above; app-side schematic.js adapters removed (root site untouched); `/app/diagram-poc` is now the engine gallery. State record: `docs/unified-diagram-roadmap.md`.
 
 **Phase 2 — result-set UX (needs restyle, benefits from engine, no hard dependency):**
-1. **Histogram of result distribution** across the resistance range — extends the existing zoomable filter; do first, it's the substrate for the next item.
-2. **Total-resistance filter refinement** — split lookup-zone vs filter control per the "D3 zoomable range slider" spec (noUiSlider + d3-zoom, three domains, wheel/pinch, drag-pan over histogram, Fit buttons, keyboard/a11y). Notion child page unreachable from this machine — implement from the summary in the brief.
-3. **URL parameter encoding / deep links** — small, independent; also wanted for sharing before PDF export.
-4. **PDF export** — after restyle (export should capture the final look); builds on existing PNG pipeline.
+1. ~~**Histogram of result distribution**~~ — DONE 2026-07-07 (session 3, c040e18): Svelte-native log-x SVG histogram of all raw matches; count per bin (owner decision).
+2. ~~**Total-resistance filter refinement**~~ — DONE 2026-07-07 (4ee8f6f): Svelte-native replacement (decision recorded in commit), three domains in log space, wheel/pinch/drag-pan, Fit data/selection, ARIA handles; legacy widget deleted app-side.
+3. ~~**URL parameter encoding / deep links**~~ — DONE 2026-07-07 (e3dd956): readable schema (docs/url-schema.md), VD + TR, copy-link, replaceState debounce.
+4. ~~**PDF export**~~ — DONE 2026-07-07 (session 3): per-result PDF via pdf-lib (decision record in pdf-export.ts: print CSS can't produce a verifiable downloaded artifact), embeds the ink-on-white PNG-pipeline render + card figures + owner-approved footer.
+
+> Phase-2 small parity items also landed session 3: divider chunk progress, TR error-high flag + watts tooltip, attenuator help bubbles, /docs README surface (see §1 ticks).
 
 **Phase 3 — BOM-optimisation core (frame everything around this):**
 1. **JLC precision/order codes** — check precision percentages in the predetermined set (or worst-case); surface LCSC order codes for the most precise version of a value; prefer JLC-basic values in any mode. Data already embedded (`tolerance_fraction`, `lcsc` fields exist); mostly UI + ranking work. *Dependency: restyle (results table density), none on engine.*

@@ -5,9 +5,15 @@
 	import DiagramHost from '$lib/components/diagrams/diagram-host.svelte';
 	import Button from '$lib/components/ui/button.svelte';
 	import { EXPORT_INK, NetworkSchematic, networkToNetNode } from '$lib/diagram/engine';
-	import { dividerPngAnnotations, dividerPngFilename } from '$lib/diagram/divider-diagram-export';
+	import {
+		dividerPdfFigures,
+		dividerPdfFilename,
+		dividerPngAnnotations,
+		dividerPngFilename
+	} from '$lib/diagram/divider-diagram-export';
 	import type { DividerResult } from '$lib/domain/voltage-divider';
 	import { exportSvgToPng } from '$lib/services/diagram-export';
+	import { exportResultPdf } from '$lib/services/pdf-export';
 
 	let {
 		result,
@@ -34,6 +40,32 @@
 			inkColor: EXPORT_INK
 		});
 	}
+
+	let pdfBusy = $state(false);
+	async function downloadPdf() {
+		const svg = hostEl?.querySelector('svg');
+		if (!(svg instanceof SVGSVGElement) || pdfBusy) return;
+		pdfBusy = true;
+		try {
+			await exportResultPdf(
+				svg,
+				dividerPdfFilename(result, supplyVoltage, targetVoltage),
+				{
+					title: 'Voltage Divider Result',
+					subtitle: `Target ${Number(targetVoltage.toFixed(3))} V from ${Number(supplyVoltage.toFixed(2))} V supply`,
+					figures: dividerPdfFigures(result, supplyVoltage),
+					footer: {
+						toolName: 'Resistor Divider — Voltage Divider',
+						site: 'resistordivider.com',
+						dateIso: new Date().toISOString().slice(0, 10)
+					}
+				},
+				{ inkColor: EXPORT_INK }
+			);
+		} finally {
+			pdfBusy = false;
+		}
+	}
 </script>
 
 <DiagramHost>
@@ -42,5 +74,8 @@
 	</div>
 	<Button type="button" variant="outline" size="sm" class="text-xs" onclick={downloadPng}>
 		Download diagram PNG
+	</Button>
+	<Button type="button" variant="outline" size="sm" class="text-xs" onclick={() => void downloadPdf()} disabled={pdfBusy}>
+		{pdfBusy ? 'Building PDF…' : 'Download result PDF'}
 	</Button>
 </DiagramHost>
