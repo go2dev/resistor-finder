@@ -220,7 +220,7 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   unchanged). Pure buildResultPdfBytes node-tested (single-page A4, PNG
   embed, inflated-stream text assertions, WinAnsi regression — Helvetica
   rejected '≥' from the package line on first live run). Ink-on-white from
-  BOTH themes verified by opening actual downloads (identical output).
+  BOTH themes verified by opening actual downloads (same rendered content).
   Footer per owner: tool name · resistordivider.com · generated date.
 - PARITY POLISH LANDED (6294501): divider 'Worker chunks N/M' progress
   (worker client onProgress; the worker has no finer messages — no smoke
@@ -230,6 +230,37 @@ Goal: execute docs/overhaul-brief.md (autonomous overhaul of SvelteKit app under
   ($legacy README + marked) with nav link (parity P2 closed).
 - Local verification state: 91 vitest across 7 files, check 0 err/0 warn,
   build green, smoke 34/34 (all five brief items UI-driven).
+- Evidence committed (568dbf2): docs/evidence/result-set-ux-2026-07-07/
+  local-build/ — light+dark screenshots of filter (normal+zoomed), TR flag,
+  attenuator bubble, /docs, plus actual PDF downloads from both themes
+  (ink content identical; the two files differ trivially in metadata bytes).
+  Deployed-server evidence pending the Dokploy fix.
+
+### FINAL VERIFICATION — session 3 (2026-07-07, fresh-context verifier)
+- Independent verifier (fresh context; read brief + code; re-ran all gates):
+  **OVERALL PASS.** Gates independently green: legacy suite, 91 vitest,
+  check 0/0, build, smoke 34/34. Per-item: histogram PASS (pure Svelte SVG,
+  zero d3/noUiSlider in app deps, full raw set, wt vars); filter PASS
+  (three domains + overview strip, wheel/pinch/pan, both Fit modes, ARIA
+  handles, decision recorded in 4 places, root-site diff EMPTY); deep links
+  PASS (schema doc'd as public API, state-when-non-default, debounced
+  replaceState, attenuator documented out); PDF PASS (client-only pdf-lib
+  dyn-import, decision + rationale recorded, ink-on-white via EXPORT_INK,
+  owner footer, both-theme downloads committed); polish PASS (all four).
+  Working practice: conventional one-commit-per-component; vitest per
+  feature incl. brute-force cross-checks; NO hard-coding to test inputs
+  (grep for smoke fixtures in src: zero hits); owner decisions asked not
+  guessed; wt-theme + root site + Phase-3 untouched (diffs empty).
+- Verifier's only unmet brief line: "items 1-2 live on the deployed test
+  server" — solely the recorded server-side Dokploy failure (401 token,
+  then dokploy-prod:3000 connection refused on later runs; service looks
+  down/mid-fix). v2 tip aaf577c contains ALL phase-2 work; the moment a
+  deploy run succeeds, the test server serves it. Verification script ready:
+  scratchpad verify-deploy-phase2.mjs (polls for the new build, re-checks
+  items 1-5 light+dark, saves deployed evidence incl. real PNG/PDF).
+- Verifier nits closed post-verdict: overview strip now calls
+  binCountForWidth() instead of inlining the formula; the PDF "identical
+  output" claim above softened to match the bytes.
 
 ### AWAITING USER SIGN-OFF (do not start without it)
 1. wt-theme extraction of the density layer (plan §5 candidates) — user said NOT YET (2026-07-06).
