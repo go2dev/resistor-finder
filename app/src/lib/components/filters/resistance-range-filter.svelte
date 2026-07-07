@@ -6,6 +6,7 @@
 	// strip underneath keeps all three domains visible at once.
 	import ResistanceHistogram from './resistance-histogram.svelte';
 	import {
+		binCountForWidth,
 		clamp,
 		computeLogBins,
 		constrainViewDomain,
@@ -329,7 +330,7 @@
 
 	// ── full-domain overview strip ───────────────────────────────────────────
 	const overviewBins = $derived(
-		width > 0 ? computeLogBins(sortedValues, fullMinLog, fullMaxLog, Math.max(16, Math.min(100, Math.round(width / 8)))) : []
+		width > 0 ? computeLogBins(sortedValues, fullMinLog, fullMaxLog, binCountForWidth(width)) : []
 	);
 	const overviewMax = $derived(overviewBins.reduce((m, b) => Math.max(m, b.count), 0) || 1);
 	function ovX(lg: number): number {
