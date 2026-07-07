@@ -24,8 +24,10 @@ export async function computeVoltageDividerViaLegacyWorkers(params: {
 	supplyVoltage: number;
 	targetVoltage: number;
 	allowOvershoot: boolean;
+	/** Called as each worker chunk completes (the worker has no finer progress). */
+	onProgress?: (chunksDone: number, chunksTotal: number) => void;
 }): Promise<{ results: DividerResult[]; meta: DividerWorkerMeta }> {
-	const { combinations, supplyVoltage, targetVoltage, allowOvershoot } = params;
+	const { combinations, supplyVoltage, targetVoltage, allowOvershoot, onProgress } = params;
 
 	const resistanceCache = new Map<number, number>();
 	for (let i = 0; i < combinations.length; i += 1) {
@@ -53,6 +55,8 @@ export async function computeVoltageDividerViaLegacyWorkers(params: {
 
 	const startMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
+	let chunksDone = 0;
+	onProgress?.(0, chunks.length);
 	const workers: Worker[] = [];
 	const promises = chunks.map(
 		(r2Indices) =>

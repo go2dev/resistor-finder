@@ -45,6 +45,7 @@
 	let warnings = $state<string[]>([]);
 	let allResults = $state<DividerResult[]>([]);
 	let calculating = $state(false);
+	let chunkProgress = $state<{ done: number; total: number } | null>(null);
 	let usedWorkers = $state(false);
 	let workerStats = $state<{ durationMs: number; workerCount: number; comboCount: number } | null>(null);
 	let fallbackStats = $state({ networkCount: 0, networksTested: 0 });
@@ -335,7 +336,10 @@
 						combinations: combos,
 						supplyVoltage: supply,
 						targetVoltage: target,
-						allowOvershoot
+						allowOvershoot,
+						onProgress: (done, total) => {
+							chunkProgress = { done, total };
+						}
 					});
 					nextResults = workerResults;
 					usedWorkers = true;
@@ -399,6 +403,7 @@
 			}
 		} finally {
 			calculating = false;
+			chunkProgress = null;
 		}
 	}
 
@@ -657,6 +662,13 @@
 		<Button onclick={() => void calculate()} disabled={calculating}>
 			{calculating ? 'Calculating…' : 'Calculate combinations'}
 		</Button>
+		{#if calculating}
+			<span class="text-xs wt-text-ui text-wt-muted-fg" aria-live="polite">
+				{chunkProgress && chunkProgress.total > 0
+					? `Worker chunks ${chunkProgress.done} / ${chunkProgress.total}`
+					: 'Preparing…'}
+			</span>
+		{/if}
 		<CopyLinkButton onError={pushUiWarning} />
 		{#if usedWorkers && workerStats}
 			<p class="text-xs text-wt-muted-fg">

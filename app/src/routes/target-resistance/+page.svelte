@@ -156,7 +156,13 @@
 			`Tolerance: ±${chip.tolerancePct}%`
 		];
 		if (chip.isJlcBasic) parts.push('JLC Basic');
-		if (chip.powerCode) parts.push(`Power code: ${chip.powerCode}`);
+		if (chip.powerCode) {
+			parts.push(
+				chip.powerRating != null
+					? `Power code: ${chip.powerCode} (${chip.powerRating}W)`
+					: `Power code: ${chip.powerCode}`
+			);
+		}
 		return parts.join('\n');
 	}
 
@@ -781,7 +787,17 @@
 			<div class="grid gap-3">
 				{#each results as result}
 					<article class="wt-shell-inner wt-no-floating-shadow rounded-wt-box bg-wt-surface p-3">
-						<p class="text-sm wt-text-body-strong">{result.label}</p>
+						<p class="flex flex-wrap items-center gap-2 text-sm wt-text-body-strong">
+							{result.label}
+							{#if result.errorPercent > 20}
+								<span
+									class="rounded-full border border-amber-400/60 bg-amber-100/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+									title="Error exceeds the 20% cutoff — shown because no closer combination exists"
+								>
+									High error
+								</span>
+							{/if}
+						</p>
 						<p class="text-xs text-wt-muted-fg">
 							{fmtValue(result.total)} · error {fmtValue(result.errorAbs)} ({result.errorPercent.toFixed(2)}%) · {result.components}
 							component{result.components === 1 ? '' : 's'}
