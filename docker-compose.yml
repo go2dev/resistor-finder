@@ -1,0 +1,9 @@
+# Wraps the repo's Dockerfile so Dokploy's Compose app can build it.
+# Serves the static site on container port 80. Ingress/TLS is handled by
+# Dokploy/Traefik, so no host `ports:` are published.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
