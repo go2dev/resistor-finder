@@ -1,0 +1,43 @@
+name: Deploy to Dokploy
+
+# Dokploy listens only on the Tailscale network (port 3000 is firewalled off the
+# public internet), so GitHub's webhooks can't reach it. On every push to main
+# this job joins the tailnet as an ephemeral node and calls Dokploy's deploy API
+# directly, which pulls the latest commit, rebuilds the image and redeploys.
+# Reference: go2dev/vps-config -> PUSH-TO-DEPLOY.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:server
+          args: --accept-dns=true
+
+      - name: Trigger Dokploy deploy
+        env:
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_API_TOKEN }}
+          COMPOSE_ID: k109ufUImj08CQ7aRNGwk
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-connrefused --max-time 60 \
+            -X POST "http://dokploy-prod:3000/api/compose.deploy" \
+            -H "x-api-key: ${DOKPLOY_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"composeId\":\"${COMPOSE_ID}\"}"
+          echo
+          echo "Deploy request accepted by Dokploy."
