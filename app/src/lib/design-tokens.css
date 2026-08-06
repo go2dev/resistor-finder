@@ -1,0 +1,105 @@
+/*
+ * Compatibility shim: legacy schematic/calculator CSS still uses `--color-*`, `--radius-*`, `--text-color`,
+ * etc. Light theme aligns semantic colors with `@go2dev/wt-theme` (`--wt-*`). Dark theme mirrors `--color-*` onto
+ * `--wt-*` so Tailwind `bg-wt-canvas`, `text-wt-body`, etc. track `[data-theme='dark']`.
+ */
+:root {
+	--radius-lg: max(12px, calc(var(--wt-radius-box) * 0.5));
+	--radius-md: 8px;
+	--radius-sm: 6px;
+	--warning: 245 158 11;
+	--danger: 239 68 68;
+
+	--color-background: var(--wt-color-canvas);
+	--color-foreground: var(--wt-color-body);
+	--color-card: var(--wt-color-surface);
+	--color-card-foreground: var(--wt-color-ink);
+	--color-muted: color-mix(in oklab, var(--wt-color-body) 6%, var(--wt-color-canvas));
+	--color-muted-foreground: color-mix(in oklab, var(--wt-color-body) 55%, var(--wt-color-surface));
+	--color-border: color-mix(in oklab, var(--wt-color-shell-stroke) 18%, var(--wt-color-canvas));
+	--color-primary: var(--wt-color-brand-design);
+	--color-primary-foreground: var(--wt-color-white);
+	--shadow-soft: none;
+
+	/* Legacy schematic / interactive divider SVG stroke */
+	--text-color: var(--color-foreground);
+
+	/* Legacy calculator DOM (`script.js`, zoom filter, extracted legacy CSS) */
+	--accent-color: var(--color-primary);
+	--bg-color: var(--color-background);
+	--squircle-radius: var(--radius-lg);
+	--squircle-radius-sm: var(--radius-sm);
+	--input-border: var(--color-border);
+	--input-bg: var(--color-background);
+	--input-focus-border: var(--color-primary);
+	--button-bg: var(--color-primary);
+	--button-hover: color-mix(in oklab, var(--color-primary) 88%, black);
+	--container-bg: var(--color-card);
+	--result-bg: var(--color-muted);
+	--text-secondary: var(--color-muted-foreground);
+	--shadow-color: color-mix(in oklab, var(--wt-color-shadow) 14%, transparent);
+	--error-border: rgb(var(--danger));
+	--warning-border: rgb(var(--warning) / 0.55);
+	--warning-bg: rgb(var(--warning) / 0.15);
+	--warning-text: var(--color-card-foreground);
+
+	/* Aliases for Tailwind `bg-wt-*` / `text-wt-*` utilities (updated in dark mode below) */
+	--wt-color-muted: var(--color-muted);
+	--wt-color-muted-fg: var(--color-muted-foreground);
+	--wt-color-border: var(--wt-color-shell-stroke);
+}
+
+[data-theme='dark'] {
+	--bg: 24 24 27;
+	--fg: 228 228 231;
+	--muted: 161 161 170;
+	--surface: 39 39 42;
+	--surface-2: 55 55 59;
+	--border: 82 82 91;
+	--primary-from-theme: 128 195 207;
+	--primary-foreground: 17 24 39;
+	--warning: 251 191 36;
+	--danger: 248 113 113;
+
+	--color-background: rgb(var(--bg));
+	--color-foreground: rgb(var(--fg));
+	--color-muted-foreground: rgb(var(--muted));
+	--color-muted: rgb(var(--surface-2));
+	--color-card: rgb(var(--surface));
+	--color-card-foreground: rgb(var(--fg));
+	--color-border: rgb(var(--border));
+	--color-primary: rgb(var(--primary-from-theme));
+	--color-primary-foreground: rgb(var(--primary-foreground));
+	--shadow-soft: none;
+
+	--text-color: var(--color-foreground);
+	--accent-color: var(--color-primary);
+	--bg-color: var(--color-background);
+	--input-border: var(--color-border);
+	--input-bg: var(--color-background);
+	--input-focus-border: var(--color-primary);
+	--button-bg: var(--color-primary);
+	--button-hover: color-mix(in oklab, var(--color-primary) 88%, white);
+	--container-bg: var(--color-card);
+	--result-bg: var(--color-muted);
+	--text-secondary: var(--color-muted-foreground);
+	--shadow-color: rgb(0 0 0 / 0.45);
+	--error-border: rgb(var(--danger));
+	--warning-border: rgb(var(--warning) / 0.55);
+	--warning-bg: rgb(var(--warning) / 0.15);
+	--warning-text: var(--color-card-foreground);
+
+	--wt-color-canvas: rgb(var(--bg));
+	--wt-color-surface: rgb(var(--surface));
+	--wt-color-body: rgb(var(--fg));
+	--wt-color-ink: rgb(var(--fg));
+	--wt-color-shadow: #000000;
+	--wt-color-shell-stroke: #000000;
+	--wt-color-media-placeholder: rgb(var(--muted));
+	--wt-color-white: rgb(var(--primary-foreground));
+	--wt-color-brand-design: rgb(var(--primary-from-theme));
+
+	--wt-color-muted: rgb(var(--surface-2));
+	--wt-color-muted-fg: rgb(var(--muted));
+	--wt-color-border: var(--wt-color-shell-stroke);
+}

@@ -65,34 +65,23 @@ const ResistorUtils = {
 
     _jlcBasicOhmSet: null,
 
-    buildJlcBasicOhmSetFromLut() {
+    buildJlcBasicOhmSet() {
+        if (this._jlcBasicOhmSet) return this._jlcBasicOhmSet;
         const set = new Set();
         for (const token of this.luts.JLC_BASIC) {
             try {
                 set.add(this.parseResistorValue(token));
             } catch {
-                /* ignore */
+                // ignore invalid tokens
             }
         }
-        return set;
-    },
-
-    setJlcBasicOhmSet(ohmSet) {
-        if (ohmSet instanceof Set) {
-            this._jlcBasicOhmSet = ohmSet;
-        }
-    },
-
-    getJlcBasicOhmSet() {
-        if (!this._jlcBasicOhmSet) {
-            this._jlcBasicOhmSet = this.buildJlcBasicOhmSetFromLut();
-        }
+        this._jlcBasicOhmSet = set;
         return this._jlcBasicOhmSet;
     },
 
     isJlcBasicResistance(ohms) {
-        if (typeof ohms !== 'number' || !Number.isFinite(ohms) || ohms < 0) return false;
-        const set = this.getJlcBasicOhmSet();
+        if (typeof ohms !== 'number' || !Number.isFinite(ohms) || ohms <= 0) return false;
+        const set = this.buildJlcBasicOhmSet();
         for (const ref of set) {
             const tol = Math.max(1e-12, Math.min(ohms, ref) * 1e-9);
             if (Math.abs(ohms - ref) <= tol) return true;
@@ -114,7 +103,6 @@ const ResistorUtils = {
         }
         return null;
     },
-
     getEia96BaseValues() {
         return this.series.E96.map(value => Math.round(value * 100));
     },
@@ -414,19 +402,20 @@ const ResistorUtils = {
         return `${(value * 1e3).toFixed(2).replace(/\.?0+$/, '')}m`;
     },
 
-    // Calculate equivalent resistance for resistors in series
+    // Calculate equivalent resistance for resistors in series (supports nested series/parallel legs)
     calculateSeriesResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
-        return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);
+        return resistors.reduce((sum, r) => sum + this.calculateTotalResistance(r), 0);
     },
 
-    // Calculate equivalent resistance for resistors in parallel
+    // Calculate equivalent resistance for resistors in parallel (supports nested legs)
     calculateParallelResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
-        return 1 / resistors.reduce((sum, r) => sum + (1 / (r.value ?? r)), 0);
+        const reciprocalSum = resistors.reduce((sum, r) => sum + (1 / this.calculateTotalResistance(r)), 0);
+        return 1 / reciprocalSum;
     },
 
-    // Calculate total resistance based on connection type
+    // Calculate total resistance based on connection type (nested arrays use .type: 'parallel' or default series)
     calculateTotalResistance(resistors) {
         if (!Array.isArray(resistors)) return resistors.value ?? resistors;
         if (resistors.type === 'parallel') {

@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+@import '@go2dev/wt-theme/theme.css';
+@import '@go2dev/wt-theme/tailwind.theme.css';
+@import '@go2dev/wt-theme/utilities.css';
+
+/* Match prior `[data-theme="dark"]` + Tailwind `dark:` variants used implicitly via arbitrary colors */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@import '$lib/design-tokens.css';
+
+@theme inline {
+	--color-wt-muted: var(--wt-color-muted);
+	--color-wt-muted-fg: var(--wt-color-muted-fg);
+	--color-wt-border: var(--wt-color-border);
+}
+
+body {
+	@apply bg-wt-canvas text-wt-body;
+	font-family:
+		Inter,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		sans-serif;
+	min-height: 100vh;
+}
