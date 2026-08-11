@@ -57,12 +57,13 @@ Use a local server and open `index.html`. Run each test from a clean page load u
 - **Action:** Disable both values.
 - **Expected:** Error appears, but the available grid remains visible so values can be re‑enabled.
 
-### 10) Resistance filter slider reset
+### 10) Resistance filter (zoomable range) reset
 - **Input:** Available values `1k, 2k2, 4k7, 10k`
 - **Supply:** `12`
 - **Target:** `3.3`
-- **Action:** Move the resistance filter to exclude all results, then toggle a resistor on/off.
-- **Expected:** Slider range resets to show valid results; no "empty results" due to stale filter.
+- **Sort:** Total resistance (either direction) so the filter UI is visible.
+- **Action:** Narrow the filter so no solutions match, then toggle a resistor on/off.
+- **Expected:** Filter resets to include valid results; no permanent "empty results" from a stale filter range.
 
 ### 11) Per‑solution slider behavior
 - **Input:** Available values `10k, 22k`

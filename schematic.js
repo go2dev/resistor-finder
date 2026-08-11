@@ -23,12 +23,12 @@ class Schematic {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         const width = 40;
         const height = 20;
-        
+
         // Create the zigzag pattern
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const d = `M ${x} ${y} 
                   v 5 l -5 5 l 5 5 l -5 5 l 5 5 l -5 5 l 5 5 v 5`;
-        
+
         path.setAttribute('d', d);
         path.setAttribute('stroke', this.styles.stroke);
         path.setAttribute('stroke-width', this.styles.strokeWidth);
@@ -51,6 +51,39 @@ class Schematic {
         group.appendChild(path);
         group.appendChild(designatorText);
         group.appendChild(valueText);
+        return group;
+    }
+
+    /** Simple load symbol (e.g. Z_L) for schematic diagrams */
+    drawLoadImpedance(x, y, label = 'Z_L', valueTextStr = '') {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const w = 28;
+        const h = 35;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x - w / 2);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', w);
+        rect.setAttribute('height', h);
+        rect.setAttribute('stroke', this.styles.stroke);
+        rect.setAttribute('stroke-width', this.styles.strokeWidth);
+        rect.setAttribute('fill', 'none');
+        group.appendChild(rect);
+        const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t1.setAttribute('x', x);
+        t1.setAttribute('y', y + 14);
+        t1.setAttribute('font-size', '11px');
+        t1.setAttribute('text-anchor', 'middle');
+        t1.textContent = label;
+        group.appendChild(t1);
+        if (valueTextStr) {
+            const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t2.setAttribute('x', x);
+            t2.setAttribute('y', y + h - 4);
+            t2.setAttribute('font-size', '9px');
+            t2.setAttribute('text-anchor', 'middle');
+            t2.textContent = valueTextStr;
+            group.appendChild(t2);
+        }
         return group;
     }
 
@@ -582,7 +615,7 @@ class Diagram {
     }
 
     // Render the full custom diagram
-    renderCustom(topSectionStr, bottomSectionStr, supplyVoltage, targetVoltage) {
+    renderCustom(topSectionStr, bottomSectionStr, supplyVoltage, targetVoltage, options = {}) {
         // Clear SVG
         while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
         
@@ -615,6 +648,16 @@ class Diagram {
         
         const centerX = width / 2;
         let currY = 30;
+        if (options.caption) {
+            const cap = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            cap.setAttribute('x', 8);
+            cap.setAttribute('y', 14);
+            cap.setAttribute('font-size', '11px');
+            cap.setAttribute('fill', 'var(--text-secondary, #666)');
+            cap.textContent = options.caption;
+            this.svg.appendChild(cap);
+            currY = 42;
+        }
         // V supply
         this.svg.appendChild(this.schematic.drawVCC(centerX, currY, supplyVoltage));
         // Add wire from Vsupply to first resistor
@@ -657,5 +700,526 @@ class Diagram {
         this.svg.appendChild(this.schematic.drawWire(centerX, bottomRes.end[1], centerX, currY));
         // Ground
         this.svg.appendChild(this.schematic.drawGround(centerX, currY));
+    }
+
+    /**
+     * Interactive divider schematic: same topology rules as renderNetwork (no 4-way junctions).
+     * Returns hit-test metadata for wiring pointer/touch handlers.
+     */
+    renderInteractiveVoltageDivider(topSection, bottomSection, options = {}) {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const strokeColor = options.strokeColor || this.schematic.styles.stroke;
+        const appendStyledWire = (x1, y1, x2, y2) => {
+            const line = this.schematic.drawWire(x1, y1, x2, y2);
+            line.setAttribute('stroke', strokeColor);
+            return line;
+        };
+
+        const supplyVoltage = options.supplyVoltage ?? 5;
+        const outputVoltage = options.outputVoltage ?? 0;
+
+        const layoutTop = this.layoutNetwork(topSection, options.layoutConfig || {});
+        const layoutBottom = this.layoutNetwork(bottomSection, options.layoutConfig || {});
+
+        const config = {
+            padding: 18,
+            seriesGap: 18,
+            parallelGap: 24,
+            busGap: 12,
+            seriesJunctionOffset: 10,
+            resistorHeight: 35,
+            resistorBodyWidth: 16,
+            resistorMinWidth: 28,
+            labelPadding: 8,
+            labelCharWidth: 6,
+            minWidth: 320,
+            ...options.layoutConfig
+        };
+
+        const maxStackWidth = Math.max(layoutTop.width, layoutBottom.width);
+        const innerWidth = Math.max(config.minWidth, maxStackWidth + config.padding * 2);
+        const measurementExtra = options.measurementExtra ?? 0;
+        const width = innerWidth + measurementExtra;
+
+        const supplyWireLen = 22;
+        const junctionGap = 28;
+        const vccGroupExtra = 36;
+        const wireBeforeGround = 22;
+
+        const junctionSegment = junctionGap / 2;
+
+        const stackHeight = layoutTop.height + supplyWireLen + junctionSegment * 2 + layoutBottom.height + wireBeforeGround + 36;
+
+        const height = Math.max(280, config.padding * 2 + vccGroupExtra + stackHeight);
+
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', height);
+
+        const centerX = innerWidth / 2;
+
+        const hits = {
+            resistors: [],
+            parallelBuses: [],
+            seriesAbove: [],
+            seriesBelow: []
+        };
+
+        const pathKey = (branch, parts) => `${branch}:${parts.join('.')}`;
+
+        const createHitRect = (x, y, w, h, data) => {
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', w);
+            rect.setAttribute('height', h);
+            rect.setAttribute('fill', 'transparent');
+            rect.setAttribute('pointer-events', 'all');
+            rect.setAttribute('class', data.className || 'divider-hit');
+            Object.entries(data.attrs || {}).forEach(([k, v]) => rect.setAttribute(k, v));
+            return rect;
+        };
+
+        const drawResistorInteractive = (layoutNode, cx, y0, branch, pathParts) => {
+            const obj = layoutNode.value;
+            const nominal = obj?.value ?? obj;
+            const formatted = ResistorUtils.formatResistorValue(nominal);
+
+            const zigzag = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const d = `M ${cx} ${y0} 
+                  v 5 l -5 5 l 5 5 l -5 5 l 5 5 l -5 5 l 5 5 v 5`;
+            zigzag.setAttribute('d', d);
+            zigzag.setAttribute('stroke', strokeColor);
+            zigzag.setAttribute('stroke-width', this.schematic.styles.strokeWidth);
+            zigzag.setAttribute('fill', 'none');
+            zigzag.setAttribute('pointer-events', 'none');
+            this.svg.appendChild(zigzag);
+
+            const valueText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            valueText.setAttribute('x', cx + 8);
+            valueText.setAttribute('y', y0 + 22);
+            valueText.setAttribute('font-size', '12px');
+            valueText.setAttribute('fill', strokeColor);
+            valueText.textContent = formatted;
+            valueText.setAttribute('pointer-events', 'none');
+            this.svg.appendChild(valueText);
+
+            const bodyPad = 14;
+            const hit = createHitRect(cx - bodyPad, y0 - 2, bodyPad * 2, config.resistorHeight + 8, {
+                attrs: {
+                    'data-hit': 'resistor',
+                    'data-path': pathKey(branch, pathParts)
+                }
+            });
+            this.svg.appendChild(hit);
+            hits.resistors.push({
+                pathKey: pathKey(branch, pathParts),
+                element: hit,
+                cx,
+                y0,
+                height: config.resistorHeight
+            });
+
+            const stripH = 12;
+            const stripW = Math.max(44, layoutNode.width || 40);
+            const above = createHitRect(cx - stripW / 2, y0 - stripH - 2, stripW, stripH, {
+                attrs: {
+                    'data-hit': 'series-above',
+                    'data-path': pathKey(branch, pathParts)
+                },
+                className: 'divider-hit divider-hit-series'
+            });
+            const below = createHitRect(cx - stripW / 2, y0 + config.resistorHeight + 2, stripW, stripH, {
+                attrs: {
+                    'data-hit': 'series-below',
+                    'data-path': pathKey(branch, pathParts)
+                },
+                className: 'divider-hit divider-hit-series'
+            });
+            this.svg.appendChild(above);
+            this.svg.appendChild(below);
+            hits.seriesAbove.push({ pathKey: pathKey(branch, pathParts), element: above });
+            hits.seriesBelow.push({ pathKey: pathKey(branch, pathParts), element: below });
+
+            return { start: [cx, y0], end: [cx, y0 + config.resistorHeight] };
+        };
+
+        const drawParallelInteractive = (layoutNode, centerXCoord, topY, branch, pathParts) => {
+            const leftX = centerXCoord - layoutNode.width / 2;
+            const rightX = centerXCoord + layoutNode.width / 2;
+            const topBusY = topY;
+            const bottomBusY = topY + layoutNode.height;
+
+            const topLine = appendStyledWire(leftX, topBusY, rightX, topBusY);
+            const botLine = appendStyledWire(leftX, bottomBusY, rightX, bottomBusY);
+            topLine.setAttribute('pointer-events', 'none');
+            botLine.setAttribute('pointer-events', 'none');
+
+            const busHitExpand = 10;
+            const pk = pathKey(branch, pathParts);
+            [topBusY, bottomBusY].forEach(yLine => {
+                const rect = createHitRect(leftX - 2, yLine - busHitExpand / 2, rightX - leftX + 4, busHitExpand, {
+                    attrs: {
+                        'data-hit': 'parallel-bus',
+                        'data-path': pk
+                    },
+                    className: 'divider-hit divider-hit-bus'
+                });
+                this.svg.appendChild(rect);
+                hits.parallelBuses.push({
+                    pathKey: pk,
+                    element: rect,
+                    y: yLine,
+                    leftX,
+                    rightX
+                });
+            });
+
+            let cursorX = leftX;
+            layoutNode.children.forEach((child, idx) => {
+                const childCenterX = cursorX + child.width / 2;
+                const childTopY = topY + config.busGap;
+                const childParts = pathParts.concat(idx);
+                const childResult = drawSubtreeInteractive(child, childCenterX, childTopY, branch, childParts);
+                appendStyledWire(childCenterX, topBusY, childCenterX, childResult.start[1]);
+                appendStyledWire(childCenterX, childResult.end[1], childCenterX, bottomBusY);
+                cursorX += child.width + config.parallelGap;
+            });
+
+            return { start: [centerXCoord, topBusY], end: [centerXCoord, bottomBusY] };
+        };
+
+        const walkLayoutOnly = (layoutNode, centerXCoord, topY) => {
+            if (layoutNode.kind === 'resistor') {
+                return { start: [centerXCoord, topY], end: [centerXCoord, topY + config.resistorHeight] };
+            }
+            if (layoutNode.kind === 'parallel') {
+                return {
+                    start: [centerXCoord, topY],
+                    end: [centerXCoord, topY + layoutNode.height]
+                };
+            }
+            let currY = topY;
+            let startPoint = null;
+            let endPoint = null;
+            const isOddParallel = (node) => node?.kind === 'parallel' && (node.children?.length ?? 0) % 2 === 1;
+            const getJunctionOffset = (nodeA, nodeB) => {
+                if (!isOddParallel(nodeA) && !isOddParallel(nodeB)) return 0;
+                let offsetLimit = Infinity;
+                if (isOddParallel(nodeA) && Number.isFinite(nodeA.width)) {
+                    offsetLimit = Math.min(offsetLimit, Math.max(0, nodeA.width / 2 - 4));
+                }
+                if (isOddParallel(nodeB) && Number.isFinite(nodeB.width)) {
+                    offsetLimit = Math.min(offsetLimit, Math.max(0, nodeB.width / 2 - 4));
+                }
+                return Math.max(0, Math.min(config.seriesJunctionOffset, offsetLimit));
+            };
+            const getDrawX = (node, prev, next) => {
+                if (node?.kind === 'parallel') return centerXCoord;
+                const offsetToNext = next ? getJunctionOffset(node, next) : 0;
+                const offsetFromPrev = prev ? getJunctionOffset(prev, node) : 0;
+                const offset = offsetToNext || offsetFromPrev;
+                return centerXCoord + offset;
+            };
+            layoutNode.children.forEach((child, index) => {
+                const prevChild = index > 0 ? layoutNode.children[index - 1] : null;
+                const nextChild = index < layoutNode.children.length - 1 ? layoutNode.children[index + 1] : null;
+                const childDrawX = getDrawX(child, prevChild, nextChild);
+                const childResult = walkLayoutOnly(child, childDrawX, currY);
+                if (!startPoint) startPoint = childResult.start;
+                if (index < layoutNode.children.length - 1) {
+                    const endY = childResult.end?.[1] ?? currY;
+                    currY = endY + config.seriesGap;
+                } else {
+                    endPoint = childResult.end;
+                }
+            });
+            return {
+                start: startPoint || [centerXCoord, topY],
+                end: endPoint || [centerXCoord, topY]
+            };
+        };
+
+        const drawSubtreeInteractive = (layoutNode, centerXCoord, topY, branch, pathParts) => {
+            if (layoutNode.kind === 'resistor') {
+                return drawResistorInteractive(layoutNode, centerXCoord, topY, branch, pathParts);
+            }
+            if (layoutNode.kind === 'parallel') {
+                return drawParallelInteractive(layoutNode, centerXCoord, topY, branch, pathParts);
+            }
+
+            let currY = topY;
+            let startPoint = null;
+            let endPoint = null;
+            const isOddParallel = (node) => node?.kind === 'parallel' && (node.children?.length ?? 0) % 2 === 1;
+            const getJunctionOffset = (nodeA, nodeB) => {
+                if (!isOddParallel(nodeA) && !isOddParallel(nodeB)) return 0;
+                let offsetLimit = Infinity;
+                if (isOddParallel(nodeA) && Number.isFinite(nodeA.width)) {
+                    offsetLimit = Math.min(offsetLimit, Math.max(0, nodeA.width / 2 - 4));
+                }
+                if (isOddParallel(nodeB) && Number.isFinite(nodeB.width)) {
+                    offsetLimit = Math.min(offsetLimit, Math.max(0, nodeB.width / 2 - 4));
+                }
+                return Math.max(0, Math.min(config.seriesJunctionOffset, offsetLimit));
+            };
+            const getDrawX = (node, prev, next) => {
+                if (node?.kind === 'parallel') return centerXCoord;
+                const offsetToNext = next ? getJunctionOffset(node, next) : 0;
+                const offsetFromPrev = prev ? getJunctionOffset(prev, node) : 0;
+                const offset = offsetToNext || offsetFromPrev;
+                return centerXCoord + offset;
+            };
+
+            layoutNode.children.forEach((child, index) => {
+                const prevChild = index > 0 ? layoutNode.children[index - 1] : null;
+                const nextChild = index < layoutNode.children.length - 1 ? layoutNode.children[index + 1] : null;
+                const childDrawX = getDrawX(child, prevChild, nextChild);
+                const childParts = pathParts.concat(index);
+                const childResult = drawSubtreeInteractive(child, childDrawX, currY, branch, childParts);
+                if (!startPoint) startPoint = childResult.start;
+                if (index < layoutNode.children.length - 1) {
+                    const junctionOffset = getJunctionOffset(child, nextChild);
+                    const junctionX = centerXCoord + junctionOffset;
+                    const endY = childResult.end?.[1] ?? currY;
+                    const endX = child?.kind === 'parallel' ? junctionX : childDrawX;
+                    const nextNextChild = index + 2 < layoutNode.children.length ? layoutNode.children[index + 2] : null;
+                    const nextDrawX = getDrawX(nextChild, child, nextNextChild);
+                    const nextConnX = nextChild?.kind === 'parallel' ? junctionX : nextDrawX;
+                    appendStyledWire(endX, endY, endX, endY + config.seriesGap);
+                    if (endX !== nextConnX) {
+                        appendStyledWire(endX, endY + config.seriesGap, nextConnX, endY + config.seriesGap);
+                    }
+                    currY = endY + config.seriesGap;
+                } else {
+                    endPoint = childResult.end;
+                }
+            });
+
+            return {
+                start: startPoint || [centerXCoord, topY],
+                end: endPoint || [centerXCoord, topY]
+            };
+        };
+
+        let currY = config.padding + vccGroupExtra;
+        const vcc = this.schematic.drawVCC(centerX, currY, supplyVoltage);
+        this.svg.appendChild(vcc);
+
+        currY += supplyWireLen;
+        appendStyledWire(centerX, currY - supplyWireLen + 15, centerX, currY);
+
+        const topStartY = currY;
+        drawSubtreeInteractive(layoutTop, centerX, topStartY, 'top', []);
+        const topSpan = walkLayoutOnly(layoutTop, centerX, topStartY);
+        const jointY = topSpan.end[1] + junctionSegment;
+
+        appendStyledWire(centerX, topSpan.end[1], centerX, jointY);
+        const junctionRadius = 4;
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', centerX);
+        circle.setAttribute('cy', jointY);
+        circle.setAttribute('r', junctionRadius);
+        circle.setAttribute('stroke', strokeColor);
+        circle.setAttribute('stroke-width', this.schematic.styles.strokeWidth);
+        circle.setAttribute('fill', strokeColor);
+        this.svg.appendChild(circle);
+
+        const hWireLen = Math.min(100, width / 2 - 40);
+        appendStyledWire(centerX, jointY, centerX + hWireLen, jointY);
+        const voutLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        voutLabel.setAttribute('x', centerX + hWireLen + 6);
+        voutLabel.setAttribute('y', jointY - 6);
+        voutLabel.setAttribute('font-size', '12px');
+        voutLabel.setAttribute('fill', strokeColor);
+        voutLabel.textContent = `Vout ${outputVoltage.toFixed(2)} V`;
+        this.svg.appendChild(voutLabel);
+
+        const bottomStartY = jointY + junctionSegment;
+        appendStyledWire(centerX, jointY, centerX, bottomStartY);
+        drawSubtreeInteractive(layoutBottom, centerX, bottomStartY, 'bot', []);
+        const botSpan = walkLayoutOnly(layoutBottom, centerX, bottomStartY);
+        const gndY = botSpan.end[1] + wireBeforeGround;
+        appendStyledWire(centerX, botSpan.end[1], centerX, gndY);
+        this.svg.appendChild(this.schematic.drawGround(centerX, gndY));
+
+        return { hits, width, height, centerX };
+    }
+
+    /**
+     * Symmetric U-pad: Rtop from Vin to tap, Rmid from tap to node, Rbot from node to GND (Rtop === Rbot nominal).
+     * topSectionStr / botSectionStr use the same parse format as renderCustom (value,...,series|parallel).
+     */
+    renderUpad(topSectionStr, midSectionStr, bottomSectionStr, supplyVoltage, targetVoltage, options = {}) {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const topSection = this.parseSection(topSectionStr);
+        const midSection = this.parseSection(midSectionStr);
+        const bottomSection = this.parseSection(bottomSectionStr);
+
+        const getRequiredHeight = (section) => {
+            if (section.type === 'series') {
+                return section.values.length * 50 + 35;
+            }
+            if (section.type === 'parallel') {
+                return 35 + 20;
+            }
+            return 50;
+        };
+
+        const topHeight = getRequiredHeight(topSection);
+        const midHeight = getRequiredHeight(midSection);
+        const botHeight = getRequiredHeight(bottomSection);
+        const captionExtra = options.caption ? 22 : 0;
+        const baseHeight = 30 + 20 + 20 + 10 + 20 + 30 + captionExtra;
+        const totalHeight = Math.max(260, baseHeight + topHeight + midHeight + botHeight);
+
+        const width = 300;
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${totalHeight}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', totalHeight);
+
+        const centerX = width / 2;
+        let currY = 30;
+        if (options.caption) {
+            const cap = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            cap.setAttribute('x', 8);
+            cap.setAttribute('y', 14);
+            cap.setAttribute('font-size', '11px');
+            cap.setAttribute('fill', 'var(--text-secondary, #666)');
+            cap.textContent = options.caption;
+            this.svg.appendChild(cap);
+            currY = 42;
+        }
+
+        this.svg.appendChild(this.schematic.drawVCC(centerX, currY, supplyVoltage));
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX, currY + 20));
+        currY += 20;
+
+        const topRes = this.renderSection(topSection, centerX, currY, true);
+        currY = topRes.end[1] + 20;
+
+        const junctionRadius = 4;
+        this.svg.appendChild(this.schematic.drawWire(centerX, topRes.end[1], centerX, currY));
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', centerX);
+        circle.setAttribute('cy', currY);
+        circle.setAttribute('r', junctionRadius);
+        circle.setAttribute('stroke', this.schematic.styles.stroke);
+        circle.setAttribute('stroke-width', this.schematic.styles.strokeWidth);
+        circle.setAttribute('fill', '#000');
+        this.svg.appendChild(circle);
+
+        const hWireLen = width / 2 - 60;
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY, centerX + hWireLen, currY));
+        const voutLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        voutLabel.setAttribute('x', centerX + hWireLen + 30);
+        voutLabel.setAttribute('y', currY - 8);
+        voutLabel.setAttribute('font-size', '12px');
+        voutLabel.setAttribute('text-anchor', 'end');
+        voutLabel.textContent = `Vout [${targetVoltage}V]`;
+        this.svg.appendChild(voutLabel);
+
+        currY += junctionRadius + 10;
+        this.svg.appendChild(this.schematic.drawWire(centerX, currY - junctionRadius - 10, centerX, currY));
+
+        const midRes = this.renderSection(midSection, centerX, currY, false);
+        currY = midRes.end[1] + 20;
+
+        const botRes = this.renderSection(bottomSection, centerX, currY, false);
+        currY = botRes.end[1] + 20;
+
+        this.svg.appendChild(this.schematic.drawWire(centerX, botRes.end[1], centerX, currY));
+        this.svg.appendChild(this.schematic.drawGround(centerX, currY));
+    }
+
+    /**
+     * L-pad: R_series (vertical) then junction; R_shunt and Z_load (notation) in parallel to ground.
+     */
+    renderLpad(seriesSectionStr, shuntSectionStr, supplyVoltage, targetVoltage, options = {}) {
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const seriesSection = this.parseSection(seriesSectionStr);
+        const shuntSection = this.parseSection(shuntSectionStr);
+        const captionExtra = options.caption ? 22 : 0;
+        const serH = seriesSection.type === 'series'
+            ? seriesSection.values.length * 50 + 35
+            : 50;
+        const parBranchH = 55;
+        const totalHeight = Math.max(250, captionExtra + 30 + 20 + serH + 20 + parBranchH + 35);
+        const width = 300;
+        this.svg.setAttribute('viewBox', `0 0 ${width} ${totalHeight}`);
+        this.svg.setAttribute('width', width);
+        this.svg.setAttribute('height', totalHeight);
+
+        const cx = width / 2;
+        let currY = 30;
+        if (options.caption) {
+            const cap = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            cap.setAttribute('x', 8);
+            cap.setAttribute('y', 14);
+            cap.setAttribute('font-size', '11px');
+            cap.setAttribute('fill', 'var(--text-secondary, #666)');
+            cap.textContent = options.caption;
+            this.svg.appendChild(cap);
+            currY = 42;
+        }
+
+        this.svg.appendChild(this.schematic.drawVCC(cx, currY, supplyVoltage));
+        this.svg.appendChild(this.schematic.drawWire(cx, currY, cx, currY + 20));
+        currY += 20;
+
+        const topSer = this.renderSection(seriesSection, cx, currY, true);
+        currY = topSer.end[1] + 20;
+
+        const junctionRadius = 4;
+        this.svg.appendChild(this.schematic.drawWire(cx, topSer.end[1], cx, currY));
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', currY);
+        circle.setAttribute('r', junctionRadius);
+        circle.setAttribute('stroke', this.schematic.styles.stroke);
+        circle.setAttribute('stroke-width', this.schematic.styles.strokeWidth);
+        circle.setAttribute('fill', '#000');
+        this.svg.appendChild(circle);
+
+        const hWireLen = width / 2 - 50;
+        this.svg.appendChild(this.schematic.drawWire(cx, currY, cx + hWireLen, currY));
+        const voutLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        voutLabel.setAttribute('x', cx + hWireLen + 28);
+        voutLabel.setAttribute('y', currY - 6);
+        voutLabel.setAttribute('font-size', '12px');
+        voutLabel.setAttribute('text-anchor', 'end');
+        voutLabel.textContent = `Vout [${targetVoltage}V]`;
+        this.svg.appendChild(voutLabel);
+
+        const jy = currY;
+        const spacing = 65;
+        const shuntX = cx - spacing / 2 - 10;
+        const loadX = cx + spacing / 2 + 10;
+        const topBusY = jy + junctionRadius + 8;
+        const wireDown = 10;
+        const resHt = 35;
+        const botBusY = topBusY + wireDown + resHt + wireDown;
+
+        this.svg.appendChild(this.schematic.drawWire(cx, jy + junctionRadius, cx, topBusY));
+        this.svg.appendChild(this.schematic.drawWire(cx, topBusY, shuntX, topBusY));
+        this.svg.appendChild(this.schematic.drawWire(cx, topBusY, loadX, topBusY));
+
+        this.svg.appendChild(this.schematic.drawWire(shuntX, topBusY, shuntX, topBusY + wireDown));
+        const shuntVal = shuntSection.values?.[0] ?? shuntSection.values;
+        this.svg.appendChild(this.schematic.drawResistorValue(shuntX, topBusY + wireDown, shuntVal, 'vertical'));
+
+        this.svg.appendChild(this.schematic.drawWire(loadX, topBusY, loadX, topBusY + wireDown));
+        const zLbl = options.zLoadLabel || 'Z_L';
+        const zVal = options.zLoadValueStr || '';
+        this.svg.appendChild(this.schematic.drawLoadImpedance(loadX, topBusY + wireDown, zLbl, zVal));
+
+        this.svg.appendChild(this.schematic.drawWire(shuntX, botBusY, loadX, botBusY));
+        this.svg.appendChild(this.schematic.drawWire(shuntX, topBusY + wireDown + resHt, shuntX, botBusY));
+        this.svg.appendChild(this.schematic.drawWire(loadX, topBusY + wireDown + resHt, loadX, botBusY));
+        this.svg.appendChild(this.schematic.drawWire(cx, botBusY, cx, botBusY + 12));
+        this.svg.appendChild(this.schematic.drawGround(cx, botBusY + 12));
     }
 } 
