@@ -5,16 +5,14 @@ const globalResistorUtils = typeof ResistorUtils !== 'undefined' ? ResistorUtils
 let workerResistorUtils = globalResistorUtils;
 let resistorTolerances = globalResistorUtils?.resistorTolerances ?? null;
 
-// Calculate total resistance based on connection type
+// Calculate total resistance based on connection type (nested series/parallel legs)
 function calculateTotalResistance(resistors) {
     if (!Array.isArray(resistors)) return resistors.value ?? resistors;
     if (resistors.type === 'parallel') {
-        // Calculate parallel resistance
-        const reciprocalSum = resistors.reduce((sum, r) => sum + 1 / (r.value ?? r), 0);
+        const reciprocalSum = resistors.reduce((sum, r) => sum + 1 / calculateTotalResistance(r), 0);
         return 1 / reciprocalSum;
     }
-    // Series resistance
-    return resistors.reduce((sum, r) => sum + (r.value ?? r), 0);
+    return resistors.reduce((sum, r) => sum + calculateTotalResistance(r), 0);
 }
 
 // Calculate output voltage for a voltage divider
@@ -72,7 +70,7 @@ function calculateSectionBounds(section) {
     }
 
     const type = section.type || 'series';
-    const bounds = section.map(resistor => calculateResistorBounds(resistor));
+    const bounds = section.map(resistor => calculateSectionBounds(resistor));
 
     if (type === 'parallel') {
         const min = 1 / bounds.reduce((sum, b) => sum + (1 / b.lower), 0);
